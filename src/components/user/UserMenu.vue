@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { providerManager } from '@/modules/providers'
 import type { MusicSource } from '@/types'
 
 const user = useUserStore()
@@ -41,7 +42,7 @@ function handleMenuItem(action: string) {
 
 async function handleLogoutSource(source: MusicSource) {
   try {
-    const provider = (await import('@/modules/providers')).providerManager.get(source)
+    const provider = providerManager.get(source)
     if (provider) {
       await provider.logout()
     }

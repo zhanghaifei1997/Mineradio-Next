@@ -60,7 +60,30 @@ export interface UserProfile {
   isSvip?: boolean
 }
 
-export type MusicSource = 'netease' | 'qqmusic'
+export type MusicSource = 'netease' | 'qqmusic' | 'local'
+
+export interface LocalMusicConfig {
+  directories: string[]
+  extensions: string[]
+}
+
+export interface LocalSongMetadata {
+  title: string
+  artist: string
+  album: string
+  duration: number
+  year?: string
+  track?: number
+  genre?: string
+  coverData?: string
+}
+
+export interface LocalScanResult {
+  songs: Song[]
+  total: number
+  scanned: number
+  failed: number
+}
 
 export interface UserAccount {
   source: MusicSource

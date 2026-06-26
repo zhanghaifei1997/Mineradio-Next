@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage, shell, session, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage, shell, session, dialog, protocol } from 'electron'
 import path from 'node:path'
+import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { startServer, stopServer } from './server.js'
 
@@ -903,6 +904,215 @@ function setupIpc() {
 
   ipcMain.handle('update:download', async () => {
     return { ok: false, error: 'NOT_IMPLEMENTED' }
+  })
+
+  const LOCAL_MUSIC_CONFIG_KEY = 'localMusicConfig'
+  const SUPPORTED_EXTENSIONS = ['.mp3', '.flac', '.wav', '.m4a', '.ogg', '.aac', '.opus']
+
+  function getLocalMusicConfigPath() {
+    return path.join(app.getPath('userData'), 'local-music-config.json')
+  }
+
+  function loadLocalMusicConfig() {
+    try {
+      const configPath = getLocalMusicConfigPath()
+      if (fs.existsSync(configPath)) {
+        const data = fs.readFileSync(configPath, 'utf8')
+        return JSON.parse(data)
+      }
+    } catch (e) {
+      console.error('Failed to load local music config:', e)
+    }
+    return { directories: [], extensions: [...SUPPORTED_EXTENSIONS] }
+  }
+
+  function saveLocalMusicConfig(config) {
+    try {
+      const configPath = getLocalMusicConfigPath()
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8')
+      return true
+    } catch (e) {
+      console.error('Failed to save local music config:', e)
+      return false
+    }
+  }
+
+  function scanMusicDirectory(dirPath, extensions = SUPPORTED_EXTENSIONS) {
+    const results = []
+    const stack = [dirPath]
+
+    while (stack.length > 0) {
+      const currentDir = stack.pop()
+      try {
+        const entries = fs.readdirSync(currentDir, { withFileTypes: true })
+        for (const entry of entries) {
+          const fullPath = path.join(currentDir, entry.name)
+          if (entry.isDirectory()) {
+            stack.push(fullPath)
+          } else if (entry.isFile()) {
+            const ext = path.extname(entry.name).toLowerCase()
+            if (extensions.includes(ext)) {
+              results.push(fullPath)
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`Failed to read directory ${currentDir}:`, e.message)
+      }
+    }
+
+    return results
+  }
+
+  function readAudioMetadata(filePath) {
+    try {
+      const stats = fs.statSync(filePath)
+      const fileName = path.basename(filePath)
+      const ext = path.extname(fileName).toLowerCase()
+      const titleWithoutExt = fileName.slice(0, fileName.length - ext.length)
+
+      let title = titleWithoutExt
+      let artist = '未知艺术家'
+      let album = '未知专辑'
+
+      const dashMatch = titleWithoutExt.match(/^(.+?)\s*-\s*(.+)$/)
+      if (dashMatch) {
+        artist = dashMatch[1].trim()
+        title = dashMatch[2].trim()
+      }
+
+      const duration = 0
+      let coverData = null
+
+      try {
+        if (ext === '.mp3') {
+          const buffer = fs.readFileSync(filePath)
+          let offset = buffer.length - 128
+          if (offset < 0) offset = 0
+          const tagBuffer = buffer.slice(offset)
+          if (tagBuffer.length >= 128 && tagBuffer.toString('ascii', 0, 3) === 'TAG') {
+            title = tagBuffer.toString('utf8', 3, 33).replace(/\u0000/g, '').trim() || title
+            artist = tagBuffer.toString('utf8', 33, 63).replace(/\u0000/g, '').trim() || artist
+            album = tagBuffer.toString('utf8', 63, 93).replace(/\u0000/g, '').trim() || album
+          }
+        }
+      } catch (e) {
+        // ignore metadata parse errors
+      }
+
+      return {
+        ok: true,
+        data: {
+          title,
+          artist,
+          album,
+          duration,
+          fileSize: stats.size,
+          coverData,
+          extension: ext,
+        },
+      }
+    } catch (e) {
+      return {
+        ok: false,
+        error: e.message || 'Failed to read metadata',
+      }
+    }
+  }
+
+  ipcMain.handle('local-music:scan-directory', async (_event, dirPath) => {
+    try {
+      if (!dirPath || !fs.existsSync(dirPath)) {
+        return { ok: false, error: '目录不存在' }
+      }
+      const files = scanMusicDirectory(dirPath)
+      return { ok: true, files }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('local-music:read-metadata', async (_event, filePath) => {
+    return readAudioMetadata(filePath)
+  })
+
+  ipcMain.handle('local-music:select-directory', async (event) => {
+    try {
+      const owner = BrowserWindow.fromWebContents(event.sender)
+      const result = await dialog.showOpenDialog(owner, {
+        title: '选择音乐文件夹',
+        properties: ['openDirectory'],
+      })
+      if (result.canceled || !result.filePaths || !result.filePaths[0]) {
+        return { ok: false, canceled: true }
+      }
+      return { ok: true, directoryPath: result.filePaths[0] }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('local-music:select-files', async (event) => {
+    try {
+      const owner = BrowserWindow.fromWebContents(event.sender)
+      const result = await dialog.showOpenDialog(owner, {
+        title: '选择音乐文件',
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          {
+            name: '音频文件',
+            extensions: SUPPORTED_EXTENSIONS.map((e) => e.slice(1)),
+          },
+        ],
+      })
+      if (result.canceled || !result.filePaths) {
+        return { ok: false, canceled: true }
+      }
+      return { ok: true, files: result.filePaths }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('local-music:get-file-url', async (_event, filePath) => {
+    try {
+      if (!fs.existsSync(filePath)) {
+        return null
+      }
+      const ext = path.extname(filePath).toLowerCase()
+      const mimeTypeMap = {
+        '.mp3': 'audio/mpeg',
+        '.flac': 'audio/flac',
+        '.wav': 'audio/wav',
+        '.m4a': 'audio/mp4',
+        '.ogg': 'audio/ogg',
+        '.aac': 'audio/aac',
+        '.opus': 'audio/opus',
+      }
+      const mimeType = mimeTypeMap[ext] || 'audio/mpeg'
+      return `file://${filePath}`
+    } catch (e) {
+      console.error('Failed to get file URL:', e)
+      return null
+    }
+  })
+
+  ipcMain.handle('local-music:get-config', async () => {
+    try {
+      const config = loadLocalMusicConfig()
+      return { ok: true, config }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('local-music:save-config', async (_event, config) => {
+    try {
+      const success = saveLocalMusicConfig(config)
+      return { ok: success }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
   })
 }
 

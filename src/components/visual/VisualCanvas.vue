@@ -25,11 +25,21 @@ function initVisualEngine() {
     fxSettings: fxSettingsForEngine.value,
   })
 
-  if (player.audio) {
-    visualEngine.connectAudio(player.audio)
-  }
-
+  connectToPlayerAudio()
   updateDjModeInEngine()
+}
+
+function connectToPlayerAudio() {
+  if (!visualEngine || !player.audio || !player.audioAnalyzer) return
+  
+  const audioAnalyzer = player.audioAnalyzer
+  if (audioAnalyzer.audioContext && audioAnalyzer.analyser) {
+    visualEngine.connectAnalyser(
+      audioAnalyzer.audioContext,
+      audioAnalyzer.analyser,
+      player.audio
+    )
+  }
 }
 
 function updateDjModeInEngine() {
@@ -43,10 +53,16 @@ function updateDjModeInEngine() {
 }
 
 watch(
-  () => player.audio,
-  (audioEl) => {
-    if (visualEngine && audioEl) {
-      visualEngine.connectAudio(audioEl)
+  () => player.audioAnalyzer,
+  (analyzer) => {
+    if (visualEngine && analyzer && player.audio) {
+      if (analyzer.audioContext && analyzer.analyser) {
+        visualEngine.connectAnalyser(
+          analyzer.audioContext,
+          analyzer.analyser,
+          player.audio
+        )
+      }
     }
   },
 )

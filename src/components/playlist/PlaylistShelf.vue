@@ -5,6 +5,7 @@ import type { Playlist } from '@/types'
 import { playQueueStore } from '@/stores/playQueue'
 import { usePlayerStore } from '@/stores/player'
 import PlaylistShelf3D from './PlaylistShelf3D.vue'
+import PlaylistDetail from './PlaylistDetail.vue'
 import { formatPlayCount } from '@/utils'
 
 const player = usePlayerStore()
@@ -13,6 +14,9 @@ const queue = playQueueStore()
 const playlists = ref<Playlist[]>([])
 const loading = ref(false)
 const viewMode = ref<'2d' | '3d'>('3d')
+const selectedPlaylist = ref<Playlist | null>(null)
+const showDetail = ref(false)
+const detailLoading = ref(false)
 
 async function loadPlaylists() {
   loading.value = true
@@ -28,12 +32,28 @@ async function loadPlaylists() {
 }
 
 async function openPlaylist(playlist: Playlist) {
-  const provider = providerManager.get(playlist.source) || providerManager.default
-  const detail = await provider.getPlaylist(playlist.id)
-  if (detail && detail.tracks.length > 0) {
-    queue.setQueue(detail.tracks, 0)
-    player.play(detail.tracks[0])
+  detailLoading.value = true
+  showDetail.value = true
+  selectedPlaylist.value = playlist
+
+  try {
+    const provider = providerManager.get(playlist.source) || providerManager.default
+    const detail = await provider.getPlaylist(playlist.id)
+    if (detail) {
+      selectedPlaylist.value = detail
+    }
+  } catch (e) {
+    console.error('Load playlist detail error:', e)
+  } finally {
+    detailLoading.value = false
   }
+}
+
+function closeDetail() {
+  showDetail.value = false
+  setTimeout(() => {
+    selectedPlaylist.value = null
+  }, 300)
 }
 
 function toggleViewMode() {
@@ -97,6 +117,12 @@ onMounted(() => {
         />
       </div>
     </Transition>
+
+    <PlaylistDetail
+      :playlist="selectedPlaylist"
+      :visible="showDetail"
+      @close="closeDetail"
+    />
   </div>
 </template>
 
