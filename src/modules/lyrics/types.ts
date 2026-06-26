@@ -145,3 +145,42 @@ export interface LiveMotion {
 }
 
 export type LyricSource = 'lrc' | 'yrc-word' | 'yrc-line' | 'custom-lrc' | 'custom-text' | 'fallback'
+
+export type DesktopLyricsPosition = 'top' | 'center' | 'bottom'
+export type DesktopLyricsLineMode = 'single' | 'double'
+export type DesktopLyricsStylePreset = 'minimal' | 'neon' | 'gradient' | 'stroke'
+
+export interface DesktopLyricsSettings {
+  enabled: boolean
+  locked: boolean
+  position: DesktopLyricsPosition
+  lineMode: DesktopLyricsLineMode
+  stylePreset: DesktopLyricsStylePreset
+  fontSize: number
+  opacity: number
+  primaryColor: string
+  strokeColor: string
+  glowColor: string
+  showProgressBar: boolean
+  showSongInfo: boolean
+  fontFamily: string
+  fontWeight: number
+  letterSpacing: number
+  lineHeight: number
+  glowEnabled: boolean
+  glowStrength: number
+  strokeEnabled: boolean
+  strokeWidth: number
+  smoothScroll: boolean
+  animationEnabled: boolean
+}
+
+export interface DesktopLyricsFullState extends DesktopLyricState {
+  nextText: string
+  nextProgress: number
+  songName: string
+  artistName: string
+  coverUrl: string
+  totalProgress: number
+  settings: DesktopLyricsSettings
+}

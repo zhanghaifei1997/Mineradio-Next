@@ -146,6 +146,10 @@ export interface FxSettings {
   liveBackgroundKeep: boolean
   performanceBackground: 'auto' | 'keep' | 'release'
   performanceQuality: 'eco' | 'balanced' | 'high' | 'ultra'
+  workerwEnabled: boolean
+  workerwWallpaperMode: boolean
+  workerwOpacity: number
+  workerwVisualIntensity: number
 }
 
 export interface BeatAnalysisResult {

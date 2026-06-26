@@ -17,6 +17,10 @@ const defaultSettings: FxSettings = {
   liveBackgroundKeep: false,
   performanceBackground: 'auto',
   performanceQuality: 'high',
+  workerwEnabled: false,
+  workerwWallpaperMode: false,
+  workerwOpacity: 1,
+  workerwVisualIntensity: 1,
 }
 
 export const useFxStore = defineStore('fx', () => {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch, onUnmounted } from 'vue'
+import { onMounted, ref, watch, onUnmounted, computed } from 'vue'
 import VisualCanvas from '@/components/visual/VisualCanvas.vue'
 import PlayerBar from '@/components/player/PlayerBar.vue'
 import SearchPanel from '@/components/search/SearchPanel.vue'
@@ -10,6 +10,7 @@ import LocalMusicPanel from '@/components/local/LocalMusicPanel.vue'
 import StageLyrics from '@/components/lyrics/StageLyrics.vue'
 import UserCapsule from '@/components/user/UserCapsule.vue'
 import DjModeIndicator from '@/components/dj/DjModeIndicator.vue'
+import MiniPlayer from '@/components/player/MiniPlayer.vue'
 import { usePlayerStore } from '@/stores/player'
 import { useFxStore } from '@/stores/fx'
 import { useLyricsStore } from '@/stores/lyrics'
@@ -26,8 +27,29 @@ const showQueuePanel = ref(false)
 const showLocalPanel = ref(false)
 const showSettings = ref(false)
 const showLogin = ref(false)
+const isMiniMode = ref(false)
 
 let rafId: number | null = null
+
+const electronAPI = (window as any).electronAPI
+
+const currentLyricText = computed(() => {
+  if (lyrics.lines.length === 0) return 'Mineradio'
+  const line = lyrics.lines[lyrics.currentIndex]
+  return line?.text || 'Mineradio'
+})
+
+const nextLyricText = computed(() => {
+  const nextIndex = lyrics.currentIndex + 1
+  if (nextIndex >= lyrics.lines.length) return ''
+  return lyrics.lines[nextIndex]?.text || ''
+})
+
+const songInfoText = computed(() => {
+  if (!player.currentSong) return ''
+  const artists = player.currentSong.artists?.map((a: any) => a.name).join(' / ') || ''
+  return `${player.currentSong.name} - ${artists}`
+})
 
 function toggleQueuePanel() {
   showQueuePanel.value = !showQueuePanel.value
@@ -49,6 +71,34 @@ function toggleSettings() {
 
 function toggleLyrics() {
   lyrics.toggleStageLyrics()
+}
+
+function toggleMiniMode() {
+  isMiniMode.value = !isMiniMode.value
+  if (electronAPI?.window?.setMiniMode) {
+    electronAPI.window.setMiniMode(isMiniMode.value)
+  }
+}
+
+function syncDesktopLyrics() {
+  if (!electronAPI?.desktopLyrics) return
+  
+  const data = {
+    currentText: currentLyricText.value,
+    nextText: nextLyricText.value,
+    currentProgress: lyrics.currentProgress,
+    progressSpan: 4.8,
+    playing: player.isPlaying,
+    playbackTime: player.currentTime,
+    playbackDuration: player.duration,
+    playbackRate: 1,
+    songInfo: songInfoText.value,
+    songName: player.currentSong?.name || '',
+    artistName: player.currentSong?.artists?.map((a: any) => a.name).join(' / ') || '',
+    coverUrl: player.currentSong?.coverUrl || '',
+  }
+  
+  electronAPI.desktopLyrics.sendToOverlay('lyrics', data)
 }
 
 function openLogin() {
@@ -94,7 +144,43 @@ function updateLyricsProgress() {
   if (player.isPlaying && lyrics.lines.length > 0) {
     lyrics.update(player.currentTime, player.duration)
   }
+  syncDesktopLyrics()
   rafId = requestAnimationFrame(updateLyricsProgress)
+}
+
+function updateMediaSession() {
+  if ('mediaSession' in navigator && player.currentSong) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: player.currentSong.name,
+      artist: player.currentSong.artists?.map((a: any) => a.name).join(' / ') || '',
+      album: player.currentSong.album || '',
+      artwork: player.currentSong.coverUrl
+        ? [{ src: player.currentSong.coverUrl, sizes: '512x512', type: 'image/jpeg' }]
+        : [],
+    })
+    
+    navigator.mediaSession.playbackState = player.isPlaying ? 'playing' : 'paused'
+  }
+}
+
+function setupMediaSession() {
+  if (!('mediaSession' in navigator)) return
+  
+  navigator.mediaSession.setActionHandler('play', () => {
+    player.play()
+  })
+  
+  navigator.mediaSession.setActionHandler('pause', () => {
+    player.pause()
+  })
+  
+  navigator.mediaSession.setActionHandler('previoustrack', () => {
+    player.prev()
+  })
+  
+  navigator.mediaSession.setActionHandler('nexttrack', () => {
+    player.next()
+  })
 }
 
 watch(
@@ -105,13 +191,22 @@ watch(
     } else {
       lyrics.clear()
     }
+    updateMediaSession()
   },
   { immediate: true }
+)
+
+watch(
+  () => player.isPlaying,
+  () => {
+    updateMediaSession()
+  }
 )
 
 onMounted(() => {
   player.initAudio()
   updateLyricsProgress()
+  setupMediaSession()
 })
 
 onUnmounted(() => {
@@ -122,74 +217,83 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="app-container" :class="{ 'fx-eco': fx.settings.performanceQuality === 'eco' }">
-    <VisualCanvas />
+  <div class="app-container" :class="{ 'fx-eco': fx.settings.performanceQuality === 'eco', 'mini-mode': isMiniMode }">
+    <template v-if="!isMiniMode">
+      <VisualCanvas />
 
-    <StageLyrics
-      :visible="lyrics.stageEnabled"
-      :lines="lyrics.lines"
-      :current-time="player.currentTime"
-      :duration="player.duration"
-      :playing="player.isPlaying"
-      :current-index="lyrics.currentIndex"
-      :progress="lyrics.currentProgress"
-      :palette="lyrics.palette"
-      :size="lyrics.layout.size"
-      :highlight-follow="lyrics.layout.highlightFollow"
-      :feather="lyrics.style.feather"
-      :font-family="lyrics.style.fontFamily"
-      :font-weight="lyrics.style.fontWeight"
-      :letter-spacing="lyrics.style.letterSpacing"
-      :line-height="lyrics.style.lineHeight"
-      :lyric-glow="lyrics.glow.enabled"
-      :lyric-glow-beat="lyrics.glow.beatSync"
-      :lyric-glow-strength="lyrics.glow.strength"
-      :lyric-glow-particles="lyrics.glow.particles"
-      :high-bloom="lyrics.glow.highBloom"
-      :beat-glow="lyrics.glow.beatGlow"
-      :cinema="lyrics.layout.cinema"
-      :opacity="lyrics.style.opacity"
-    />
+      <StageLyrics
+        :visible="lyrics.stageEnabled"
+        :lines="lyrics.lines"
+        :current-time="player.currentTime"
+        :duration="player.duration"
+        :playing="player.isPlaying"
+        :current-index="lyrics.currentIndex"
+        :progress="lyrics.currentProgress"
+        :palette="lyrics.palette"
+        :size="lyrics.layout.size"
+        :highlight-follow="lyrics.layout.highlightFollow"
+        :feather="lyrics.style.feather"
+        :font-family="lyrics.style.fontFamily"
+        :font-weight="lyrics.style.fontWeight"
+        :letter-spacing="lyrics.style.letterSpacing"
+        :line-height="lyrics.style.lineHeight"
+        :lyric-glow="lyrics.glow.enabled"
+        :lyric-glow-beat="lyrics.glow.beatSync"
+        :lyric-glow-strength="lyrics.glow.strength"
+        :lyric-glow-particles="lyrics.glow.particles"
+        :high-bloom="lyrics.glow.highBloom"
+        :beat-glow="lyrics.glow.beatGlow"
+        :cinema="lyrics.layout.cinema"
+        :opacity="lyrics.style.opacity"
+      />
 
-    <div class="app-content">
-      <div class="top-toolbar">
-        <div class="top-toolbar__left">
-          <DjModeIndicator />
+      <div class="app-content">
+        <div class="top-toolbar">
+          <div class="top-toolbar__left">
+            <DjModeIndicator />
+          </div>
+          <div class="top-toolbar__right">
+            <button class="icon-btn" @click="toggleLyrics" :title="lyrics.stageEnabled ? '隐藏歌词' : '显示歌词'">
+              {{ lyrics.stageEnabled ? '🎵' : '🎤' }}
+            </button>
+            <button class="icon-btn" @click="toggleMiniMode" title="迷你模式">
+              📱
+            </button>
+            <button class="icon-btn" @click="toggleSettings" title="设置">
+              ⚙️
+            </button>
+            <UserCapsule @open-login="openLogin" />
+          </div>
         </div>
-        <div class="top-toolbar__right">
-          <button class="icon-btn" @click="toggleLyrics" :title="lyrics.stageEnabled ? '隐藏歌词' : '显示歌词'">
-            {{ lyrics.stageEnabled ? '🎵' : '🎤' }}
-          </button>
-          <button class="icon-btn" @click="toggleSettings" title="设置">
-            ⚙️
-          </button>
-          <UserCapsule @open-login="openLogin" />
+
+        <PlaylistShelf />
+        <SearchPanel />
+
+        <SettingsPanel v-if="showSettings" @close="showSettings = false" />
+
+        <div class="side-panels">
+          <Transition name="slide-right">
+            <div v-if="showQueuePanel" class="side-panel queue-panel">
+              <div class="panel-close" @click="showQueuePanel = false">✕</div>
+              <PlaylistQueue />
+            </div>
+          </Transition>
+
+          <Transition name="slide-right">
+            <div v-if="showLocalPanel" class="side-panel local-panel">
+              <div class="panel-close" @click="showLocalPanel = false">✕</div>
+              <LocalMusicPanel />
+            </div>
+          </Transition>
         </div>
       </div>
 
-      <PlaylistShelf />
-      <SearchPanel />
+      <PlayerBar @show-queue="toggleQueuePanel" @show-local="toggleLocalPanel" />
+    </template>
 
-      <SettingsPanel v-if="showSettings" @close="showSettings = false" />
-
-      <div class="side-panels">
-        <Transition name="slide-right">
-          <div v-if="showQueuePanel" class="side-panel queue-panel">
-            <div class="panel-close" @click="showQueuePanel = false">✕</div>
-            <PlaylistQueue />
-          </div>
-        </Transition>
-
-        <Transition name="slide-right">
-          <div v-if="showLocalPanel" class="side-panel local-panel">
-            <div class="panel-close" @click="showLocalPanel = false">✕</div>
-            <LocalMusicPanel />
-          </div>
-        </Transition>
-      </div>
-    </div>
-
-    <PlayerBar @show-queue="toggleQueuePanel" @show-local="toggleLocalPanel" />
+    <template v-else>
+      <MiniPlayer @close="toggleMiniMode" @expand="toggleMiniMode" />
+    </template>
   </div>
 </template>
 

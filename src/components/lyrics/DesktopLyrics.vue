@@ -1,27 +1,67 @@
 <template>
   <div class="desktop-lyrics-root" :class="{ show: state.enabled, locked: isLocked, unlocked: !isLocked }">
     <canvas ref="canvasRef" class="fx-canvas"></canvas>
-    <div class="wrap">
+
+    <div class="lyrics-container" :class="containerClasses">
+      <div v-if="settings.showSongInfo && songInfo" class="song-info-bar">
+        <div class="song-info-bar__cover" v-if="songInfo.coverUrl">
+          <img :src="songInfo.coverUrl" alt="" />
+        </div>
+        <div class="song-info-bar__text">
+          <div class="song-info-bar__name">{{ songInfo.name }}</div>
+          <div class="song-info-bar__artist">{{ songInfo.artist }}</div>
+        </div>
+      </div>
+
       <div ref="stageRef" class="stage" :class="{ 'hint-visible': hintVisible }">
         <div ref="viewportRef" class="lyric-viewport">
           <div class="lyric-scroll" :style="scrollStyle">
             <div
-              ref="lineRef"
-              class="line"
-              :class="{ in: lineIn }"
+              ref="currentLineRef"
+              class="line line--current"
+              :class="{ in: currentLineIn }"
               :data-text="state.text"
             >
-              {{ state.text }}
+              <span class="line-text">{{ state.text }}</span>
             </div>
           </div>
         </div>
-        <div class="lock-hint">
-          <span class="lock-icon"></span>
-          <span class="lock-text">{{ isLocked ? '中键解锁' : '中键锁定' }}</span>
-          <button class="lyrics-close" type="button" aria-label="Close desktop lyrics" @click="onClose">
-            关闭桌面歌词
-          </button>
+
+        <div
+          v-if="settings.lineMode === 'double'"
+          class="lyric-viewport lyric-viewport--next"
+        >
+          <div class="line line--next" :class="{ in: nextLineIn }">
+            <span class="line-text">{{ nextText }}</span>
+          </div>
         </div>
+      </div>
+
+      <div v-if="settings.showProgressBar" class="progress-bar-wrap">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" :style="{ width: totalProgress + '%' }"></div>
+        </div>
+      </div>
+
+      <div class="toolbar" :class="{ 'toolbar--visible': toolbarVisible }">
+        <button class="toolbar-btn" @click="toggleLock" :title="isLocked ? '解锁' : '锁定'">
+          {{ isLocked ? '🔓' : '🔒' }}
+        </button>
+        <button class="toolbar-btn" @click="togglePlay" :title="isPlaying ? '暂停' : '播放'">
+          {{ isPlaying ? '⏸' : '▶' }}
+        </button>
+        <button class="toolbar-btn" @click="onPrev" title="上一首">
+          ⏮
+        </button>
+        <button class="toolbar-btn" @click="onNext" title="下一首">
+          ⏭
+        </button>
+        <button class="toolbar-btn" @click="openSettings" title="设置">
+          ⚙️
+        </button>
+        <button class="toolbar-btn toolbar-btn--close" @click="onClose" title="关闭">
+          ✕
+        </button>
       </div>
     </div>
   </div>
@@ -31,9 +71,13 @@
 import { ref, computed, reactive, watch, onMounted, onUnmounted, onActivated, onDeactivated } from 'vue'
 import {
   type DesktopLyricState,
+  type DesktopLyricsSettings,
   type LiveMotion,
   type Particle,
   type ScrollState,
+  type DesktopLyricsPosition,
+  type DesktopLyricsLineMode,
+  type DesktopLyricsStylePreset,
   effectiveLyricPalette,
   initLiveMotion,
   updateMotion,
@@ -61,12 +105,88 @@ const emit = defineEmits<{
   (e: 'close'): void
   (e: 'lockChange', locked: boolean): void
   (e: 'stateChange', state: Partial<DesktopLyricState>): void
+  (e: 'togglePlay'): void
+  (e: 'prev'): void
+  (e: 'next'): void
+  (e: 'openSettings'): void
 }>()
+
+const stylePresets: Record<DesktopLyricsStylePreset, {
+  primaryColor: string
+  strokeColor: string
+  glowColor: string
+  glowEnabled: boolean
+  strokeEnabled: boolean
+  glowStrength: number
+  strokeWidth: number
+}> = {
+  minimal: {
+    primaryColor: '#ffffff',
+    strokeColor: 'rgba(0,0,0,0.5)',
+    glowColor: '#ffffff',
+    glowEnabled: false,
+    strokeEnabled: true,
+    glowStrength: 0,
+    strokeWidth: 2,
+  },
+  neon: {
+    primaryColor: '#00ffff',
+    strokeColor: '#00ffff',
+    glowColor: '#00ffff',
+    glowEnabled: true,
+    strokeEnabled: false,
+    glowStrength: 0.8,
+    strokeWidth: 0,
+  },
+  gradient: {
+    primaryColor: '#ff6b6b',
+    strokeColor: 'rgba(0,0,0,0.3)',
+    glowColor: '#feca57',
+    glowEnabled: true,
+    strokeEnabled: true,
+    glowStrength: 0.4,
+    strokeWidth: 1,
+  },
+  stroke: {
+    primaryColor: '#ffffff',
+    strokeColor: '#000000',
+    glowColor: '#ffffff',
+    glowEnabled: false,
+    strokeEnabled: true,
+    glowStrength: 0,
+    strokeWidth: 3,
+  },
+}
+
+const defaultSettings: DesktopLyricsSettings = {
+  enabled: false,
+  locked: true,
+  position: 'bottom',
+  lineMode: 'double',
+  stylePreset: 'gradient',
+  fontSize: 48,
+  opacity: 0.92,
+  primaryColor: '#f6fdff',
+  strokeColor: 'rgba(4,6,12,0.42)',
+  glowColor: '#9cffdf',
+  showProgressBar: false,
+  showSongInfo: false,
+  fontFamily: 'Inter, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", Arial, sans-serif',
+  fontWeight: 900,
+  letterSpacing: 0,
+  lineHeight: 1.2,
+  glowEnabled: true,
+  glowStrength: 0.35,
+  strokeEnabled: true,
+  strokeWidth: 1,
+  smoothScroll: true,
+  animationEnabled: true,
+}
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const stageRef = ref<HTMLDivElement | null>(null)
 const viewportRef = ref<HTMLDivElement | null>(null)
-const lineRef = ref<HTMLDivElement | null>(null)
+const currentLineRef = ref<HTMLDivElement | null>(null)
 
 const defaultPalette = {
   primary: '#f6fdff',
@@ -108,20 +228,31 @@ const state = reactive<DesktopLyricState>({
   ...props.initialState,
 })
 
+const settings = reactive<DesktopLyricsSettings>({ ...defaultSettings })
+
+const nextText = ref('')
+const totalProgress = ref(0)
+const isPlaying = ref(false)
+const songInfo = ref<{ name: string; artist: string; coverUrl?: string } | null>(null)
+
 const liveMotion = ref<LiveMotion>(initLiveMotion())
 const particles = ref<Particle[]>([])
 const scrollState = ref<ScrollState>(initScrollState())
-const renderedFontSize = ref(58)
+const renderedFontSize = ref(48)
 const fitScaleX = ref(1)
-const baseFontSize = ref(58)
+const baseFontSize = ref(48)
 const displayedProgress = ref(0)
-const lineIn = ref(false)
+const currentLineIn = ref(false)
+const nextLineIn = ref(false)
 const lastText = ref('')
+const lastNextText = ref('')
 const hintVisible = ref(false)
 const hoverInside = ref(false)
 const dragging = ref(false)
 const hintTimer = ref<number | null>(null)
 const lastPointerEvent = ref<PointerEvent | null>(null)
+const toolbarVisible = ref(false)
+const toolbarTimer = ref<number | null>(null)
 
 let animationId: number | null = null
 let ctx: CanvasRenderingContext2D | null = null
@@ -136,29 +267,53 @@ const scrollStyle = computed(() => ({
   transform: `translate3d(${scrollState.value.offset.toFixed(2)}px, 0, 0) scaleX(${fitScaleX.value.toFixed(4)})`,
 }))
 
+const containerClasses = computed(() => ({
+  [`position-${settings.position}`]: true,
+  [`preset-${settings.stylePreset}`]: true,
+  'single-line': settings.lineMode === 'single',
+  'double-line': settings.lineMode === 'double',
+}))
+
 function setRootVar(name: string, value: string) {
   document.documentElement.style.setProperty(name, value)
 }
 
+function applyStylePreset(preset: DesktopLyricsStylePreset) {
+  const presetConfig = stylePresets[preset]
+  if (!presetConfig) return
+
+  settings.primaryColor = presetConfig.primaryColor
+  settings.strokeColor = presetConfig.strokeColor
+  settings.glowColor = presetConfig.glowColor
+  settings.glowEnabled = presetConfig.glowEnabled
+  settings.strokeEnabled = presetConfig.strokeEnabled
+  settings.glowStrength = presetConfig.glowStrength
+  settings.strokeWidth = presetConfig.strokeWidth
+
+  updateCssVars()
+}
+
 function updateCssVars() {
-  setRootVar('--lyric-primary', state.displayColors.primary)
-  setRootVar('--lyric-secondary', state.displayColors.secondary)
-  setRootVar('--lyric-highlight', state.displayColors.highlight)
-  setRootVar('--lyric-glow', state.displayColors.glow)
-  setRootVar('--lyric-shadow-soft', colorWithAlpha(state.displayColors.primary, 0.36))
-  setRootVar('--lyric-shadow-glow', colorWithAlpha(state.displayColors.primary, 0.28))
-  setRootVar('--lyric-shadow-hot', colorWithAlpha(state.displayColors.highlight, 0.28))
-  setRootVar('--lyric-edge', 'rgba(4,6,12,.42)')
-  setRootVar('--lyric-drop', colorWithAlpha(state.displayColors.primary, 0.26))
-  setRootVar('--lyric-drop-paused', colorWithAlpha(state.displayColors.primary, 0.18))
-  setRootVar('--lyric-font', state.fontFamily)
-  setRootVar('--lyric-weight', String(state.fontWeight))
-  setRootVar('--lyric-line-height', String(state.lineHeight))
+  setRootVar('--lyric-primary', settings.primaryColor)
+  setRootVar('--lyric-secondary', settings.glowColor)
+  setRootVar('--lyric-highlight', settings.glowColor)
+  setRootVar('--lyric-glow', settings.glowColor)
+  setRootVar('--lyric-shadow-soft', colorWithAlpha(settings.glowColor, 0.36))
+  setRootVar('--lyric-shadow-glow', colorWithAlpha(settings.glowColor, 0.28))
+  setRootVar('--lyric-shadow-hot', colorWithAlpha(settings.primaryColor, 0.28))
+  setRootVar('--lyric-edge', settings.strokeColor)
+  setRootVar('--lyric-drop', colorWithAlpha(settings.primaryColor, 0.26))
+  setRootVar('--lyric-drop-paused', colorWithAlpha(settings.primaryColor, 0.18))
+  setRootVar('--lyric-font', settings.fontFamily)
+  setRootVar('--lyric-weight', String(settings.fontWeight))
+  setRootVar('--lyric-line-height', String(settings.lineHeight))
   setRootVar('--lyric-feather', (state.feather * 100).toFixed(2) + '%')
   setRootVar('--lyric-size', renderedFontSize.value + 'px')
-  setRootVar('--lyric-letter-spacing', (renderedFontSize.value * state.letterSpacing).toFixed(2) + 'px')
+  setRootVar('--lyric-letter-spacing', (renderedFontSize.value * settings.letterSpacing).toFixed(2) + 'px')
   setRootVar('--lyric-fit-x', fitScaleX.value.toFixed(4))
   setRootVar('--lyric-scroll-x', scrollState.value.offset.toFixed(2) + 'px')
+  setRootVar('--lyric-stroke-width', settings.strokeWidth + 'px')
+  setRootVar('--lyric-glow-strength', String(settings.glowStrength))
 }
 
 function resizeCanvas() {
@@ -176,15 +331,14 @@ function resizeCanvas() {
   fitLyricLayout(true)
 }
 
-function measureLineWidth(fontSize: number): number {
-  if (!ctx) return fontSize * state.text.length * 0.6
+function measureLineWidth(fontSize: number, text: string): number {
+  if (!ctx) return fontSize * text.length * 0.6
   ctx.save()
-  ctx.font = `${state.fontWeight} ${fontSize}px ${state.fontFamily}`
-  const text = state.text || 'Mineradio'
-  const width = ctx.measureText(text).width
+  ctx.font = `${settings.fontWeight} ${fontSize}px ${settings.fontFamily}`
+  const width = ctx.measureText(text || 'Mineradio').width
   ctx.restore()
-  const charCount = Array.from(text).length
-  return Math.max(1, width + Math.max(0, charCount - 1) * fontSize * state.letterSpacing)
+  const charCount = Array.from(text || 'Mineradio').length
+  return Math.max(1, width + Math.max(0, charCount - 1) * fontSize * settings.letterSpacing)
 }
 
 function fitLyricLayout(force: boolean = false) {
@@ -192,17 +346,14 @@ function fitLyricLayout(force: boolean = false) {
 
   const safeWidth = Math.max(300, window.innerWidth - 8)
   const edgeWidth = Math.round(Math.max(54, Math.min(116, safeWidth * 0.085)))
-  const viewportWidth = Math.round(
-    Math.max(280, Math.min(safeWidth - 12, window.innerWidth - Math.min(240, Math.max(88, window.innerWidth * 0.13))))
-  )
 
   const nextLayoutKey = [
     state.text,
     baseFontSize.value,
-    state.fontFamily,
-    state.fontWeight,
-    state.letterSpacing,
-    state.lineHeight,
+    settings.fontFamily,
+    settings.fontWeight,
+    settings.letterSpacing,
+    settings.lineHeight,
     window.innerWidth,
     window.innerHeight,
   ].join('|')
@@ -214,12 +365,12 @@ function fitLyricLayout(force: boolean = false) {
     state.text,
     baseFontSize.value,
     {
-      fontFamily: state.fontFamily,
-      fontWeight: state.fontWeight,
-      letterSpacing: state.letterSpacing,
-      lineHeight: state.lineHeight,
+      fontFamily: settings.fontFamily,
+      fontWeight: settings.fontWeight,
+      letterSpacing: settings.letterSpacing,
+      lineHeight: settings.lineHeight,
       fontSize: baseFontSize.value,
-      opacity: state.opacity,
+      opacity: settings.opacity,
       feather: state.feather,
     },
     window.innerWidth,
@@ -302,7 +453,7 @@ function draw(nowMs: number) {
     const progress = currentDisplayProgress(nowMs)
     setRootVar('--lyric-progress', (progress * 100).toFixed(2) + '%')
 
-    const glowStrength = state.lyricGlow ? state.lyricGlowStrength : 0
+    const glowStrength = settings.glowEnabled ? settings.glowStrength : 0
 
     updateMotion(
       liveMotion.value,
@@ -321,7 +472,7 @@ function draw(nowMs: number) {
       applyStageMotion(stageRef.value, liveMotion.value, now, state.cinema)
     }
 
-    if (scrollState.value.needed) {
+    if (scrollState.value.needed && settings.smoothScroll) {
       scrollState.value.offset = updateLyricScroll(
         scrollState.value,
         progress,
@@ -332,16 +483,16 @@ function draw(nowMs: number) {
       setRootVar('--lyric-scroll-x', scrollState.value.offset.toFixed(2) + 'px')
     }
 
-    if (ctx && canvasRef.value && state.text && viewportRef.value) {
+    if (ctx && canvasRef.value && state.text && viewportRef.value && settings.glowEnabled) {
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight)
 
       const rect = viewportRef.value.getBoundingClientRect()
 
-      if (state.lyricGlow && glowStrength > 0) {
-        drawAura(ctx, rect, state.displayColors, liveMotion.value, state.opacity)
+      if (glowStrength > 0) {
+        drawAura(ctx, rect, state.displayColors, liveMotion.value, settings.opacity)
       }
 
-      if (state.lyricGlow && state.highlightFollow && glowStrength > 0) {
+      if (state.highlightFollow && glowStrength > 0) {
         drawHighlightBloom(
           ctx,
           rect,
@@ -349,11 +500,11 @@ function draw(nowMs: number) {
           state.displayColors,
           liveMotion.value,
           renderedFontSize.value,
-          state.opacity
+          settings.opacity
         )
       }
 
-      if (state.lyricGlow && glowStrength > 0) {
+      if (glowStrength > 0) {
         drawGlowText(
           ctx,
           state.text,
@@ -361,16 +512,16 @@ function draw(nowMs: number) {
           state.displayColors,
           liveMotion.value,
           renderedFontSize.value,
-          state.fontWeight,
-          state.fontFamily,
-          state.letterSpacing,
+          settings.fontWeight,
+          settings.fontFamily,
+          settings.letterSpacing,
           fitScaleX.value,
           glowStrength,
-          state.opacity
+          settings.opacity
         )
       }
 
-      if (state.lyricGlow && state.lyricGlowParticles) {
+      if (state.lyricGlowParticles) {
         drawParticles(
           ctx,
           rect,
@@ -380,7 +531,7 @@ function draw(nowMs: number) {
           glowStrength,
           state.lyricGlowParticles,
           now,
-          state.opacity
+          settings.opacity
         )
       }
     }
@@ -403,9 +554,16 @@ function stopAnimation() {
 }
 
 function replayLineAnimation() {
-  lineIn.value = false
+  currentLineIn.value = false
   requestAnimationFrame(() => {
-    lineIn.value = true
+    currentLineIn.value = true
+  })
+}
+
+function replayNextLineAnimation() {
+  nextLineIn.value = false
+  requestAnimationFrame(() => {
+    nextLineIn.value = true
   })
 }
 
@@ -419,19 +577,19 @@ function applyState(next: Partial<DesktopLyricState>) {
   Object.assign(state, next)
 
   state.displayColors = {
-    primary: normalizeLyricColor(state.colors.primary || '#f6fdff', '#f6fdff'),
-    secondary: normalizeLyricColor(state.colors.secondary || '#a8f6ff', '#a8f6ff'),
-    highlight: normalizeLyricColor(state.colors.highlight || '#fff0b8', '#fff0b8'),
-    glow: normalizeLyricColor(state.colors.glow || state.colors.secondary || '#9cffdf', '#9cffdf'),
+    primary: normalizeLyricColor(settings.primaryColor || '#f6fdff', '#f6fdff'),
+    secondary: normalizeLyricColor(settings.glowColor || '#a8f6ff', '#a8f6ff'),
+    highlight: normalizeLyricColor(settings.glowColor || '#fff0b8', '#fff0b8'),
+    glow: normalizeLyricColor(settings.glowColor || '#9cffdf', '#9cffdf'),
   }
 
-  baseFontSize.value = Math.round(58 * Math.max(0.72, Math.min(1.55, state.size)))
+  baseFontSize.value = settings.fontSize
   progressReceivedAt = performance.now()
 
   document.body.classList.toggle('show', !!state.enabled)
   document.body.classList.toggle('paused', !state.playing)
   document.body.classList.toggle('highlight', state.highlightFollow === true)
-  document.body.style.opacity = state.enabled ? String(Math.max(0.28, Math.min(1, state.opacity))) : '0'
+  document.body.style.opacity = state.enabled ? String(Math.max(0.28, Math.min(1, settings.opacity))) : '0'
 
   if (state.text !== lastText.value) {
     lastText.value = state.text
@@ -440,15 +598,84 @@ function applyState(next: Partial<DesktopLyricState>) {
     scrollState.value.holdUntil = performance.now() + 320
     scrollState.value.lastAt = 0
     layoutKey = ''
-    replayLineAnimation()
+    if (settings.animationEnabled) {
+      replayLineAnimation()
+    } else {
+      currentLineIn.value = true
+    }
   }
 
   fitLyricLayout(false)
   updateCssVars()
 }
 
+function applySettings(next: Partial<DesktopLyricsSettings>) {
+  if (!next) return
+  Object.assign(settings, next)
+
+  if (next.stylePreset && stylePresets[next.stylePreset]) {
+    applyStylePreset(next.stylePreset)
+  }
+
+  state.opacity = settings.opacity
+  state.clickThrough = settings.locked
+  state.lyricGlow = settings.glowEnabled
+  state.lyricGlowStrength = settings.glowStrength
+  state.fontFamily = settings.fontFamily
+  state.fontWeight = settings.fontWeight
+  state.letterSpacing = settings.letterSpacing
+  state.lineHeight = settings.lineHeight
+
+  baseFontSize.value = settings.fontSize
+
+  state.displayColors = {
+    primary: normalizeLyricColor(settings.primaryColor || '#f6fdff', '#f6fdff'),
+    secondary: normalizeLyricColor(settings.glowColor || '#a8f6ff', '#a8f6ff'),
+    highlight: normalizeLyricColor(settings.glowColor || '#fff0b8', '#fff0b8'),
+    glow: normalizeLyricColor(settings.glowColor || '#9cffdf', '#9cffdf'),
+  }
+
+  document.body.style.opacity = state.enabled ? String(Math.max(0.28, Math.min(1, settings.opacity))) : '0'
+  fitLyricLayout(true)
+  updateCssVars()
+}
+
+function updateNextText(text: string) {
+  if (text !== lastNextText.value) {
+    lastNextText.value = text
+    nextText.value = text
+    if (settings.animationEnabled) {
+      replayNextLineAnimation()
+    } else {
+      nextLineIn.value = true
+    }
+  }
+}
+
 function onClose() {
   emit('close')
+}
+
+function toggleLock() {
+  settings.locked = !settings.locked
+  state.clickThrough = settings.locked
+  emit('lockChange', settings.locked)
+}
+
+function togglePlay() {
+  emit('togglePlay')
+}
+
+function onPrev() {
+  emit('prev')
+}
+
+function onNext() {
+  emit('next')
+}
+
+function openSettings() {
+  emit('openSettings')
 }
 
 function pointInRect(evt: PointerEvent, rect: DOMRect, padX: number, padY: number): boolean {
@@ -483,6 +710,21 @@ function setHintVisible(visible: boolean) {
   hintVisible.value = visible
 }
 
+function showToolbar() {
+  toolbarVisible.value = true
+  if (toolbarTimer.value) {
+    clearTimeout(toolbarTimer.value)
+    toolbarTimer.value = null
+  }
+}
+
+function hideToolbar() {
+  toolbarTimer.value = window.setTimeout(() => {
+    toolbarVisible.value = false
+    toolbarTimer.value = null
+  }, 2000)
+}
+
 function hideInteractionHint() {
   hoverInside.value = false
   lastPointerEvent.value = null
@@ -507,6 +749,12 @@ function handlePointerMove(evt: PointerEvent) {
   hoverInside.value = inside
   lastPointerEvent.value = evt
 
+  if (inside) {
+    showToolbar()
+  } else {
+    hideToolbar()
+  }
+
   if (isLocked.value) {
     if (inside || dragging.value) {
       scheduleInteractionHint()
@@ -526,8 +774,7 @@ function handlePointerMove(evt: PointerEvent) {
 function handlePointerDown(evt: PointerEvent) {
   if (evt.button === 1) {
     evt.preventDefault()
-    state.clickThrough = !state.clickThrough
-    emit('lockChange', isLocked.value)
+    toggleLock()
     return
   }
   if (isLocked.value) return
@@ -558,6 +805,7 @@ onMounted(() => {
   window.addEventListener('pointerup', handlePointerUp)
   startAnimation()
   applyState(state)
+  applySettings(settings)
 })
 
 onUnmounted(() => {
@@ -568,6 +816,9 @@ onUnmounted(() => {
   window.removeEventListener('pointerup', handlePointerUp)
   if (hintTimer.value) {
     clearTimeout(hintTimer.value)
+  }
+  if (toolbarTimer.value) {
+    clearTimeout(toolbarTimer.value)
   }
 })
 
@@ -581,7 +832,13 @@ onDeactivated(() => {
 
 defineExpose({
   applyState,
+  applySettings,
+  updateNextText,
   state,
+  settings,
+  totalProgress,
+  isPlaying,
+  songInfo,
 })
 </script>
 
@@ -597,7 +854,6 @@ defineExpose({
 }
 
 .fx-canvas {
-  display: none;
   position: absolute;
   inset: 0;
   width: 100%;
@@ -605,20 +861,87 @@ defineExpose({
   pointer-events: none;
 }
 
-.wrap {
+.lyrics-container {
   position: absolute;
-  inset: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 1200px;
+  padding: 20px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.lyrics-container.position-top {
+  top: 40px;
+}
+
+.lyrics-container.position-center {
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.lyrics-container.position-bottom {
+  bottom: 60px;
+}
+
+.song-info-bar {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 0 12px;
-  pointer-events: none;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  border-radius: 999px;
+  pointer-events: auto;
+}
+
+.song-info-bar__cover {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.song-info-bar__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.song-info-bar__text {
+  min-width: 0;
+}
+
+.song-info-bar__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.song-info-bar__artist {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
 }
 
 .stage {
   position: relative;
   max-width: calc(100vw - 24px);
-  padding: 104px 86px 94px;
+  padding: 20px 40px;
   box-sizing: border-box;
   pointer-events: auto;
   cursor: default;
@@ -646,7 +969,7 @@ defineExpose({
   width: min(100%, 1120px);
   max-width: calc(100vw - 24px);
   margin: 0 auto;
-  padding: 1.24em var(--lyric-edge-width, 92px) 1.34em;
+  padding: 0.6em var(--lyric-edge-width, 92px);
   box-sizing: border-box;
   overflow: hidden;
   text-align: center;
@@ -671,6 +994,11 @@ defineExpose({
   will-change: transform, filter;
 }
 
+.lyric-viewport--next {
+  opacity: 0.5;
+  margin-top: 8px;
+}
+
 .unlocked .stage.hint-visible .lyric-viewport {
   pointer-events: auto;
   cursor: move;
@@ -689,7 +1017,6 @@ defineExpose({
   z-index: 2;
   display: inline-block;
   max-width: none;
-  color: #fff;
   font-family: var(--lyric-font);
   font-size: var(--lyric-size);
   font-weight: var(--lyric-weight);
@@ -705,7 +1032,7 @@ defineExpose({
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  -webkit-text-stroke: 0.18px rgba(255, 255, 255, 0.72);
+  -webkit-text-stroke: var(--lyric-stroke-width, 0px) var(--lyric-edge, rgba(4, 6, 12, 0.42));
   paint-order: stroke fill;
   text-shadow:
     0 0 1px rgba(255, 255, 255, 0.34),
@@ -719,7 +1046,16 @@ defineExpose({
   will-change: opacity, filter, transform, background;
 }
 
-.highlight .line {
+.line--next {
+  font-size: calc(var(--lyric-size) * 0.7);
+  opacity: 0.4;
+}
+
+.line--next.in {
+  opacity: 0.5;
+}
+
+.highlight .line--current {
   background: linear-gradient(
     90deg,
     var(--lyric-highlight) 0%,
@@ -733,129 +1069,102 @@ defineExpose({
 }
 
 .line.in {
-  animation: lyr-in 820ms cubic-bezier(0.16, 0.84, 0.32, 1.02) forwards;
+  animation: lyr-in 600ms cubic-bezier(0.16, 0.84, 0.32, 1.02) forwards;
+}
+
+.line--next.in {
+  animation: lyr-in-next 600ms cubic-bezier(0.16, 0.84, 0.32, 1.02) forwards;
 }
 
 .paused .line {
   filter: none;
-  opacity: 0.84;
 }
 
-.lock-hint {
-  position: absolute;
-  z-index: 4;
-  left: 50%;
-  top: 72px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-width: 92px;
-  min-height: 30px;
-  padding: 0 11px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--lyric-glow) 58%, rgba(255, 255, 255, 0.36));
-  background: rgba(4, 6, 10, 0.44);
-  color: rgba(255, 255, 255, 0.84);
-  font: 800 12px/1 'Microsoft YaHei', sans-serif;
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55);
-  box-shadow:
-    0 0 20px color-mix(in srgb, var(--lyric-glow) 30%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(-50%) translateY(-8px) scale(0.92);
-  transition: opacity 0.16s ease, transform 0.16s ease;
-  -webkit-app-region: no-drag;
-}
-
-.lock-icon {
-  position: relative;
-  width: 13px;
-  height: 13px;
-  flex: 0 0 auto;
-}
-
-.lock-icon::before {
-  content: '';
-  position: absolute;
-  left: 2px;
-  bottom: 1px;
-  width: 9px;
-  height: 7px;
-  border: 1.7px solid var(--lyric-highlight);
-  border-radius: 2px;
-  box-sizing: border-box;
-}
-
-.lock-icon::after {
-  content: '';
-  position: absolute;
-  left: 3px;
-  top: 0;
-  width: 7px;
-  height: 8px;
-  border: 1.7px solid var(--lyric-highlight);
-  border-bottom: 0;
-  border-radius: 7px 7px 0 0;
-  box-sizing: border-box;
-}
-
-.unlocked .lock-icon::after {
-  left: 7px;
-  transform: rotate(24deg);
-  transform-origin: left bottom;
-}
-
-.lyrics-close {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  height: 22px;
-  width: auto;
-  margin-right: -4px;
-  border: 0;
-  border-left: 1px solid rgba(255, 255, 255, 0.14);
-  padding: 0 0 1px 9px;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.82);
-  font: 800 12px/1 'Microsoft YaHei', sans-serif;
-  cursor: pointer;
-  text-shadow: 0 0 12px var(--lyric-primary);
-  -webkit-app-region: no-drag;
-}
-
-.lyrics-close:hover {
-  color: #fff;
-}
-
-.unlocked .lyrics-close {
-  display: flex;
-}
-
-.unlocked .stage.hint-visible .lock-hint {
+.progress-bar-wrap {
+  width: 300px;
   pointer-events: auto;
-  -webkit-app-region: no-drag;
 }
 
-.stage.hint-visible .lock-hint {
-  opacity: 0.94;
-  transform: translateX(-50%) translateY(0) scale(1);
+.progress-bar-bg {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--lyric-glow), var(--lyric-primary));
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  border-radius: 999px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
+
+.toolbar--visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.toolbar-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.toolbar-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.toolbar-btn--close:hover {
+  background: rgba(255, 82, 82, 0.4);
 }
 
 @keyframes lyr-in {
   0% {
     opacity: 0;
-    transform: translate3d(0, 32px, -120px) rotateX(24deg) rotateY(-18deg) scale(0.78);
-    filter: blur(12px);
-  }
-  58% {
-    opacity: 1;
-    filter: blur(0);
+    transform: translate3d(0, 20px, -80px) rotateX(12deg) scale(0.9);
+    filter: blur(8px);
   }
   100% {
     opacity: 1;
-    transform: translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) scale(1);
+    transform: translate3d(0, 0, 0) rotateX(0deg) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes lyr-in-next {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 0.5;
+    transform: translateY(0);
     filter: blur(0);
   }
 }

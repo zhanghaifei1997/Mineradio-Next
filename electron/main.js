@@ -3,6 +3,8 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { startServer, stopServer } from './server.js'
+import * as workerw from './workerw.js'
+import { updater } from './updater.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -58,6 +60,7 @@ let wallpaperWindow = null
 let loginWindow = null
 let tray = null
 let serverProcess = null
+let splashWindow = null
 
 let desktopLyricsState = {
   enabled: false,
@@ -67,6 +70,13 @@ let desktopLyricsState = {
 
 let wallpaperState = {
   enabled: false,
+}
+
+let workerwAppState = {
+  enabled: false,
+  wallpaperMode: false,
+  opacity: 1,
+  visualIntensity: 1,
 }
 
 const registeredGlobalHotkeys = new Map()
@@ -100,6 +110,42 @@ function getAppIcon() {
   }
 }
 
+function createSplashWindow() {
+  if (splashWindow && !splashWindow.isDestroyed()) return
+
+  splashWindow = new BrowserWindow({
+    width: 400,
+    height: 300,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: true,
+    center: true,
+    show: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    icon: getAppIcon(),
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  })
+
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'))
+
+  splashWindow.on('closed', () => {
+    splashWindow = null
+  })
+}
+
+function closeSplashWindow() {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.close()
+    splashWindow = null
+  }
+}
+
 function createMainWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
 
@@ -113,6 +159,7 @@ function createMainWindow() {
     backgroundColor: '#00000000',
     icon: getAppIcon(),
     title: APP_NAME,
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -128,6 +175,14 @@ function createMainWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
+
+  mainWindow.once('ready-to-show', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.show()
+      mainWindow.focus()
+      closeSplashWindow()
+    }
+  })
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
@@ -319,14 +374,70 @@ function updateTrayMenu() {
         updateTrayMenu()
       },
     },
+  ]
+
+  if (process.platform === 'win32') {
+    template.push(
+      { type: 'separator' },
+      {
+        label: workerwAppState.enabled && !workerwAppState.wallpaperMode ? '关闭桌面歌词注入' : '桌面歌词注入 (WorkerW)',
+        click: async () => {
+          if (workerwAppState.enabled && !workerwAppState.wallpaperMode) {
+            await workerw.cleanup(desktopLyricsWindow)
+            workerwAppState.enabled = false
+            workerwAppState.wallpaperMode = false
+          } else {
+            if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed()) {
+              createDesktopLyricsWindow()
+            }
+            if (desktopLyricsWindow && !desktopLyricsWindow.isDestroyed()) {
+              await workerw.embedWindowToWorkerW(desktopLyricsWindow)
+              workerwAppState.enabled = true
+              workerwAppState.wallpaperMode = false
+            }
+          }
+          updateTrayMenu()
+          broadcastWorkerWState()
+        },
+      },
+      {
+        label: workerwAppState.wallpaperMode ? '关闭壁纸模式' : '壁纸模式',
+        click: async () => {
+          if (workerwAppState.wallpaperMode) {
+            await workerw.disableWallpaperMode(wallpaperWindow)
+            await workerw.cleanup(wallpaperWindow)
+            closeWallpaperWindow()
+            workerwAppState.enabled = false
+            workerwAppState.wallpaperMode = false
+          } else {
+            if (desktopLyricsWindow && !desktopLyricsWindow.isDestroyed()) {
+              closeDesktopLyricsWindow()
+            }
+            if (!wallpaperWindow || wallpaperWindow.isDestroyed()) {
+              createWallpaperWindow()
+            }
+            if (wallpaperWindow && !wallpaperWindow.isDestroyed()) {
+              await workerw.enableWallpaperMode(wallpaperWindow)
+              workerwAppState.enabled = true
+              workerwAppState.wallpaperMode = true
+            }
+          }
+          updateTrayMenu()
+          broadcastWorkerWState()
+        },
+      }
+    )
+  }
+
+  template.push(
     { type: 'separator' },
     {
       label: '退出',
       click: () => {
         app.quit()
       },
-    },
-  ]
+    }
+  )
 
   const menu = Menu.buildFromTemplate(template)
   tray.setContextMenu(menu)
@@ -413,6 +524,18 @@ function broadcastDesktopLyricsLockState() {
     mainWindow.webContents.send('mineradio-desktop-lyrics-lock-state', {
       locked: desktopLyricsState.clickThrough !== false,
     })
+  }
+}
+
+function broadcastWorkerWState() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('mineradio-workerw-state', workerw.getState())
+  }
+  if (desktopLyricsWindow && !desktopLyricsWindow.isDestroyed()) {
+    desktopLyricsWindow.webContents.send('mineradio-workerw-state', workerw.getState())
+  }
+  if (wallpaperWindow && !wallpaperWindow.isDestroyed()) {
+    wallpaperWindow.webContents.send('mineradio-workerw-state', workerw.getState())
   }
 }
 
@@ -733,6 +856,73 @@ function setupIpc() {
     }
   })
 
+  ipcMain.handle('window:setMiniMode', (event, isMini) => {
+    const win = getSenderWindow(event)
+    if (!win || win.isDestroyed()) return
+    if (isMini) {
+      win.setSize(320, 120, true)
+      win.setResizable(false)
+      win.setMinimumSize(280, 100)
+    } else {
+      win.setMinimumSize(800, 600)
+      win.setSize(Math.min(1280, screen.getPrimaryDisplay().workAreaSize.width * 0.8),
+        Math.min(800, screen.getPrimaryDisplay().workAreaSize.height * 0.8), true)
+      win.setResizable(true)
+    }
+    return { ok: true, mini: isMini }
+  })
+
+  ipcMain.handle('media:setNowPlaying', (_event, data) => {
+    try {
+      if (process.platform === 'win32' && mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setThumbarButtons([])
+        if (data && data.title) {
+          mainWindow.setTitle(`${data.title} - ${data.artist || 'Mineradio'}`)
+        } else {
+          mainWindow.setTitle(APP_NAME)
+        }
+      }
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('media:setPlaybackState', (_event, state) => {
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        const thumbButtons = []
+        thumbButtons.push({
+          tooltip: '上一首',
+          icon: nativeImage.createEmpty(),
+          click: () => {
+            mainWindow?.webContents.send('global:prev')
+          }
+        })
+        thumbButtons.push({
+          tooltip: state === 'playing' ? '暂停' : '播放',
+          icon: nativeImage.createEmpty(),
+          click: () => {
+            mainWindow?.webContents.send('global:toggle-play')
+          }
+        })
+        thumbButtons.push({
+          tooltip: '下一首',
+          icon: nativeImage.createEmpty(),
+          click: () => {
+            mainWindow?.webContents.send('global:next')
+          }
+        })
+        try {
+          mainWindow.setThumbarButtons(thumbButtons)
+        } catch (e) {}
+      }
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  })
+
   ipcMain.handle('desktop-lyrics:show', () => {
     createDesktopLyricsWindow()
     desktopLyricsWindow?.show()
@@ -743,6 +933,24 @@ function setupIpc() {
   ipcMain.handle('desktop-lyrics:hide', () => {
     closeDesktopLyricsWindow()
     updateTrayMenu()
+  })
+
+  ipcMain.handle('desktop-lyrics:getState', () => {
+    return { ...desktopLyricsState }
+  })
+
+  ipcMain.handle('desktop-lyrics:sendToMain', (_event, channel, payload) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(`desktop-lyrics:${channel}`, payload)
+    }
+    return { ok: true }
+  })
+
+  ipcMain.handle('desktop-lyrics:sendToOverlay', (_event, channel, payload) => {
+    if (desktopLyricsWindow && !desktopLyricsWindow.isDestroyed()) {
+      desktopLyricsWindow.webContents.send(`desktop-lyrics:${channel}`, payload)
+    }
+    return { ok: true }
   })
 
   ipcMain.handle('desktop-lyrics:update', (_event, payload) => {
@@ -811,6 +1019,137 @@ function setupIpc() {
         createWallpaperWindow(wallpaperState)
       }
       return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('workerw:state', () => {
+    return workerw.getState()
+  })
+
+  ipcMain.handle('workerw:enable', async (_event, options = {}) => {
+    try {
+      if (!workerw.isAvailable()) {
+        return { ok: false, error: 'WorkerW is only available on Windows', platform: process.platform }
+      }
+
+      const targetWin = options.wallpaperMode ? wallpaperWindow : desktopLyricsWindow
+      if (!targetWin || targetWin.isDestroyed()) {
+        if (options.wallpaperMode) {
+          createWallpaperWindow()
+        } else {
+          createDesktopLyricsWindow()
+        }
+      }
+
+      const win = options.wallpaperMode ? wallpaperWindow : desktopLyricsWindow
+      if (!win || win.isDestroyed()) {
+        return { ok: false, error: 'Failed to create target window' }
+      }
+
+      const success = options.wallpaperMode
+        ? await workerw.enableWallpaperMode(win)
+        : await workerw.embedWindowToWorkerW(win)
+
+      if (success) {
+        workerwAppState.enabled = true
+        workerwAppState.wallpaperMode = !!options.wallpaperMode
+        if (options.opacity !== undefined) {
+          workerw.setOpacity(win, options.opacity)
+          workerwAppState.opacity = options.opacity
+        }
+        if (options.visualIntensity !== undefined) {
+          workerw.setVisualIntensity(options.visualIntensity)
+          workerwAppState.visualIntensity = options.visualIntensity
+        }
+        updateTrayMenu()
+        broadcastWorkerWState()
+        return { ok: true, state: workerw.getState() }
+      } else {
+        return { ok: false, error: 'Failed to enable WorkerW mode' }
+      }
+    } catch (e) {
+      console.error('[WorkerW] enable error:', e)
+      return { ok: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('workerw:disable', async () => {
+    try {
+      const win = workerwAppState.wallpaperMode ? wallpaperWindow : desktopLyricsWindow
+      const success = await workerw.cleanup(win)
+
+      workerwAppState.enabled = false
+      workerwAppState.wallpaperMode = false
+      updateTrayMenu()
+      broadcastWorkerWState()
+      return { ok: success, state: workerw.getState() }
+    } catch (e) {
+      console.error('[WorkerW] disable error:', e)
+      return { ok: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('workerw:setOpacity', async (_event, opacity) => {
+    try {
+      const win = workerwAppState.wallpaperMode ? wallpaperWindow : desktopLyricsWindow
+      const success = workerw.setOpacity(win, opacity)
+      if (success) {
+        workerwAppState.opacity = opacity
+        broadcastWorkerWState()
+      }
+      return { ok: success, opacity: workerwAppState.opacity }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('workerw:setWallpaperMode', async (_event, enabled) => {
+    try {
+      if (!workerw.isAvailable()) {
+        return { ok: false, error: 'WorkerW is only available on Windows' }
+      }
+
+      if (enabled) {
+        if (desktopLyricsWindow && !desktopLyricsWindow.isDestroyed()) {
+          closeDesktopLyricsWindow()
+        }
+        if (!wallpaperWindow || wallpaperWindow.isDestroyed()) {
+          createWallpaperWindow()
+        }
+        if (wallpaperWindow && !wallpaperWindow.isDestroyed()) {
+          const success = await workerw.enableWallpaperMode(wallpaperWindow)
+          if (success) {
+            workerwAppState.enabled = true
+            workerwAppState.wallpaperMode = true
+            updateTrayMenu()
+            broadcastWorkerWState()
+            return { ok: true, state: workerw.getState() }
+          }
+        }
+        return { ok: false, error: 'Failed to enable wallpaper mode' }
+      } else {
+        const success = await workerw.disableWallpaperMode(wallpaperWindow)
+        if (success) {
+          workerwAppState.wallpaperMode = false
+          updateTrayMenu()
+          broadcastWorkerWState()
+        }
+        return { ok: success, state: workerw.getState() }
+      }
+    } catch (e) {
+      console.error('[WorkerW] setWallpaperMode error:', e)
+      return { ok: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('workerw:setVisualIntensity', (_event, intensity) => {
+    try {
+      workerw.setVisualIntensity(intensity)
+      workerwAppState.visualIntensity = intensity
+      broadcastWorkerWState()
+      return { ok: true, visualIntensity: intensity }
     } catch (e) {
       return { ok: false, error: e.message }
     }
@@ -896,11 +1235,44 @@ function setupIpc() {
   })
 
   ipcMain.handle('update:check', async () => {
-    return { ok: true, updateAvailable: false, version: app.getVersion() }
+    try {
+      const state = await updater.checkForUpdates()
+      return { ok: true, ...state }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
   })
 
   ipcMain.handle('update:download', async () => {
-    return { ok: false, error: 'NOT_IMPLEMENTED' }
+    try {
+      const result = await updater.downloadUpdate()
+      return result
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('update:install', async () => {
+    try {
+      const result = await updater.installUpdate()
+      return result
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('update:state', () => {
+    return updater.getState()
+  })
+
+  ipcMain.handle('update:cancel', () => {
+    return { ok: true, cancelled: updater.cancelUpdate() }
+  })
+
+  updater.on('state-changed', (state) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update:state-changed', state)
+    }
   })
 
   const LOCAL_MUSIC_CONFIG_KEY = 'localMusicConfig'
@@ -1126,6 +1498,10 @@ if (!gotSingleInstanceLock) {
     app.setName(APP_NAME)
     if (process.platform === 'win32') app.setAppUserModelId(APP_USER_MODEL_ID)
 
+    if (!isDev) {
+      createSplashWindow()
+    }
+
     serverProcess = startServer({
       cookieDir: app.getPath('userData'),
     })
@@ -1152,8 +1528,18 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('will-quit', () => {
+app.on('will-quit', async () => {
   globalShortcut.unregisterAll()
+  try {
+    if (wallpaperWindow && !wallpaperWindow.isDestroyed()) {
+      await workerw.cleanup(wallpaperWindow)
+    }
+    if (desktopLyricsWindow && !desktopLyricsWindow.isDestroyed()) {
+      await workerw.cleanup(desktopLyricsWindow)
+    }
+  } catch (e) {
+    console.error('[WorkerW] Cleanup on quit failed:', e.message)
+  }
   stopServer()
   if (tray) {
     tray.destroy()

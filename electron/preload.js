@@ -9,6 +9,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     close: () => ipcRenderer.invoke('window:close'),
     isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
     getState: () => ipcRenderer.invoke('window:getState'),
+    setMiniMode: (isMini) => ipcRenderer.invoke('window:setMiniMode', isMini),
+  },
+
+  media: {
+    setNowPlaying: (data) => ipcRenderer.invoke('media:setNowPlaying', data),
+    setPlaybackState: (state) => ipcRenderer.invoke('media:setPlaybackState', state),
   },
 
   desktopLyrics: {
@@ -17,6 +23,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     update: (payload) => ipcRenderer.invoke('desktop-lyrics:update', payload),
     setLock: (locked) => ipcRenderer.invoke('desktop-lyrics:setLock', locked),
     moveBy: (dx, dy) => ipcRenderer.invoke('desktop-lyrics:moveBy', dx, dy),
+    getState: () => ipcRenderer.invoke('desktop-lyrics:getState'),
+    sendToOverlay: (channel, payload) => ipcRenderer.invoke('desktop-lyrics:sendToOverlay', channel, payload),
     onEnabledState: (callback) => {
       if (typeof callback !== 'function') return () => {}
       const listener = (_event, payload) => callback(payload || {})
@@ -29,12 +37,45 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.on('mineradio-desktop-lyrics-lock-state', listener)
       return () => ipcRenderer.removeListener('mineradio-desktop-lyrics-lock-state', listener)
     },
+    onLyricsData: (callback) => {
+      if (typeof callback !== 'function') return () => {}
+      const listener = (_event, data) => callback(data || {})
+      ipcRenderer.on('desktop-lyrics:lyricsData', listener)
+      return () => ipcRenderer.removeListener('desktop-lyrics:lyricsData', listener)
+    },
+    onPlayState: (callback) => {
+      if (typeof callback !== 'function') return () => {}
+      const listener = (_event, data) => callback(data || {})
+      ipcRenderer.on('desktop-lyrics:playState', listener)
+      return () => ipcRenderer.removeListener('desktop-lyrics:playState', listener)
+    },
+    onSettingsChange: (callback) => {
+      if (typeof callback !== 'function') return () => {}
+      const listener = (_event, settings) => callback(settings || {})
+      ipcRenderer.on('desktop-lyrics:settings', listener)
+      return () => ipcRenderer.removeListener('desktop-lyrics:settings', listener)
+    },
   },
 
   wallpaper: {
     enable: () => ipcRenderer.invoke('wallpaper:enable'),
     disable: () => ipcRenderer.invoke('wallpaper:disable'),
     update: (payload) => ipcRenderer.invoke('wallpaper:update', payload),
+  },
+
+  workerw: {
+    state: () => ipcRenderer.invoke('workerw:state'),
+    enable: (options) => ipcRenderer.invoke('workerw:enable', options || {}),
+    disable: () => ipcRenderer.invoke('workerw:disable'),
+    setOpacity: (opacity) => ipcRenderer.invoke('workerw:setOpacity', opacity),
+    setWallpaperMode: (enabled) => ipcRenderer.invoke('workerw:setWallpaperMode', enabled),
+    setVisualIntensity: (intensity) => ipcRenderer.invoke('workerw:setVisualIntensity', intensity),
+    onState: (callback) => {
+      if (typeof callback !== 'function') return () => {}
+      const listener = (_event, state) => callback(state || {})
+      ipcRenderer.on('mineradio-workerw-state', listener)
+      return () => ipcRenderer.removeListener('mineradio-workerw-state', listener)
+    },
   },
 
   app: {
@@ -72,6 +113,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   update: {
     check: () => ipcRenderer.invoke('update:check'),
     download: () => ipcRenderer.invoke('update:download'),
+    install: () => ipcRenderer.invoke('update:install'),
+    getState: () => ipcRenderer.invoke('update:state'),
+    cancel: () => ipcRenderer.invoke('update:cancel'),
+    onStateChanged: (callback) => {
+      if (typeof callback !== 'function') return () => {}
+      const listener = (_event, state) => callback(state || {})
+      ipcRenderer.on('update:state-changed', listener)
+      return () => ipcRenderer.removeListener('update:state-changed', listener)
+    },
   },
 
   localMusic: {

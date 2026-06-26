@@ -11,12 +11,16 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
+    "build:only": "vite build",
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"vite\" \"wait-on http://127.0.0.1:5173 && cross-env NODE_ENV=development electron .\"",
     "electron:build": "npm run build && electron-builder",
     "electron:build:win": "npm run build && electron-builder --win nsis",
     "electron:build:mac": "npm run build && electron-builder --mac dmg",
     "electron:build:linux": "npm run build && electron-builder --linux AppImage",
+    "electron:build:all": "npm run build && electron-builder -mw",
+    "electron:pack": "npm run build && electron-builder --dir",
+    "electron:publish": "npm run build && electron-builder --publish always",
     "server:dev": "node --watch server/index.js",
     "lint": "eslint . --ext .vue,.js,.ts --fix",
     "typecheck": "vue-tsc --noEmit"
@@ -71,12 +75,22 @@
       "package.json",
       "!node_modules/**/*",
       "!**/*.map",
-      "!**/node_modules/*/{test,tests,example,examples,docs,doc,benchmark,__tests__,__test__}/**"
+      "!**/node_modules/*/{test,tests,example,examples,docs,doc,benchmark,__tests__,__test__}/**",
+      "!**/node_modules/**/*.md",
+      "!**/node_modules/**/*.txt",
+      "!**/node_modules/**/LICENSE*",
+      "!**/node_modules/**/license*",
+      "!server/**/*.md",
+      "!electron/generate-icons.js"
     ],
     "asar": false,
+    "asarUnpack": [],
     "extraMetadata": {
       "main": "electron/main.js"
     },
+    "compression": "maximum",
+    "removePackageScripts": true,
+    "removePackageKeywords": true,
     "win": {
       "executableName": "Mineradio",
       "icon": "build/icon.ico",
@@ -136,7 +150,10 @@
       "uninstallerSidebar": "build/installerSidebar.bmp",
       "installerHeader": "build/installerHeader.bmp",
       "include": "build/installer.nsh",
-      "artifactName": "Mineradio-${version}-Setup.${ext}"
+      "artifactName": "Mineradio-${version}-Setup.${ext}",
+      "differentialPackage": true,
+      "unicode": true,
+      "language": "2052"
     },
     "mac": {
       "icon": "build/icon.png",
@@ -144,6 +161,8 @@
         "dmg"
       ],
       "category": "public.app-category.music",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
       "fileAssociations": [
         {
           "ext": "mp3",
@@ -192,6 +211,8 @@
         "AppImage"
       ],
       "category": "Audio",
+      "synopsis": "沉浸式音乐播放器",
+      "description": "Mineradio - 沉浸式音乐播放器",
       "fileAssociations": [
         {
           "ext": "mp3",
@@ -223,7 +244,8 @@
       {
         "provider": "github",
         "owner": "XxHuberrr",
-        "repo": "Mineradio"
+        "repo": "Mineradio",
+        "releaseType": "prerelease"
       }
     ]
   }

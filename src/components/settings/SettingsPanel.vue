@@ -1,14 +1,52 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useFxStore } from '@/stores/fx'
 import { useLyricsStore } from '@/stores/lyrics'
 import { usePerformanceStore } from '@/stores/performance'
+import { usePlayerStore } from '@/stores/player'
 import type { VisualPreset, PerformanceQuality, PerformanceBackgroundMode } from '@/types'
+import type {
+  DesktopLyricsPosition,
+  DesktopLyricsLineMode,
+  DesktopLyricsStylePreset,
+  DesktopLyricsSettings,
+} from '@/modules/lyrics'
+
+const emit = defineEmits<{
+  (e: 'close'): void
+}>()
 
 const fx = useFxStore()
 const lyrics = useLyricsStore()
 const performance = usePerformanceStore()
-const showPanel = ref(false)
+const player = usePlayerStore()
+
+const activeTab = ref<'visual' | 'desktopLyrics' | 'about'>('visual')
+
+const desktopLyricsSettings = ref<DesktopLyricsSettings>({
+  enabled: false,
+  locked: true,
+  position: 'bottom',
+  lineMode: 'double',
+  stylePreset: 'gradient',
+  fontSize: 48,
+  opacity: 0.92,
+  primaryColor: '#f6fdff',
+  strokeColor: 'rgba(4,6,12,0.42)',
+  glowColor: '#9cffdf',
+  showProgressBar: false,
+  showSongInfo: false,
+  fontFamily: 'Inter, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", Arial, sans-serif',
+  fontWeight: 900,
+  letterSpacing: 0,
+  lineHeight: 1.2,
+  glowEnabled: true,
+  glowStrength: 0.35,
+  strokeEnabled: true,
+  strokeWidth: 1,
+  smoothScroll: true,
+  animationEnabled: true,
+})
 
 const presets: { id: VisualPreset; name: string; icon: string }[] = [
   { id: 'emily', name: 'Emily', icon: '🌸' },
@@ -33,6 +71,26 @@ const bgModes = [
   { id: 'release', name: '后台释放' },
 ]
 
+const positionOptions: { id: DesktopLyricsPosition; name: string }[] = [
+  { id: 'top', name: '顶部' },
+  { id: 'center', name: '居中' },
+  { id: 'bottom', name: '底部' },
+]
+
+const lineModeOptions: { id: DesktopLyricsLineMode; name: string }[] = [
+  { id: 'single', name: '单行' },
+  { id: 'double', name: '双行' },
+]
+
+const stylePresetOptions: { id: DesktopLyricsStylePreset; name: string; preview: string }[] = [
+  { id: 'minimal', name: '简约', preview: '极简风格' },
+  { id: 'neon', name: '霓虹', preview: '霓虹发光' },
+  { id: 'gradient', name: '渐变', preview: '渐变色彩' },
+  { id: 'stroke', name: '描边', preview: '粗体描边' },
+]
+
+const electronAPI = (window as any).electronAPI
+
 function setPreset(preset: VisualPreset) {
   fx.update('preset', preset)
 }
@@ -54,6 +112,98 @@ function resetSettings() {
   lyrics.setGlow({ strength: fx.settings.lyricGlow })
 }
 
+function toggleDesktopLyrics() {
+  desktopLyricsSettings.value.enabled = !desktopLyricsSettings.value.enabled
+  syncDesktopLyricsSettings()
+}
+
+function toggleLyricsLock() {
+  desktopLyricsSettings.value.locked = !desktopLyricsSettings.value.locked
+  syncDesktopLyricsSettings()
+}
+
+function setLyricsPosition(position: DesktopLyricsPosition) {
+  desktopLyricsSettings.value.position = position
+  syncDesktopLyricsSettings()
+}
+
+function setLineMode(mode: DesktopLyricsLineMode) {
+  desktopLyricsSettings.value.lineMode = mode
+  syncDesktopLyricsSettings()
+}
+
+function setStylePreset(preset: DesktopLyricsStylePreset) {
+  desktopLyricsSettings.value.stylePreset = preset
+  applyStylePreset(preset)
+  syncDesktopLyricsSettings()
+}
+
+function applyStylePreset(preset: DesktopLyricsStylePreset) {
+  const presets: Record<DesktopLyricsStylePreset, Partial<DesktopLyricsSettings>> = {
+    minimal: {
+      primaryColor: '#ffffff',
+      strokeColor: 'rgba(0,0,0,0.5)',
+      glowColor: '#ffffff',
+      glowEnabled: false,
+      strokeEnabled: true,
+      glowStrength: 0,
+      strokeWidth: 2,
+    },
+    neon: {
+      primaryColor: '#00ffff',
+      strokeColor: '#00ffff',
+      glowColor: '#00ffff',
+      glowEnabled: true,
+      strokeEnabled: false,
+      glowStrength: 0.8,
+      strokeWidth: 0,
+    },
+    gradient: {
+      primaryColor: '#ff6b6b',
+      strokeColor: 'rgba(0,0,0,0.3)',
+      glowColor: '#feca57',
+      glowEnabled: true,
+      strokeEnabled: true,
+      glowStrength: 0.4,
+      strokeWidth: 1,
+    },
+    stroke: {
+      primaryColor: '#ffffff',
+      strokeColor: '#000000',
+      glowColor: '#ffffff',
+      glowEnabled: false,
+      strokeEnabled: true,
+      glowStrength: 0,
+      strokeWidth: 3,
+    },
+  }
+  
+  const presetConfig = presets[preset]
+  if (presetConfig) {
+    Object.assign(desktopLyricsSettings.value, presetConfig)
+  }
+}
+
+function syncDesktopLyricsSettings() {
+  if (electronAPI?.desktopLyrics) {
+    if (desktopLyricsSettings.value.enabled) {
+      electronAPI.desktopLyrics.show()
+    } else {
+      electronAPI.desktopLyrics.hide()
+    }
+    electronAPI.desktopLyrics.setLock(desktopLyricsSettings.value.locked)
+    electronAPI.desktopLyrics.sendToOverlay('settings', { ...desktopLyricsSettings.value })
+  }
+}
+
+function updateDesktopLyricsSetting<K extends keyof DesktopLyricsSettings>(
+  key: K,
+  value: DesktopLyricsSettings[K]
+) {
+  desktopLyricsSettings.value[key] = value
+  syncDesktopLyricsSettings()
+}
+
 watch(
   () => fx.settings.lyricGlow,
   (val) => {
@@ -61,134 +211,393 @@ watch(
   },
   { immediate: true },
 )
+
+function closePanel() {
+  emit('close')
+}
 </script>
 
 <template>
   <div class="settings-wrap">
-    <button class="settings-fab" @click="showPanel = !showPanel" title="设置">
-      ⚙️
-    </button>
-
-    <div class="settings-panel" v-if="showPanel">
+    <div class="settings-panel">
       <div class="settings-header">
-        <h3>视觉设置</h3>
-        <button class="close-btn" @click="showPanel = false">✕</button>
+        <h3>设置</h3>
+        <button class="close-btn" @click="closePanel">✕</button>
       </div>
 
-      <div class="settings-section">
-        <div class="section-title">视觉预设</div>
-        <div class="preset-grid">
-          <button
-            v-for="p in presets"
-            :key="p.id"
-            class="preset-item"
-            :class="{ active: fx.settings.preset === p.id }"
-            @click="setPreset(p.id)"
-          >
-            <span class="preset-icon">{{ p.icon }}</span>
-            <span class="preset-name">{{ p.name }}</span>
-          </button>
-        </div>
+      <div class="settings-tabs">
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'visual' }"
+          @click="activeTab = 'visual'"
+        >
+          视觉
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'desktopLyrics' }"
+          @click="activeTab = 'desktopLyrics'"
+        >
+          桌面歌词
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'about' }"
+          @click="activeTab = 'about'"
+        >
+          关于
+        </button>
       </div>
 
-      <div class="settings-section">
-        <div class="section-title">性能设置</div>
-        <div class="setting-row">
-          <label>性能等级</label>
-          <div class="segmented">
-            <button
-              v-for="q in qualityLevels"
-              :key="q.id"
-              class="seg-btn"
-              :class="{ active: fx.settings.performanceQuality === q.id }"
-              @click="setPerformanceQuality(q.id as PerformanceQuality)"
-            >
-              {{ q.name }}
-            </button>
+      <div class="settings-content">
+        <div v-show="activeTab === 'visual'" class="settings-tab-content">
+          <div class="settings-section">
+            <div class="section-title">视觉预设</div>
+            <div class="preset-grid">
+              <button
+                v-for="p in presets"
+                :key="p.id"
+                class="preset-item"
+                :class="{ active: fx.settings.preset === p.id }"
+                @click="setPreset(p.id)"
+              >
+                <span class="preset-icon">{{ p.icon }}</span>
+                <span class="preset-name">{{ p.name }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">性能设置</div>
+            <div class="setting-row">
+              <label>性能等级</label>
+              <div class="segmented">
+                <button
+                  v-for="q in qualityLevels"
+                  :key="q.id"
+                  class="seg-btn"
+                  :class="{ active: fx.settings.performanceQuality === q.id }"
+                  @click="setPerformanceQuality(q.id as PerformanceQuality)"
+                >
+                  {{ q.name }}
+                </button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <label>粒子密度: {{ Math.round(fx.settings.particleResolution * 100) }}%</label>
+              <input
+                type="range"
+                min="0.2"
+                max="2"
+                step="0.1"
+                :value="fx.settings.particleResolution"
+                @input="fx.update('particleResolution', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+              <div class="setting-hint">{{ fx.particleCountLabel }} 粒子网格</div>
+            </div>
+            <div class="setting-row">
+              <label>动感强度: {{ Math.round(fx.settings.cinemaIntensity * 100) }}%</label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                :value="fx.settings.cinemaIntensity"
+                @input="fx.update('cinemaIntensity', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">歌词设置</div>
+            <div class="setting-row">
+              <label>歌词发光强度: {{ Math.round(fx.settings.lyricGlow * 100) }}%</label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                :value="fx.settings.lyricGlow"
+                @input="fx.update('lyricGlow', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">颜色</div>
+            <div class="setting-row">
+              <label>主题色</label>
+              <input
+                type="color"
+                :value="fx.settings.accentColor"
+                @input="fx.update('accentColor', ($event.target as HTMLInputElement).value)"
+              />
+            </div>
+            <div class="setting-row">
+              <label>辉光色</label>
+              <input
+                type="color"
+                :value="fx.settings.glowColor"
+                @input="fx.update('glowColor', ($event.target as HTMLInputElement).value)"
+              />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">后台模式</div>
+            <div class="segmented">
+              <button
+                v-for="b in bgModes"
+                :key="b.id"
+                class="seg-btn"
+                :class="{ active: fx.settings.performanceBackground === b.id }"
+                @click="setBackgroundMode(b.id as PerformanceBackgroundMode)"
+              >
+                {{ b.name }}
+              </button>
+            </div>
+            <div class="setting-row" style="margin-top: 10px;">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="fx.settings.liveBackgroundKeep"
+                  @change="fx.update('liveBackgroundKeep', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>后台保持活动背景</span>
+              </label>
+            </div>
           </div>
         </div>
-        <div class="setting-row">
-          <label>粒子密度: {{ Math.round(fx.settings.particleResolution * 100) }}%</label>
-          <input
-            type="range"
-            min="0.2"
-            max="2"
-            step="0.1"
-            :value="fx.settings.particleResolution"
-            @input="fx.update('particleResolution', parseFloat(($event.target as HTMLInputElement).value))"
-          />
-          <div class="setting-hint">{{ fx.particleCountLabel }} 粒子网格</div>
-        </div>
-        <div class="setting-row">
-          <label>动感强度: {{ Math.round(fx.settings.cinemaIntensity * 100) }}%</label>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            :value="fx.settings.cinemaIntensity"
-            @input="fx.update('cinemaIntensity', parseFloat(($event.target as HTMLInputElement).value))"
-          />
-        </div>
-      </div>
 
-      <div class="settings-section">
-        <div class="section-title">歌词设置</div>
-        <div class="setting-row">
-          <label>歌词发光强度: {{ Math.round(fx.settings.lyricGlow * 100) }}%</label>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            :value="fx.settings.lyricGlow"
-            @input="fx.update('lyricGlow', parseFloat(($event.target as HTMLInputElement).value))"
-          />
-        </div>
-      </div>
+        <div v-show="activeTab === 'desktopLyrics'" class="settings-tab-content">
+          <div class="settings-section">
+            <div class="section-title">桌面歌词</div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="desktopLyricsSettings.enabled"
+                  @change="toggleDesktopLyrics"
+                />
+                <span>启用桌面歌词</span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="desktopLyricsSettings.locked"
+                  @change="toggleLyricsLock"
+                />
+                <span>锁定位置（穿透模式）</span>
+              </label>
+            </div>
+          </div>
 
-      <div class="settings-section">
-        <div class="section-title">颜色</div>
-        <div class="setting-row">
-          <label>主题色</label>
-          <input
-            type="color"
-            :value="fx.settings.accentColor"
-            @input="fx.update('accentColor', ($event.target as HTMLInputElement).value)"
-          />
-        </div>
-        <div class="setting-row">
-          <label>辉光色</label>
-          <input
-            type="color"
-            :value="fx.settings.glowColor"
-            @input="fx.update('glowColor', ($event.target as HTMLInputElement).value)"
-          />
-        </div>
-      </div>
+          <div class="settings-section">
+            <div class="section-title">显示位置</div>
+            <div class="segmented">
+              <button
+                v-for="p in positionOptions"
+                :key="p.id"
+                class="seg-btn"
+                :class="{ active: desktopLyricsSettings.position === p.id }"
+                @click="setLyricsPosition(p.id)"
+              >
+                {{ p.name }}
+              </button>
+            </div>
+          </div>
 
-      <div class="settings-section">
-        <div class="section-title">后台模式</div>
-        <div class="segmented">
-          <button
-            v-for="b in bgModes"
-            :key="b.id"
-            class="seg-btn"
-            :class="{ active: fx.settings.performanceBackground === b.id }"
-            @click="setBackgroundMode(b.id as PerformanceBackgroundMode)"
-          >
-            {{ b.name }}
-          </button>
+          <div class="settings-section">
+            <div class="section-title">显示行数</div>
+            <div class="segmented">
+              <button
+                v-for="m in lineModeOptions"
+                :key="m.id"
+                class="seg-btn"
+                :class="{ active: desktopLyricsSettings.lineMode === m.id }"
+                @click="setLineMode(m.id)"
+              >
+                {{ m.name }}
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">样式预设</div>
+            <div class="preset-grid">
+              <button
+                v-for="p in stylePresetOptions"
+                :key="p.id"
+                class="preset-item preset-item--style"
+                :class="{ active: desktopLyricsSettings.stylePreset === p.id }"
+                @click="setStylePreset(p.id)"
+              >
+                <span class="preset-name">{{ p.name }}</span>
+                <span class="preset-desc">{{ p.preview }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">字体大小</div>
+            <div class="setting-row">
+              <label>字号: {{ desktopLyricsSettings.fontSize }}px</label>
+              <input
+                type="range"
+                min="24"
+                max="96"
+                step="2"
+                :value="desktopLyricsSettings.fontSize"
+                @input="updateDesktopLyricsSetting('fontSize', parseInt(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">透明度</div>
+            <div class="setting-row">
+              <label>透明度: {{ Math.round(desktopLyricsSettings.opacity * 100) }}%</label>
+              <input
+                type="range"
+                min="0.3"
+                max="1"
+                step="0.05"
+                :value="desktopLyricsSettings.opacity"
+                @input="updateDesktopLyricsSetting('opacity', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">颜色设置</div>
+            <div class="setting-row">
+              <label>主色</label>
+              <input
+                type="color"
+                :value="desktopLyricsSettings.primaryColor"
+                @input="updateDesktopLyricsSetting('primaryColor', ($event.target as HTMLInputElement).value)"
+              />
+            </div>
+            <div class="setting-row">
+              <label>描边色</label>
+              <input
+                type="color"
+                :value="desktopLyricsSettings.strokeColor"
+                @input="updateDesktopLyricsSetting('strokeColor', ($event.target as HTMLInputElement).value)"
+              />
+            </div>
+            <div class="setting-row">
+              <label>发光色</label>
+              <input
+                type="color"
+                :value="desktopLyricsSettings.glowColor"
+                @input="updateDesktopLyricsSetting('glowColor', ($event.target as HTMLInputElement).value)"
+              />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">效果设置</div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="desktopLyricsSettings.glowEnabled"
+                  @change="updateDesktopLyricsSetting('glowEnabled', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>启用发光效果</span>
+              </label>
+            </div>
+            <div class="setting-row" v-if="desktopLyricsSettings.glowEnabled">
+              <label>发光强度: {{ Math.round(desktopLyricsSettings.glowStrength * 100) }}%</label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                :value="desktopLyricsSettings.glowStrength"
+                @input="updateDesktopLyricsSetting('glowStrength', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="desktopLyricsSettings.strokeEnabled"
+                  @change="updateDesktopLyricsSetting('strokeEnabled', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>启用描边效果</span>
+              </label>
+            </div>
+            <div class="setting-row" v-if="desktopLyricsSettings.strokeEnabled">
+              <label>描边宽度: {{ desktopLyricsSettings.strokeWidth }}px</label>
+              <input
+                type="range"
+                min="0"
+                max="5"
+                step="0.5"
+                :value="desktopLyricsSettings.strokeWidth"
+                @input="updateDesktopLyricsSetting('strokeWidth', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">其他选项</div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="desktopLyricsSettings.showProgressBar"
+                  @change="updateDesktopLyricsSetting('showProgressBar', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>显示播放进度条</span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="desktopLyricsSettings.showSongInfo"
+                  @change="updateDesktopLyricsSetting('showSongInfo', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>显示歌曲信息</span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="desktopLyricsSettings.smoothScroll"
+                  @change="updateDesktopLyricsSetting('smoothScroll', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>平滑滚动</span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="desktopLyricsSettings.animationEnabled"
+                  @change="updateDesktopLyricsSetting('animationEnabled', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>入场动画</span>
+              </label>
+            </div>
+          </div>
         </div>
-        <div class="setting-row" style="margin-top: 10px;">
-          <label class="checkbox-label">
-            <input
-              type="checkbox"
-              :checked="fx.settings.liveBackgroundKeep"
-              @change="fx.update('liveBackgroundKeep', ($event.target as HTMLInputElement).checked)"
-            />
-            <span>后台保持活动背景</span>
-          </label>
+
+        <div v-show="activeTab === 'about'" class="settings-tab-content">
+          <div class="settings-section">
+            <div class="about-section">
+              <div class="about-logo">🎵</div>
+              <div class="about-name">Mineradio</div>
+              <div class="about-version">v2.0.0-alpha.1</div>
+              <div class="about-desc">沉浸式音乐播放器</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -207,34 +616,15 @@ watch(
   z-index: 50;
 }
 
-.settings-fab {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(15, 15, 20, 0.8);
-  backdrop-filter: blur(10px);
-  color: #fff;
-  font-size: 18px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.settings-fab:hover {
-  background: rgba(30, 30, 40, 0.9);
-  transform: rotate(30deg);
-}
-
 .settings-panel {
   position: absolute;
   top: 56px;
   right: 0;
-  width: 320px;
-  max-height: 70vh;
-  overflow-y: auto;
+  width: 360px;
+  max-height: 75vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background: rgba(15, 15, 20, 0.95);
   backdrop-filter: blur(20px);
   border-radius: 12px;
@@ -248,6 +638,7 @@ watch(
   align-items: center;
   padding: 14px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
 }
 
 .settings-header h3 {
@@ -270,6 +661,47 @@ watch(
 .close-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
+}
+
+.settings-tabs {
+  display: flex;
+  padding: 8px;
+  gap: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.tab-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+  color: #fff;
+  background: rgba(217, 91, 103, 0.2);
+}
+
+.settings-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.settings-tab-content {
+  padding: 4px 0;
 }
 
 .settings-section {
@@ -316,6 +748,10 @@ watch(
   background: rgba(217, 91, 103, 0.1);
 }
 
+.preset-item--style {
+  padding: 8px 6px;
+}
+
 .preset-icon {
   font-size: 18px;
 }
@@ -323,6 +759,11 @@ watch(
 .preset-name {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.7);
+}
+
+.preset-desc {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .setting-row {
@@ -422,9 +863,39 @@ watch(
   color: #fff;
 }
 
+.about-section {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.about-logo {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.about-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.about-version {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 8px;
+}
+
+.about-desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
 .settings-footer {
   padding: 12px 16px;
   text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
 }
 
 .reset-btn {
