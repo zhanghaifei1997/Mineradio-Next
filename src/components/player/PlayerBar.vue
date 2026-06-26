@@ -110,6 +110,22 @@ const playModeIcon = computed(() => {
   return map[player.playMode]
 })
 
+const modeSwitching = ref(false)
+let modeSwitchTimer: ReturnType<typeof setTimeout> | null = null
+
+function handleCyclePlayMode() {
+  player.cyclePlayMode()
+  modeSwitching.value = false
+  // 强制重新触发动画
+  requestAnimationFrame(() => {
+    modeSwitching.value = true
+  })
+  if (modeSwitchTimer) clearTimeout(modeSwitchTimer)
+  modeSwitchTimer = setTimeout(() => {
+    modeSwitching.value = false
+  }, 400)
+}
+
 function handleQueueClick() {
   emit('showQueue')
 }
@@ -168,7 +184,12 @@ function handleOpenCollect() {
 
     <div class="player-bar__center">
       <div class="controls">
-        <button class="ctrl-btn ctrl-btn--mode" @click="player.cyclePlayMode()" :title="playModeLabel">
+        <button
+          class="ctrl-btn ctrl-btn--mode play-mode-btn"
+          :class="{ switching: modeSwitching }"
+          @click="handleCyclePlayMode"
+          :title="playModeLabel"
+        >
           <span class="mode-icon">{{ playModeIcon }}</span>
           <span class="mode-text">{{ playModeLabel }}</span>
         </button>
@@ -223,8 +244,8 @@ function handleOpenCollect() {
   right: 0;
   height: 88px;
   background: rgba(15, 15, 20, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: var(--blur-bottom-bar);
+  -webkit-backdrop-filter: var(--blur-bottom-bar);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
@@ -410,6 +431,10 @@ function handleOpenCollect() {
   padding: 4px 10px;
   border-radius: 12px;
   gap: 4px;
+}
+
+.play-mode-btn.switching {
+  animation: play-mode-pop 0.4s ease-out;
 }
 
 .mode-icon {

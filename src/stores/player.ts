@@ -1,10 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
-import type { Song, PlayerStatus, QualityLevel } from '@/types'
+import type { Song, PlayerStatus, QualityLevel, MusicSource } from '@/types'
 import { providerManager } from '@/modules/providers'
+import type { SongUrlResult } from '@/modules/providers'
 import { localMusicLibrary } from '@/modules/local'
 import { playQueueStore } from './playQueue'
 import { useNotificationStore } from './notification'
+import { useUserStore } from './user'
 import {
   AudioAnalyzer,
   BeatMapData,
@@ -30,10 +32,126 @@ import type {
 import { djModeEngine } from '@/modules/dj'
 import type { DjProgram, DjRadio } from '@/modules/dj'
 
-const QUALITY_STORAGE_KEY = 'mineradio_player_quality'
+const QUALITY_STORAGE_KEY = 'mineradio-playback-quality-v1'
+const QUALITY_STORAGE_KEY_LEGACY = 'mineradio_player_quality'
+const VOLUME_STORAGE_KEY = 'apex-player-volume'
 const CONTINUE_KEY = 'mineradio_continue_listening'
 
+function loadSavedVolume(): number {
+  try {
+    const saved = localStorage.getItem(VOLUME_STORAGE_KEY)
+    if (saved !== null) {
+      const parsed = parseFloat(saved)
+      if (!Number.isNaN(parsed)) {
+        return Math.max(0, Math.min(1, parsed))
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load volume setting:', e)
+  }
+  return 0.75
+}
+
 const beatMapCache = new Map<string, BeatMap>()
+
+// ============================================================================
+// 竞态保护与错误恢复相关常量与工具函数
+// ============================================================================
+
+/** 失败项冷却时间（ms），冷却期内跳过该队列项 */
+const PLAYBACK_FAIL_COOLDOWN_MS = 18000
+/** 跨源回退最大递归深度 */
+const MAX_FALLBACK_DEPTH = 3
+/** QQ 音质降级重试顺序：无损 → 极高 → 较高 → 标准 */
+const QQ_QUALITY_FALLBACK_ORDER: QualityLevel[] = ['lossless', 'exhigh', 'higher', 'standard']
+
+/** 播放选项：在 play() / playQueueAt() 之间传递的保护参数 */
+export interface PlayOptions {
+  /** 当前跨源回退深度，0 表示首次播放 */
+  fallbackDepth?: number
+  /** 强制使用的音质（用于 QQ 音质降级重试） */
+  qualityOverride?: QualityLevel
+  /** 已尝试过的 QQ 音质列表，避免循环重试 */
+  qqQualityTried?: QualityLevel[]
+  /** 是否为用户主动操作（手动失败时不自动跳到下一首） */
+  manual?: boolean
+}
+
+/** 标准化文本：用于标题/歌手严格匹配 */
+function normalizeMatchText(text: string): string {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[（(【\[].*?[）)】\]]/g, '')
+    .replace(/[\s·・\-—_.,，。:：'"“”‘’/\\|]+/g, '')
+}
+
+/** 提取歌曲的歌手名片段（兼容 artists 数组与 artist 字符串） */
+function artistNameParts(song: Song): string[] {
+  const parts: string[] = []
+  if (song && Array.isArray(song.artists)) {
+    song.artists.forEach((a) => {
+      if (a && a.name) parts.push(a.name)
+    })
+  }
+  // 运行时部分歌曲对象可能携带 artist 字符串字段
+  const artistStr = (song as any).artist as string | undefined
+  if (artistStr) {
+    String(artistStr)
+      .split(/\s*\/\s*|\s*,\s*|、|&| feat\.? | ft\.? /i)
+      .forEach((name) => {
+        if (name && name.trim()) parts.push(name.trim())
+      })
+  }
+  return parts.map(normalizeMatchText).filter(Boolean)
+}
+
+/**
+ * 严格匹配两首歌的标题与歌手
+ * 用于跨源回退时避免取到同名但不同歌手的版本
+ */
+export function isSameTitleArtist(a: Song, b: Song): boolean {
+  if (!a || !b) return false
+  const norm = (s: string) =>
+    (s || '')
+      .toLowerCase()
+      .replace(/[\s\-\(\)（）]/g, '')
+      .replace(/feat\..*$/i, '')
+  const getArtist = (song: Song): string => {
+    const explicit = (song as any).artist as string | undefined
+    if (explicit) return explicit
+    return (song.artists || []).map((ar) => ar.name).join('')
+  }
+  return norm(a.name) === norm(b.name) && norm(getArtist(a)) === norm(getArtist(b))
+}
+
+/** 检测是否为递归栈溢出错误（RangeError / maximum call stack size exceeded） */
+export function isPlaybackRecursionError(err: unknown): boolean {
+  const msg = String((err instanceof Error && err.message) || err || '')
+  return err instanceof RangeError || /maximum call stack size exceeded/i.test(msg)
+}
+
+/** 跨源回退的目标音源：QQ ↔ 网易云 */
+function alternatePlaybackSource(source: string): string {
+  return source === 'qqmusic' ? 'netease' : 'qqmusic'
+}
+
+/** 将 API 返回的音质字符串映射为内部 QualityLevel */
+function mapQualityLevel(q: string | undefined): QualityLevel | null {
+  if (!q) return null
+  const map: Record<string, QualityLevel> = {
+    standard: 'standard',
+    higher: 'higher',
+    exhigh: 'exhigh',
+    lossless: 'lossless',
+    hires: 'hires',
+    jymaster: 'hires',
+  }
+  return map[q] || null
+}
+
+function songQueueKey(song: Song): string {
+  return `${song.source}:${song.id}`
+}
 
 export interface ContinueListeningData {
   queue: Song[]
@@ -66,7 +184,7 @@ export const usePlayerStore = defineStore('player', () => {
   const status = ref<PlayerStatus>('idle')
   const currentTime = ref(0)
   const duration = ref(0)
-  const volume = ref(0.7)
+  const volume = ref<number>(loadSavedVolume())
   const muted = ref(false)
   const speed = ref(1)
   const playMode = ref<'sequence' | 'loop' | 'single' | 'shuffle'>('sequence')
@@ -111,9 +229,24 @@ export const usePlayerStore = defineStore('player', () => {
   const startupVisualPreviewActive = ref(false)
   const mockBeatGenerator = ref<MockBeatGenerator | null>(null)
 
+  // ---- 竞态保护与错误恢复状态 ----
+  /** 切歌令牌：每次 play()/playQueueAt() 递增，异步步骤校验以防止旧请求覆盖新状态 */
+  const trackSwitchToken = ref(0)
+  /** 播放互斥锁：togglePlay 期间阻止重复触发 */
+  const playToggleBusy = ref(false)
+  /** 播放阶段标记：用于错误诊断，报告失败发生在哪个阶段 */
+  const playPhase = ref<string>('start')
+  /** 试听片段提示：{ show, text, loginRequired } */
+  const trialBanner = ref<{ show: boolean; text: string; loginRequired: boolean }>({
+    show: false,
+    text: '',
+    loginRequired: false,
+  })
+  /** 失败冷却记录：key = `${source}:${id}`，value = 失败时间戳（ms） */
+  const lastPlaybackFailAt = ref<Record<string, number>>({})
+
   let animationFrameId: number | null = null
   let lastFrameTime = 0
-  let isSwitchingSong = false
   let mockAnimationFrameId: number | null = null
 
   const isPlaying = computed(() => status.value === 'playing')
@@ -516,6 +649,25 @@ export const usePlayerStore = defineStore('player', () => {
     return result?.url || null
   }
 
+  /**
+   * 获取歌曲播放 URL 及其元信息（trial / level / restriction 等）
+   * 用于 play() 中的试听片段检测、login_required 判定与音质降级诊断
+   */
+  async function getSongUrlWithMeta(
+    song: Song,
+    quality?: QualityLevel
+  ): Promise<SongUrlResult | null> {
+    if (song.source === 'local') {
+      const url = await localMusicLibrary.getSongUrl(song.id)
+      if (!url) return null
+      return { url, quality: quality || currentQuality.value }
+    }
+
+    const provider = providerManager.get(song.source) || providerManager.default
+    const result = await provider.getSongUrl(song.id, quality || currentQuality.value)
+    return result
+  }
+
   async function getSupportedQualities(song: Song): Promise<QualityLevel[]> {
     if (song.source === 'local') {
       return ['standard', 'higher', 'exhigh', 'lossless']
@@ -578,6 +730,7 @@ export const usePlayerStore = defineStore('player', () => {
   function loadQuality(): QualityLevel {
     try {
       const saved = localStorage.getItem(QUALITY_STORAGE_KEY)
+        ?? localStorage.getItem(QUALITY_STORAGE_KEY_LEGACY)
       if (saved && ['standard', 'higher', 'exhigh', 'lossless', 'hires'].includes(saved)) {
         return saved as QualityLevel
       }
@@ -590,6 +743,9 @@ export const usePlayerStore = defineStore('player', () => {
   function saveQuality(quality: QualityLevel): void {
     try {
       localStorage.setItem(QUALITY_STORAGE_KEY, quality)
+      try {
+        localStorage.removeItem(QUALITY_STORAGE_KEY_LEGACY)
+      } catch (_) {}
     } catch (e) {
       console.warn('Failed to save quality setting:', e)
     }
@@ -689,64 +845,172 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 
-  async function play(song: Song): Promise<void> {
+  async function play(song: Song, opts: PlayOptions = {}): Promise<void> {
     initAudio()
     if (!audio.value) return
 
-    if (isSwitchingSong) return
-    isSwitchingSong = true
+    // 切歌令牌递增：使此前所有异步请求失效
+    trackSwitchToken.value++
+    const token = trackSwitchToken.value
 
+    // 阶段追踪：用于错误诊断
+    const markPhase = (name: string) => {
+      playPhase.value = name
+    }
+    markPhase('start')
+
+    markPhase('session-finalize')
     stopStartupVisualPreview()
 
+    markPhase('cancel-previous-track')
     if (audioEnhancer.value && fadeEnabled.value && !audio.value.paused && currentSong.value) {
-      await audioEnhancer.value.fadeOut(300)
+      try {
+        await audioEnhancer.value.fadeOut(300)
+      } catch (_) {}
     }
+    // 令牌校验：fade 期间可能已有新的 play() 触发
+    if (token !== trackSwitchToken.value) return
 
+    markPhase('track-setup')
     currentSong.value = song
     status.value = 'loading'
     currentTime.value = 0
     clearBeatMap()
     lastError.value = null
     audioEnhancer.value?.resetRetry()
+    // 重置试听提示
+    trialBanner.value = { show: false, text: '', loginRequired: false }
 
     if (audioEnhancer.value && replayGainEnabled.value) {
       audioEnhancer.value.applyReplayGainToSong(song.id)
     }
 
+    markPhase('lyric-prep')
+    // 歌词由 useLyrics composable 监听 currentSong 变化处理，此处仅标记阶段
+
+    markPhase('cover-load')
+    // 封面由 useCoverColor composable 监听 currentSong 变化处理，此处仅标记阶段
+
+    markPhase('source-url')
     try {
-      const url = await getSongUrl(song)
-      if (!url) {
+      const requestedQuality = opts.qualityOverride || currentQuality.value
+      const result = await getSongUrlWithMeta(song, requestedQuality)
+      // 令牌校验：URL 获取期间可能已有新的 play() 触发
+      if (token !== trackSwitchToken.value) return
+
+      if (!result || !result.url) {
+        // QQ 音质降级重试：无损 → 极高 → 较高 → 标准
+        if (
+          song.source === 'qqmusic' &&
+          (await retryQQPlaybackWithCompatibleQuality(song, token, opts, result, requestedQuality))
+        ) {
+          return
+        }
+        // 跨源回退：查找同名同歌手的另一平台版本
+        if ((await tryAutoPlaybackFallback(song, result, token, opts))) {
+          return
+        }
+        // 无法播放：处理 login_required 等情况
+        handlePlaybackUnavailable(song, result)
         status.value = 'error'
-        isSwitchingSong = false
         return
       }
 
-      audio.value.src = url
-      await audio.value.play()
+      // 试听片段检测：区分 vip / svip / 未登录 文案
+      if (result.trial) {
+        const user = useUserStore()
+        const account = user.getAccount(song.source as MusicSource)
+        const loggedIn = account.loggedIn
+        let text: string
+        if (loggedIn && account.profile?.isSvip) {
+          text = '此歌曲需要单曲、专辑购买或更高权限'
+        } else if (loggedIn && account.profile?.vipLevel === 'vip') {
+          text = '此歌曲需要 SVIP 或购买 · 当前仅播放试听片段'
+        } else if (loggedIn) {
+          text = '此歌曲需 VIP · 当前仅播放试听片段'
+        } else {
+          text = '当前未登录 · 仅播放试听片段'
+        }
+        trialBanner.value = { show: true, text, loginRequired: !loggedIn }
+      }
 
+      markPhase('audio-element')
+      audio.value.src = result.url
+
+      markPhase('visual-prep')
+      // 重置可视化状态由现有监听器处理
+
+      markPhase('audio-start')
+      await audio.value.play()
+      // 令牌校验：play() 启动期间可能已有新的 play() 触发
+      if (token !== trackSwitchToken.value) return
+
+      markPhase('session-begin')
+      // 播放成功后通知
+      const notification = useNotificationStore()
+      notification.notifyTrackChange(song)
+
+      markPhase('lyrics-fetch')
       setTimeout(() => {
+        if (token !== trackSwitchToken.value) return
         analyzeCurrentSong()
       }, 500)
     } catch (e) {
-      console.error('Play failed:', e)
+      // 令牌校验：失败时若已有新 play() 触发，则不处理旧错误
+      if (token !== trackSwitchToken.value) return
+      console.error('Play failed:', { phase: playPhase.value, error: e }, e)
+
+      // login_required 检测：错误信息中包含则自动打开登录弹窗
+      const errMsg = e instanceof Error ? e.message : String(e)
+      if (/login_required/i.test(errMsg)) {
+        const user = useUserStore()
+        user.showLoginModal(song.source as MusicSource)
+      }
+
+      // 递归保护：栈溢出错误不再触发跳过/回退
+      if (isPlaybackRecursionError(e)) {
+        status.value = 'error'
+        return
+      }
+
+      // 非手动操作且队列有多首时，自动跳过失败项
+      if (!opts.manual) {
+        const queue = playQueueStore()
+        if (queue.queue.length > 1) {
+          skipFailedQueueItem(song, token, '当前歌曲加载失败，正在尝试队列里的下一首。')
+          return
+        }
+      }
       status.value = 'error'
-    } finally {
-      isSwitchingSong = false
     }
   }
 
-  function togglePlay(): void {
-    if (!audio.value || !currentSong.value) return
-    if (status.value === 'playing') {
-      if (audioEnhancer.value && fadeEnabled.value) {
-        audioEnhancer.value.fadeOut(200).then(() => {
+  async function togglePlay(): Promise<void> {
+    // 互斥锁：防止快速连点导致的播放/暂停状态混乱
+    if (playToggleBusy.value) return
+    playToggleBusy.value = true
+    try {
+      if (!audio.value || !currentSong.value) return
+      if (status.value === 'playing') {
+        if (audioEnhancer.value && fadeEnabled.value) {
+          try {
+            await audioEnhancer.value.fadeOut(200)
+          } catch (_) {}
           audio.value?.pause()
-        })
-      } else {
-        audio.value.pause()
+        } else {
+          audio.value.pause()
+        }
+      } else if (status.value === 'paused') {
+        try {
+          await audio.value.play()
+        } catch (e) {
+          console.warn('[TogglePlay] resume failed:', e)
+        }
       }
-    } else if (status.value === 'paused') {
-      audio.value.play()
+    } catch (e) {
+      console.warn('[TogglePlay]', e)
+    } finally {
+      playToggleBusy.value = false
     }
   }
 
@@ -786,6 +1050,11 @@ export const usePlayerStore = defineStore('player', () => {
     if (newVolume > 0 && muted.value) {
       muted.value = false
     }
+    try {
+      localStorage.setItem(VOLUME_STORAGE_KEY, newVolume.toString())
+    } catch (e) {
+      console.warn('Failed to save volume setting:', e)
+    }
   }
 
   function toggleMute(): void {
@@ -803,6 +1072,8 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function next(): void {
+    // 重置互斥锁，防止 togglePlay 卡死
+    playToggleBusy.value = false
     const queue = playQueueStore()
     const nextSong = queue.getNext(playMode.value)
     if (nextSong) {
@@ -811,10 +1082,26 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function prev(): void {
+    // 重置互斥锁，防止 togglePlay 卡死
+    playToggleBusy.value = false
     const queue = playQueueStore()
     const prevSong = queue.getPrev(playMode.value)
     if (prevSong) {
       play(prevSong)
+    }
+  }
+
+  /**
+   * 按队列索引播放：playQueueAt 是 play() 的队列入口，
+   * 与 play() 共享同一套 token 保护机制。
+   */
+  async function playQueueAt(idx: number, opts: PlayOptions = {}): Promise<void> {
+    const queue = playQueueStore()
+    if (idx < 0 || idx >= queue.queue.length) return
+    queue.setCurrentIndex(idx)
+    const song = queue.queue[idx]
+    if (song) {
+      await play(song, opts)
     }
   }
 
@@ -839,7 +1126,8 @@ export const usePlayerStore = defineStore('player', () => {
 
   function retryPlay(): void {
     if (!audio.value || !currentSong.value) return
-    console.log(`Retrying playback (attempt ${audioEnhancer.value?.getRetryCount() || 0 + 1})`)
+    const attempt = (audioEnhancer.value?.getRetryCount() || 0) + 1
+    console.log(`Retrying playback (attempt ${attempt})`)
     audio.value.load()
     audio.value.play().catch(() => {
       console.error('Retry failed')
@@ -847,59 +1135,280 @@ export const usePlayerStore = defineStore('player', () => {
     })
   }
 
-  async function tryFallbackSource(): Promise<boolean> {
+  /**
+   * 跨源回退：搜索同名同歌手的另一平台版本
+   * - 严格匹配 isSameTitleArtist，不再直接取 searchResult.songs[0]
+   * - 递归保护：最多 MAX_FALLBACK_DEPTH 层
+   * - 检测 isPlaybackRecursionError 并停止回退
+   */
+  async function tryFallbackSource(opts: { fallbackDepth?: number } = {}): Promise<boolean> {
     if (!currentSong.value || !audio.value) return false
-    
+
+    const depth = opts.fallbackDepth || 0
+    if (depth >= MAX_FALLBACK_DEPTH) {
+      console.error(`Fallback depth exceeded (max ${MAX_FALLBACK_DEPTH})`)
+      return false
+    }
+
+    // 捕获当前 token，用于异步边界校验
+    const token = trackSwitchToken.value
     const originalSource = currentSong.value.source
     if (originalSource === 'local') return false
-    
-    const allProviders = providerManager.getAll().filter(p => p.id !== originalSource && p.id !== 'local')
-    
+
+    const allProviders = providerManager
+      .getAll()
+      .filter((p) => p.id !== originalSource && p.id !== 'local')
+
     for (const provider of allProviders) {
       try {
         console.log(`Trying fallback source: ${provider.id}`)
         const searchResult = await provider.search(currentSong.value.name, { limit: 5 })
-        
-        if (searchResult.songs.length > 0) {
-          const matchedSong = searchResult.songs[0]
-          const urlResult = await provider.getSongUrl(matchedSong.id, currentQuality.value)
-          
-          if (urlResult?.url) {
-            const notification = useNotificationStore()
-            notification.notifySourceFallback(originalSource, provider.id, currentSong.value)
-            
-            const updatedSong: Song = {
-              ...currentSong.value,
-              id: matchedSong.id,
-              source: provider.id,
-              url: urlResult.url,
-            }
-            
-            const wasPlaying = isPlaying.value
-            const currentTime = audio.value.currentTime
-            
-            currentSong.value = updatedSong
-            audio.value.src = urlResult.url
-            audio.value.currentTime = Math.min(currentTime, 5)
-            
-            if (wasPlaying) {
-              try {
-                await audio.value.play()
-              } catch {
-                continue
-              }
-            }
-            
-            return true
+        // 令牌校验：搜索期间可能已有新的 play() 触发
+        if (token !== trackSwitchToken.value) return false
+
+        // 严格匹配标题 + 歌手，避免取到同名但不同歌手的版本
+        const matchedSong = searchResult.songs.find((candidate) =>
+          isSameTitleArtist(currentSong.value!, candidate)
+        )
+        if (!matchedSong) continue
+
+        const urlResult = await provider.getSongUrl(matchedSong.id, currentQuality.value)
+        // 令牌校验
+        if (token !== trackSwitchToken.value) return false
+        if (!urlResult?.url) continue
+
+        const notification = useNotificationStore()
+        notification.notifySourceFallback(originalSource, provider.id, currentSong.value)
+
+        const updatedSong: Song = {
+          ...currentSong.value,
+          id: matchedSong.id,
+          source: provider.id,
+          url: urlResult.url,
+        }
+
+        const wasPlaying = isPlaying.value
+        const preserveTime = audio.value.currentTime
+
+        currentSong.value = updatedSong
+        audio.value.src = urlResult.url
+        audio.value.currentTime = Math.min(preserveTime, 5)
+
+        if (wasPlaying) {
+          try {
+            await audio.value.play()
+          } catch {
+            continue
           }
         }
+        return true
       } catch (e) {
+        // 递归保护：栈溢出错误立即停止回退
+        if (isPlaybackRecursionError(e)) {
+          console.error('Playback recursion detected during fallback')
+          return false
+        }
         console.warn(`Fallback to ${provider.id} failed:`, e)
         continue
       }
     }
-    
+
     return false
+  }
+
+  // ---- 失败冷却与队列跳过 ----
+
+  /** 标记队列中某首歌曲播放失败，记录时间戳 */
+  function markQueueItemPlaybackFailed(idx: number): void {
+    const queue = playQueueStore()
+    const q = queue.queue
+    if (idx < 0 || idx >= q.length) return
+    const key = songQueueKey(q[idx])
+    lastPlaybackFailAt.value = { ...lastPlaybackFailAt.value, [key]: Date.now() }
+  }
+
+  /**
+   * 从 fromIdx 开始查找下一个未被冷却期阻挡的队列索引
+   * 冷却期（PLAYBACK_FAIL_COOLDOWN_MS）内的失败项会被跳过
+   */
+  function nextUnblockedQueueIndex(fromIdx: number): number {
+    const queue = playQueueStore()
+    const q = queue.queue
+    if (q.length === 0) return -1
+    const now = Date.now()
+    for (let step = 1; step < q.length; step++) {
+      const nextIdx = (fromIdx + step) % q.length
+      const key = songQueueKey(q[nextIdx])
+      const failedAt = lastPlaybackFailAt.value[key] || 0
+      if (!failedAt || now - failedAt > PLAYBACK_FAIL_COOLDOWN_MS) {
+        return nextIdx
+      }
+    }
+    return -1
+  }
+
+  /** 跳过失败的队列项：标记失败 → 查找下一个可播项 → 自动播放 */
+  function skipFailedQueueItem(song: Song, token: number, message: string): void {
+    if (token !== trackSwitchToken.value) return
+    const queue = playQueueStore()
+    const q = queue.queue
+    const idx = q.findIndex((s) => s.id === song.id && s.source === song.source)
+    if (idx >= 0) markQueueItemPlaybackFailed(idx)
+
+    const notification = useNotificationStore()
+
+    if (q.length <= 1) {
+      notification.showNotification('没有可跳过的下一首', { body: message })
+      return
+    }
+
+    const fromIdx = idx >= 0 ? idx : queue.currentIndex
+    const nextIdx = nextUnblockedQueueIndex(fromIdx)
+    if (nextIdx < 0) {
+      notification.showNotification('队列暂时没有可播歌曲', {
+        body: '已尝试绕开受限歌曲，当前队列没有新的可播放项。',
+      })
+      return
+    }
+
+    notification.showNotification('已跳过受限歌曲', { body: message })
+    playQueueAt(nextIdx, { fallbackDepth: 0 })
+  }
+
+  // ---- 跨源自动回退（play() 内部调用） ----
+
+  /**
+   * 自动跨源回退：查找同名同歌手的另一平台版本
+   * - depth > 0 时不再递归回退，改为跳过队列项
+   * - login_required 时不跳过，交由 handlePlaybackUnavailable 处理
+   */
+  async function tryAutoPlaybackFallback(
+    song: Song,
+    result: SongUrlResult | null,
+    token: number,
+    opts: PlayOptions
+  ): Promise<boolean> {
+    const depth = opts.fallbackDepth || 0
+    // 已是回退后的版本仍不可播：跳到队列下一首
+    if (depth > 0) {
+      skipFailedQueueItem(song, token, '自动换源后的版本仍不可播，正在播放下一首。')
+      return true
+    }
+    if (!song || song.source === 'local') return false
+
+    const reason = result?.reason || result?.restriction?.category || ''
+    const originalSource = song.source
+    const targetSource = alternatePlaybackSource(originalSource)
+    const targetProvider = providerManager.get(targetSource)
+    if (!targetProvider) return false
+
+    const notification = useNotificationStore()
+    const fromLabel = originalSource === 'qqmusic' ? 'QQ 音乐' : '网易云'
+    const toLabel = targetSource === 'qqmusic' ? 'QQ 音乐' : '网易云'
+    notification.showNotification('正在自动换源', {
+      body: `${fromLabel} 当前不可播，正在查找 ${toLabel} 的同名同歌手版本。`,
+    })
+
+    try {
+      const searchResult = await targetProvider.search(song.name, { limit: 8 })
+      if (token !== trackSwitchToken.value) return true
+
+      // 严格匹配标题 + 歌手
+      const alternate = searchResult.songs.find((candidate) =>
+        isSameTitleArtist(song, candidate)
+      )
+      if (!alternate) {
+        // login_required 时不跳过，让 handlePlaybackUnavailable 打开登录弹窗
+        if (reason === 'login_required') return false
+        skipFailedQueueItem(
+          song,
+          token,
+          `没有找到同名同歌手的 ${toLabel} 版本，正在播放下一首。`
+        )
+        return true
+      }
+
+      notification.showNotification('已自动切换音源', {
+        body: `${song.name} 已从 ${fromLabel} 切到 ${toLabel}。`,
+      })
+
+      // 以递增的 fallbackDepth 播放回退版本，防止无限递归
+      await play(alternate, {
+        ...opts,
+        fallbackDepth: depth + 1,
+      })
+      return true
+    } catch (e) {
+      if (token !== trackSwitchToken.value) return true
+      if (isPlaybackRecursionError(e)) return false
+      skipFailedQueueItem(song, token, '自动换源搜索失败，正在播放下一首。')
+      return true
+    }
+  }
+
+  // ---- QQ 音质降级重试 ----
+
+  /**
+   * QQ 音乐播放失败时，按 无损 → 极高 → 较高 → 标准 顺序降级重试
+   * 通过递归调用 play() 实现，会递增 trackSwitchToken 使当前请求失效
+   */
+  async function retryQQPlaybackWithCompatibleQuality(
+    song: Song,
+    token: number,
+    opts: PlayOptions,
+    result: SongUrlResult | null,
+    requestedQuality: QualityLevel
+  ): Promise<boolean> {
+    if (song.source !== 'qqmusic') return false
+
+    // 收集已尝试的音质
+    const tried = new Set<QualityLevel>(opts.qqQualityTried || [])
+    tried.add(requestedQuality)
+    const resolvedLevel = mapQualityLevel(result?.level)
+    if (resolvedLevel) tried.add(resolvedLevel)
+
+    const candidates = QQ_QUALITY_FALLBACK_ORDER.filter((q) => !tried.has(q))
+    if (candidates.length === 0) return false
+    // 令牌校验
+    if (token !== trackSwitchToken.value) return false
+
+    const nextQuality = candidates[0]
+    const notification = useNotificationStore()
+    notification.showNotification('QQ 音质自动兼容', {
+      body: `当前音质启动失败，正在切到 ${nextQuality}。`,
+    })
+
+    // 以降级后的音质重新播放（play() 会递增 token）
+    await play(song, {
+      ...opts,
+      qualityOverride: nextQuality,
+      qqQualityTried: Array.from(tried),
+      fallbackDepth: opts.fallbackDepth || 0,
+    })
+    return true
+  }
+
+  // ---- 播放不可用处理（login_required 检测） ----
+
+  /**
+   * 处理歌曲无法播放的情况
+   * - reason 为 login_required 时自动打开登录弹窗
+   */
+  function handlePlaybackUnavailable(song: Song, result: SongUrlResult | null): void {
+    const reason = result?.reason || result?.restriction?.category || ''
+    const notification = useNotificationStore()
+
+    if (reason === 'login_required' || /login_required/i.test(reason)) {
+      const user = useUserStore()
+      user.showLoginModal(song.source as MusicSource)
+      notification.showNotification('需要登录', {
+        body: `${song.name} 需要登录后才能播放`,
+      })
+    } else {
+      notification.showNotification('无法播放', {
+        body: `${song.name} 暂时无法播放`,
+      })
+    }
   }
 
   function setPlayMode(mode: typeof playMode.value): void {
@@ -1018,8 +1527,15 @@ export const usePlayerStore = defineStore('player', () => {
     currentOutputDeviceId,
     startupVisualPreviewActive,
     mockBeatGenerator,
+    // 竞态保护与错误恢复状态
+    trackSwitchToken,
+    playToggleBusy,
+    playPhase,
+    trialBanner,
+    lastPlaybackFailAt,
     initAudio,
     play,
+    playQueueAt,
     togglePlay,
     pause,
     resume,
@@ -1047,6 +1563,7 @@ export const usePlayerStore = defineStore('player', () => {
     getBufferProgress,
     retryPlay,
     tryFallbackSource,
+    nextUnblockedQueueIndex,
     setEqualizerEnabled,
     setEqualizerGain,
     setEqualizerPreset,

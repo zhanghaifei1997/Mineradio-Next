@@ -2,7 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Song } from '@/types'
 
-const STORAGE_KEY = 'mineradio-play-history'
+const STORAGE_KEY = 'mineradio-listen-stats-v1'
+const STORAGE_KEY_LEGACY = 'mineradio-play-history'
 const MAX_HISTORY = 100
 
 export interface HistoryEntry {
@@ -13,7 +14,17 @@ export interface HistoryEntry {
 
 function loadFromStorage(): HistoryEntry[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    let raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) {
+      raw = localStorage.getItem(STORAGE_KEY_LEGACY)
+      if (raw) {
+        // 迁移旧数据到新键名
+        localStorage.setItem(STORAGE_KEY, raw)
+        try {
+          localStorage.removeItem(STORAGE_KEY_LEGACY)
+        } catch (_) {}
+      }
+    }
     if (raw) {
       return JSON.parse(raw)
     }

@@ -12,7 +12,8 @@ const emit = defineEmits<{
   (e: 'complete'): void
 }>()
 
-const STORAGE_KEY = 'mineradio_visual_guide_completed'
+const STORAGE_KEY = 'mineradio-visual-guide-seen-v2'
+const STORAGE_KEY_LEGACY = 'mineradio_visual_guide_completed'
 
 const currentStep = ref(0)
 const isOpen = ref(false)
@@ -81,10 +82,23 @@ const currentStepData = computed(() => steps[currentStep.value])
 
 function hasCompletedGuide(): boolean {
   try {
-    return localStorage.getItem(STORAGE_KEY) === 'true'
+    const cur = localStorage.getItem(STORAGE_KEY)
+    if (cur === 'true') return true
+    if (cur === null) {
+      const legacy = localStorage.getItem(STORAGE_KEY_LEGACY)
+      if (legacy === 'true') {
+        // 迁移旧数据到新键名
+        localStorage.setItem(STORAGE_KEY, 'true')
+        try {
+          localStorage.removeItem(STORAGE_KEY_LEGACY)
+        } catch {}
+        return true
+      }
+    }
   } catch {
     return false
   }
+  return false
 }
 
 function markCompleted(): void {
@@ -164,6 +178,7 @@ onMounted(() => {
 
           <Transition name="slide-fade" mode="out-in">
             <div :key="currentStep" class="visual-guide__step">
+              <div class="visual-guide-ring"></div>
               <div class="visual-guide__icon">{{ currentStepData.icon }}</div>
               <h3 class="visual-guide__title">{{ currentStepData.title }}</h3>
               <p class="visual-guide__desc">{{ currentStepData.description }}</p>
@@ -256,6 +271,39 @@ onMounted(() => {
   padding: 36px 28px 24px;
   text-align: center;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.visual-guide-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.visual-guide__icon,
+.visual-guide__title,
+.visual-guide__desc {
+  position: relative;
+  z-index: 1;
+}
+
+.visual-guide-ring::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(217, 91, 103, 0.18) 50%,
+    transparent 100%
+  );
+  animation: visual-guide-scan 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
 
 .visual-guide__skip {

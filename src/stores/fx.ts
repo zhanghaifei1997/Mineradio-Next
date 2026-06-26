@@ -3,7 +3,8 @@ import { ref, computed } from 'vue'
 import type { FxSettings, VisualPreset, PerformanceQuality, PerformanceBackgroundMode, SpectrumMode, CinemaMode, ShelfMode, ShelfCameraMode, ShelfPresence, LayoutMode } from '@/types'
 import { normalizePerformanceQuality, normalizePerformanceBackgroundMode } from '@/modules/performance'
 
-const STORAGE_KEY = 'mineradio_fx_settings'
+const STORAGE_KEY = 'mineradio-lyric-layout-v1'
+const STORAGE_KEY_LEGACY = 'mineradio_fx_settings'
 
 const defaultSettings: FxSettings = {
   preset: 'emily',
@@ -323,7 +324,17 @@ export const useFxStore = defineStore('fx', () => {
 
   function loadSettings(): FxSettings {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
+      let raw = localStorage.getItem(STORAGE_KEY)
+      if (!raw) {
+        raw = localStorage.getItem(STORAGE_KEY_LEGACY)
+        if (raw) {
+          // 迁移旧数据到新键名
+          localStorage.setItem(STORAGE_KEY, raw)
+          try {
+            localStorage.removeItem(STORAGE_KEY_LEGACY)
+          } catch (_) {}
+        }
+      }
       if (raw) {
         const parsed = JSON.parse(raw)
         return {

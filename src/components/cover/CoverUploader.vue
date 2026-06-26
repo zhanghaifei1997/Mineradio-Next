@@ -21,11 +21,23 @@ const isDragging = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const showUploadTip = ref(false)
 
-const TIP_STORAGE_KEY = 'mineradio_cover_upload_tip_shown'
+const TIP_STORAGE_KEY = 'mineradio-upload-tip-seen'
+const TIP_STORAGE_KEY_LEGACY = 'mineradio_cover_upload_tip_shown'
 
 function checkShouldShowTip() {
   try {
-    const shown = localStorage.getItem(TIP_STORAGE_KEY)
+    let shown = localStorage.getItem(TIP_STORAGE_KEY)
+    if (shown === null) {
+      const legacy = localStorage.getItem(TIP_STORAGE_KEY_LEGACY)
+      if (legacy !== null) {
+        // 迁移旧数据到新键名
+        localStorage.setItem(TIP_STORAGE_KEY, legacy)
+        try {
+          localStorage.removeItem(TIP_STORAGE_KEY_LEGACY)
+        } catch (_) {}
+        shown = legacy
+      }
+    }
     if (!shown) {
       showUploadTip.value = true
     }

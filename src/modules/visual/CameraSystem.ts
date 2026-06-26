@@ -3,7 +3,8 @@ import type { OrbitState, FreeCameraState, BeatCameraState, CinemaDynamics } fro
 import type { CinemaMode } from '@/types'
 
 const BASE_FOV = 45
-const FREE_CAMERA_STORE_KEY = 'mineradio_free_camera_state'
+const FREE_CAMERA_STORE_KEY = 'mineradio-free-camera-v1'
+const FREE_CAMERA_STORE_KEY_LEGACY = 'mineradio_free_camera_state'
 
 function clamp01(v: number): number {
   return Math.max(0, Math.min(1, v))
@@ -361,7 +362,18 @@ export class CameraSystem {
     }
 
     try {
-      const raw = JSON.parse(localStorage.getItem(FREE_CAMERA_STORE_KEY) || '{}') || {}
+      let rawStr = localStorage.getItem(FREE_CAMERA_STORE_KEY)
+      if (!rawStr) {
+        rawStr = localStorage.getItem(FREE_CAMERA_STORE_KEY_LEGACY)
+        if (rawStr) {
+          // 迁移旧数据到新键名
+          localStorage.setItem(FREE_CAMERA_STORE_KEY, rawStr)
+          try {
+            localStorage.removeItem(FREE_CAMERA_STORE_KEY_LEGACY)
+          } catch (_) {}
+        }
+      }
+      const raw = JSON.parse(rawStr || '{}') || {}
       if (raw.position) {
         state.position.set(
           clampRange(Number(raw.position.x) || 0, -80, 80),

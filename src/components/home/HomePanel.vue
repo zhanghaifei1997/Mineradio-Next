@@ -147,14 +147,16 @@ onUnmounted(() => {
             </div>
           </div>
           <div class="hero-right">
-            <div class="home-disc" :class="{ 'is-spinning': player.isPlaying }">
-              <div class="disc-ring"></div>
-              <div class="disc-center"></div>
-              <div class="disc-cover" v-if="player.currentSong?.coverUrl">
-                <img :src="player.currentSong.coverUrl" alt="" />
-              </div>
-              <div class="disc-cover placeholder" v-else>
-                <span>🎵</span>
+            <div class="visual-preview">
+              <div class="home-disc" :class="{ 'is-spinning': player.isPlaying }">
+                <div class="disc-ring"></div>
+                <div class="disc-center"></div>
+                <div class="disc-cover" v-if="player.currentSong?.coverUrl">
+                  <img :src="player.currentSong.coverUrl" alt="" />
+                </div>
+                <div class="disc-cover placeholder" v-else>
+                  <span>🎵</span>
+                </div>
               </div>
             </div>
           </div>
@@ -453,8 +455,8 @@ onUnmounted(() => {
 
 .entry-btn:hover {
   transform: translateY(-2px);
-  border-color: rgba(217, 91, 103, 0.4);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  border-color: color-mix(in srgb, var(--home-accent) 40%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--home-accent) 12%, transparent);
 }
 
 .entry-btn.primary {
@@ -479,8 +481,9 @@ onUnmounted(() => {
 
 .visual-preview {
   position: relative;
-  width: 160px;
-  height: 160px;
+  width: 180px;
+  height: 180px;
+  animation: home-visual-drift 7.4s ease-in-out infinite;
 }
 
 .visual-circle {
@@ -554,7 +557,8 @@ onUnmounted(() => {
   transition: all 0.3s ease;
   animation: cardFloat 7.4s ease-in-out infinite;
   animation-delay: var(--delay);
-  border: 1px solid var(--color-border);
+  border: 1px solid color-mix(in srgb, var(--home-accent) 12%, var(--color-border));
+  background: color-mix(in srgb, var(--home-accent) 12%, transparent);
   backdrop-filter: var(--blur-surface);
   -webkit-backdrop-filter: var(--blur-surface);
 }
@@ -565,8 +569,8 @@ onUnmounted(() => {
 
 .home-card:hover {
   transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
-  border-color: rgba(217, 91, 103, 0.3);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3), 0 0 34px color-mix(in srgb, var(--home-accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--home-accent) 40%, transparent);
 }
 
 .card-weather {
@@ -577,7 +581,7 @@ onUnmounted(() => {
 .card-bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(217, 91, 103, 0.15), rgba(100, 50, 150, 0.1));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--home-accent) 15%, var(--color-bg)), transparent);
   transition: all 0.3s ease;
 }
 
@@ -607,12 +611,13 @@ onUnmounted(() => {
 
 .card-icon {
   font-size: 20px;
+  color: color-mix(in srgb, var(--home-accent) 80%, white);
 }
 
 .card-label {
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-text-secondary);
+  color: color-mix(in srgb, var(--home-accent) 80%, white);
   text-transform: uppercase;
   letter-spacing: 1px;
 }
@@ -718,7 +723,7 @@ onUnmounted(() => {
 
 .mini-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #d95b67, #f4d28a);
+  background: linear-gradient(90deg, var(--home-accent), color-mix(in srgb, var(--home-accent) 40%, #f4d28a));
   border-radius: 2px;
   transition: width 0.3s;
 }
@@ -831,7 +836,8 @@ onUnmounted(() => {
 }
 
 .playlist-item:hover .playlist-cover {
-  border-color: rgba(217, 91, 103, 0.3);
+  border-color: color-mix(in srgb, var(--home-accent) 40%, transparent);
+  box-shadow: 0 0 26px color-mix(in srgb, var(--home-accent) 12%, transparent);
 }
 
 .playlist-cover {
@@ -839,8 +845,8 @@ onUnmounted(() => {
   aspect-ratio: 1;
   border-radius: 12px;
   overflow: hidden;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--home-accent) 15%, var(--color-bg)), var(--color-bg));
+  border: 1px solid color-mix(in srgb, var(--home-accent) 12%, var(--color-border));
   margin-bottom: 8px;
   transition: all 0.2s;
 }
@@ -1044,10 +1050,10 @@ onUnmounted(() => {
     rgba(255, 255, 255, 0.08),
     transparent
   );
-  animation: home-shimmer 1.5s ease-in-out infinite;
+  animation: home-shimmer-local 1.5s ease-in-out infinite;
 }
 
-@keyframes home-shimmer {
+@keyframes home-shimmer-local {
   0% {
     left: -100%;
   }
@@ -1061,7 +1067,7 @@ onUnmounted(() => {
   width: 180px;
   height: 180px;
   border-radius: 50%;
-  animation: home-disc-turn 18s linear infinite;
+  animation: home-disc-turn-local 18s linear infinite;
   animation-play-state: paused;
   box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.5),
@@ -1106,7 +1112,7 @@ onUnmounted(() => {
   position: absolute;
   inset: 10px;
   border-radius: 50%;
-  border: 2px solid rgba(217, 91, 103, 0.3);
+  border: 2px solid color-mix(in srgb, var(--home-accent) 40%, transparent);
   z-index: 1;
 }
 
@@ -1155,14 +1161,14 @@ onUnmounted(() => {
 }
 
 .disc-cover.placeholder {
-  background: linear-gradient(135deg, rgba(217, 91, 103, 0.5), rgba(100, 50, 150, 0.5));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--home-accent) 50%, transparent), color-mix(in srgb, var(--tone-b) 50%, transparent));
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 36px;
 }
 
-@keyframes home-disc-turn {
+@keyframes home-disc-turn-local {
   from {
     transform: rotate(0deg);
   }
@@ -1191,10 +1197,10 @@ onUnmounted(() => {
   width: 4px;
   height: 8px;
   border-radius: 2px;
-  background: linear-gradient(to top, #d95b67, #ffffff);
-  animation: home-eq-rise 1.8s ease-in-out infinite;
+  background: linear-gradient(to top, var(--home-accent), color-mix(in srgb, var(--home-accent) 30%, white));
+  animation: home-eq-rise-local 1.8s ease-in-out infinite;
   animation-delay: var(--eq-delay, 0s);
-  box-shadow: 0 0 6px rgba(217, 91, 103, 0.5);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--home-accent) 50%, transparent);
 }
 
 .home-eq:not(.is-active) .eq-bar {
@@ -1202,7 +1208,7 @@ onUnmounted(() => {
   height: 8px !important;
 }
 
-@keyframes home-eq-rise {
+@keyframes home-eq-rise-local {
   0%, 100% {
     height: 8px;
   }
@@ -1217,7 +1223,7 @@ onUnmounted(() => {
   }
 }
 
-@keyframes home-card-float {
+@keyframes home-card-float-local {
   0%, 100% {
     transform: translateY(0) translateX(0);
   }
@@ -1233,7 +1239,7 @@ onUnmounted(() => {
 }
 
 .home-card {
-  animation-name: home-card-float;
+  animation-name: home-card-float-local;
   animation-duration: 7.4s;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;

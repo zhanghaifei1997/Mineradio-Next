@@ -97,11 +97,20 @@ export class NeteaseProvider extends MusicProvider {
     })
     const d = data?.data?.[0]
     if (!d?.url) return null
+    // freeTrialInfo 存在时表示返回的是试听片段
+    const isTrial = !!(d.freeTrialInfo || d.trial)
+    const reason = d.reason || (d.code && d.code !== 200 ? 'unavailable' : undefined)
     return {
       url: d.url,
       quality,
       size: d.size,
       md5: d.md5,
+      level: d.level,
+      trial: isTrial,
+      loggedIn: data?.account !== undefined || data?.loginType !== undefined,
+      vipLevel: data?.vipLevel,
+      reason,
+      restriction: d.restriction,
     }
   }
 

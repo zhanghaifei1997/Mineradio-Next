@@ -347,6 +347,33 @@ onMounted(() => {
   align-content: start;
 }
 
+/* 迷你队列 / 歌单架滚动条 */
+.mini-queue-list::-webkit-scrollbar,
+.shelf-grid::-webkit-scrollbar {
+  width: 3px;
+}
+
+.mini-queue-list::-webkit-scrollbar-track,
+.shelf-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mini-queue-list::-webkit-scrollbar-thumb,
+.shelf-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+}
+
+.mini-queue-list::-webkit-scrollbar-thumb:hover,
+.shelf-grid::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.shelf-grid {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
 .shelf-3d {
   position: absolute;
   inset: 0;

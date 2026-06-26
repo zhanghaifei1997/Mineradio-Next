@@ -5,7 +5,8 @@ import { usePlayerStore } from './player'
 export type SleepAction = 'pause' | 'quit' | 'shutdown'
 export type TimerPreset = 15 | 30 | 45 | 60 | 90 | 120
 
-const STORAGE_KEY = 'mineradio_sleep_timer'
+const STORAGE_KEY = 'mineradio-sleep-timer-v1'
+const STORAGE_KEY_LEGACY = 'mineradio_sleep_timer'
 
 interface TimerSettings {
   enabled: boolean
@@ -162,7 +163,17 @@ export const useTimerStore = defineStore('timer', () => {
 
   function loadSettings(): TimerSettings {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
+      let raw = localStorage.getItem(STORAGE_KEY)
+      if (!raw) {
+        raw = localStorage.getItem(STORAGE_KEY_LEGACY)
+        if (raw) {
+          // 迁移旧数据到新键名
+          localStorage.setItem(STORAGE_KEY, raw)
+          try {
+            localStorage.removeItem(STORAGE_KEY_LEGACY)
+          } catch (_) {}
+        }
+      }
       if (raw) {
         const parsed = JSON.parse(raw)
         return {

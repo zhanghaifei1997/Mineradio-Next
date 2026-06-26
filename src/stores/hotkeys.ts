@@ -25,7 +25,8 @@ export interface HotkeyConflict {
   conflictAction: HotkeyAction
 }
 
-const STORAGE_KEY = 'mineradio_hotkeys'
+const STORAGE_KEY = 'mineradio-hotkey-settings-v1'
+const STORAGE_KEY_LEGACY = 'mineradio_hotkeys'
 
 const DEFAULT_HOTKEYS: HotkeyConfig[] = [
   { action: 'toggle-play', accelerator: 'Ctrl+Alt+Space', enabled: true },
@@ -49,7 +50,17 @@ export const useHotkeysStore = defineStore('hotkeys', () => {
 
   function loadHotkeys(): HotkeyConfig[] {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
+      let raw = localStorage.getItem(STORAGE_KEY)
+      if (!raw) {
+        raw = localStorage.getItem(STORAGE_KEY_LEGACY)
+        if (raw) {
+          // 迁移旧数据到新键名
+          localStorage.setItem(STORAGE_KEY, raw)
+          try {
+            localStorage.removeItem(STORAGE_KEY_LEGACY)
+          } catch (_) {}
+        }
+      }
       if (raw) {
         const parsed = JSON.parse(raw)
         return mergeWithDefaults(parsed)

@@ -25,13 +25,23 @@ const activeSuggestTab = ref<'all' | 'song' | 'artist' | 'album' | 'playlist'>('
 const searchMode = ref<'all' | 'netease' | 'qq' | 'podcast'>('all')
 
 const HISTORY_KEY = 'mineradio-search-history'
+const HISTORY_MAX = 10
+const SEARCH_AUTOS_SEARCH_DELAY = 180
 let suggestTimer: ReturnType<typeof setTimeout> | null = null
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+let searchRequestSeq = 0
 
 function loadHistory() {
   try {
     const raw = localStorage.getItem(HISTORY_KEY)
     if (raw) {
-      searchHistory.value = JSON.parse(raw)
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        searchHistory.value = parsed
+          .map((v: unknown) => String(v ?? '').trim())
+          .filter(Boolean)
+          .slice(0, HISTORY_MAX)
+      }
     }
   } catch (_) {}
 }
@@ -40,13 +50,14 @@ function saveHistory(kw: string) {
   const trimmed = kw.trim()
   if (!trimmed) return
 
-  const exists = searchHistory.value.indexOf(trimmed)
-  if (exists >= 0) {
-    searchHistory.value.splice(exists, 1)
-  }
+  const lower = trimmed.toLowerCase()
+  // 按小写去重，原项目行为
+  searchHistory.value = searchHistory.value.filter(
+    (item) => item.toLowerCase() !== lower
+  )
   searchHistory.value.unshift(trimmed)
-  if (searchHistory.value.length > 20) {
-    searchHistory.value = searchHistory.value.slice(0, 20)
+  if (searchHistory.value.length > HISTORY_MAX) {
+    searchHistory.value = searchHistory.value.slice(0, HISTORY_MAX)
   }
   try {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(searchHistory.value))
@@ -119,46 +130,81 @@ function debounceSuggest(kw: string) {
 
 function onInputChange() {
   selectedIndex.value = -1
-  if (keyword.value.trim()) {
+  const q = keyword.value.trim()
+  if (q) {
     debounceSuggest(keyword.value)
     showDropdown.value = true
+    // 自动搜索：180ms 防抖，原项目行为
+    if (searchTimer) clearTimeout(searchTimer)
+    searchTimer = setTimeout(() => {
+      searchTimer = null
+      // 防抖触发时再次校验当前输入，避免用户在等待期间清空输入
+      if (keyword.value.trim()) {
+        doSearch()
+      }
+    }, SEARCH_AUTOS_SEARCH_DELAY)
   } else {
     suggestItems.value = []
     showDropdown.value = true
+    // 输入为空时取消挂起的自动搜索并清空结果
+    if (searchTimer) {
+      clearTimeout(searchTimer)
+      searchTimer = null
+    }
+    searchRequestSeq++ // 让任何 in-flight 的 doSearch 结果失效
+    results.value = []
   }
 }
 
 async function doSearch() {
-  if (!keyword.value.trim()) {
+  const query = keyword.value.trim()
+  if (!query) {
     results.value = []
     return
   }
+  // 显式触发搜索时取消任何挂起的自动搜索防抖，避免重复请求
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+    searchTimer = null
+  }
+  // 竞态保护：本次搜索请求分配一个递增的 seq
+  const seq = ++searchRequestSeq
   loading.value = true
   showDropdown.value = false
-  saveHistory(keyword.value)
+  saveHistory(query)
   try {
+    let combined: Song[]
     if (searchMode.value === 'all') {
-      const allResults = await providerManager.searchAll(keyword.value)
-      const combined: Song[] = []
+      const allResults = await providerManager.searchAll(query)
+      // seq 校验：异步返回时若已有更新的请求，丢弃结果
+      if (seq !== searchRequestSeq) return
+      combined = []
       for (const [, res] of allResults) {
         combined.push(...res.songs)
       }
-      results.value = combined
     } else if (searchMode.value === 'podcast') {
       const provider = providerManager.get('netease') || providerManager.default
-      const res = await provider.search(keyword.value, { type: 'song' })
-      results.value = res.songs.filter((s: Song) => s.isPodcast)
+      const res = await provider.search(query, { type: 'song' })
+      if (seq !== searchRequestSeq) return
+      combined = res.songs.filter((s: Song) => s.isPodcast)
     } else {
       const providerId = searchMode.value === 'netease' ? 'netease' : 'qqmusic'
       const provider = providerManager.get(providerId) || providerManager.default
-      const res = await provider.search(keyword.value)
-      results.value = res.songs
+      const res = await provider.search(query)
+      if (seq !== searchRequestSeq) return
+      combined = res.songs
     }
+    // 最终写入结果前再次校验，确保用户在此期间没有继续输入
+    if (seq !== searchRequestSeq) return
+    results.value = combined
   } catch (e) {
     console.error('Search error:', e)
+    if (seq !== searchRequestSeq) return
     results.value = []
   } finally {
-    loading.value = false
+    if (seq === searchRequestSeq) {
+      loading.value = false
+    }
   }
 }
 
@@ -334,7 +380,7 @@ onMounted(() => {
             </div>
             <div class="history-list">
               <div
-                v-for="(item, index) in searchHistory.slice(0, 8)"
+                v-for="(item, index) in searchHistory"
                 :key="index"
                 class="history-item"
                 @mousedown="useHistoryItem(item)"
@@ -469,8 +515,8 @@ onMounted(() => {
   width: 560px;
   max-height: calc(100vh - 180px);
   background: rgba(15, 15, 20, 0.9);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: var(--blur-search);
+  -webkit-backdrop-filter: var(--blur-search);
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   overflow: hidden;
@@ -872,6 +918,29 @@ onMounted(() => {
 .search-results {
   flex: 1;
   overflow-y: auto;
+}
+
+/* 搜索结果区品牌色滚动条 */
+.search-results::-webkit-scrollbar {
+  width: 3px;
+}
+
+.search-results::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.search-results::-webkit-scrollbar-thumb {
+  background: rgba(0, 245, 212, 0.24);
+  border-radius: 999px;
+}
+
+.search-results::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 245, 212, 0.4);
+}
+
+.search-results {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 245, 212, 0.24) transparent;
 }
 
 .result-header {

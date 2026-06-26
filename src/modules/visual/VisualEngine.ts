@@ -1,6 +1,9 @@
 import * as THREE from 'three'
 import { CameraSystem } from './CameraSystem'
 import { BeatSync } from './BeatSync'
+import { RippleSystem } from './RippleSystem'
+import { ParticleInteraction } from './ParticleInteraction'
+import { CoverDepth } from './CoverDepth'
 import { createPreset } from './presets'
 import type {
   VisualEngineOptions,
@@ -17,6 +20,9 @@ export class VisualEngine {
   renderer: THREE.WebGLRenderer
   cameraSystem: CameraSystem
   beatSync: BeatSync
+  rippleSystem: RippleSystem
+  particleInteraction: ParticleInteraction
+  coverDepth: CoverDepth
   performanceManager: PerformanceManager
 
   private canvas: HTMLCanvasElement
@@ -89,6 +95,9 @@ export class VisualEngine {
     this.cameraSystem = new CameraSystem(this.camera, this.renderer.domElement)
     this.cameraSystem.setCinemaMode(this.fxSettings.cinemaMode)
     this.beatSync = new BeatSync()
+    this.rippleSystem = new RippleSystem()
+    this.particleInteraction = new ParticleInteraction()
+    this.coverDepth = new CoverDepth()
 
     this.setupEventListeners()
     this.setupPerformanceHooks()
@@ -104,6 +113,37 @@ export class VisualEngine {
     this.cleanupListeners.push(() => {
       window.removeEventListener('resize', onResize)
       document.removeEventListener('visibilitychange', onVisibilityChange)
+    })
+
+    // 粒子指针交互 — 不干扰 CameraSystem 的相机控制
+    const dom = this.renderer.domElement
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.button !== 0) return
+      this.particleInteraction.onPointerDown(e.clientX, e.clientY)
+    }
+    const onPointerMove = (e: PointerEvent) => {
+      this.particleInteraction.onPointerMove(
+        e.clientX,
+        e.clientY,
+        window.innerWidth,
+        window.innerHeight,
+      )
+    }
+    const onPointerUp = () => {
+      this.particleInteraction.onPointerUp()
+    }
+    const onPointerLeave = () => {
+      this.particleInteraction.onPointerLeave()
+    }
+    dom.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+    dom.addEventListener('pointerleave', onPointerLeave)
+    this.cleanupListeners.push(() => {
+      dom.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+      dom.removeEventListener('pointerleave', onPointerLeave)
     })
   }
 
@@ -318,6 +358,7 @@ export class VisualEngine {
     this.timeDomainData = null
     this.connectedAudioElement = null
     this.beatSync.reset()
+    this.rippleSystem.reset()
   }
 
   private analyseAudio(dt: number): AudioAnalysisData {
@@ -461,22 +502,43 @@ export class VisualEngine {
         this.camera.position.y += shakeY
       }
 
+      // 涟漪系统：bass 上升沿触发，更新 uniform 数据
+      this.rippleSystem.update(audioData.bass, audioData.currentTime, dt)
+
+      // 粒子指针交互：缓动到目标旋转、衰减惯性、淡出 handActive
+      this.particleInteraction.update(dt)
+
+      // 把涟漪/指针信息挂到 audioData 上，让预设可以按需消费
+      const rippleUniforms = this.rippleSystem.getUniforms()
+      const pointerUniforms = this.particleInteraction.getUniforms()
+      const augmentedAudio: AudioAnalysisData = {
+        ...audioData,
+        rippleScatter: rippleUniforms.uScatter,
+        rippleBurst: rippleUniforms.uBurstAmt,
+        rippleCount: rippleUniforms.count,
+        pointerParallaxX: pointerUniforms.uParallax[0],
+        pointerParallaxY: pointerUniforms.uParallax[1],
+        pointerX: pointerUniforms.uHandXY[0],
+        pointerY: pointerUniforms.uHandXY[1],
+        handActive: pointerUniforms.uHandActive,
+      }
+
       this.updateTransition(dt)
 
       if (this.oldParticleSystem && this.transitionActive) {
-        this.oldParticleSystem.update(dt, audioData)
+        this.oldParticleSystem.update(dt, augmentedAudio)
       }
 
       if (this.particleSystem) {
-        const boostedAudio = this.djModeActive
+        const boostedAudio: AudioAnalysisData = this.djModeActive
           ? {
-              ...audioData,
-              energy: audioData.energy * this.djParticleBoost,
-              bass: audioData.bass * this.djParticleBoost,
-              low: audioData.low * this.djParticleBoost,
-              beatPulse: Math.min(1, audioData.beatPulse * this.djParticleBoost),
+              ...augmentedAudio,
+              energy: augmentedAudio.energy * this.djParticleBoost,
+              bass: augmentedAudio.bass * this.djParticleBoost,
+              low: augmentedAudio.low * this.djParticleBoost,
+              beatPulse: Math.min(1, augmentedAudio.beatPulse * this.djParticleBoost),
             }
-          : audioData
+          : augmentedAudio
         this.particleSystem.update(dt, boostedAudio)
       }
 
@@ -525,6 +587,18 @@ export class VisualEngine {
 
   getBeatSync(): BeatSync {
     return this.beatSync
+  }
+
+  getRippleSystem(): RippleSystem {
+    return this.rippleSystem
+  }
+
+  getParticleInteraction(): ParticleInteraction {
+    return this.particleInteraction
+  }
+
+  getCoverDepth(): CoverDepth {
+    return this.coverDepth
   }
 
   getCurrentPreset(): VisualPreset {
@@ -583,6 +657,10 @@ export class VisualEngine {
       this.particleSystem.dispose()
       this.particleSystem = null
     }
+
+    this.rippleSystem.reset()
+    this.particleInteraction.reset()
+    this.coverDepth.clearCache()
 
     this.cameraSystem.dispose()
     this.renderer.dispose()

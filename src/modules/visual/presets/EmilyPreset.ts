@@ -72,15 +72,34 @@ export class EmilyPreset extends BaseParticleSystem {
     const energy = audio.energy || 0
     const bass = audio.bass || 0
     const beatPulse = audio.beatPulse || 0
+    const rippleBurst = audio.rippleBurst || 0
+    const rippleScatter = audio.rippleScatter || 0
+    const parallaxX = audio.pointerParallaxX || 0
+    const parallaxY = audio.pointerParallaxY || 0
+    const handActive = audio.handActive || 0
 
     const rotationSpeed = (this.spinSpeed + bass * 0.3) * (audio.isPlaying ? 1 : 0.3)
     this.group.rotation.y += rotationSpeed * dt
 
+    // 指针视差：handActive 强度内倾斜粒子组
+    this.group.rotation.x += (parallaxY * 0.6 - this.group.rotation.x) * 0.08 * handActive
+    this.group.rotation.z += (parallaxX * 0.4 - this.group.rotation.z) * 0.08 * handActive
+    // 涟漪爆发时整体散射
+    this.group.position.x += (parallaxX * 1.2 * handActive - this.group.position.x) * 0.06
+    this.group.position.y += (parallaxY * 1.2 * handActive - this.group.position.y) * 0.06
+
     const positions = this.positions
+    const scatterJitter = rippleScatter * 0.4
     for (let i = 0; i < count; i++) {
       const i3 = i * 3
 
       positions[i3 + 1] += (this.riseSpeed + energy * 0.5) * dt * 0.3
+
+      // 涟漪散射：在爆发期给粒子水平方向轻微扰动
+      if (scatterJitter > 0.001) {
+        positions[i3] += (Math.sin(this.time * 6 + i) * scatterJitter) * dt
+        positions[i3 + 2] += (Math.cos(this.time * 5 + i) * scatterJitter) * dt
+      }
 
       if (positions[i3 + 1] > 2.5) {
         positions[i3 + 1] = -2.5
@@ -91,12 +110,13 @@ export class EmilyPreset extends BaseParticleSystem {
       }
     }
 
-    const scale = 1 + beatPulse * 0.15
+    // 涟漪爆发叠加额外 scale
+    const scale = 1 + beatPulse * 0.15 + rippleBurst * 0.12
     this.group.scale.setScalar(scale)
 
     const mat = this.material as THREE.PointsMaterial
-    mat.opacity = 0.7 + energy * 0.25
-    mat.size = 0.03 + bass * 0.025
+    mat.opacity = 0.7 + energy * 0.25 + rippleBurst * 0.1
+    mat.size = 0.03 + bass * 0.025 + rippleBurst * 0.01
 
     const posAttr = this.points.geometry.getAttribute('position') as THREE.BufferAttribute
     posAttr.needsUpdate = true

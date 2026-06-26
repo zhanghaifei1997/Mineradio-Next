@@ -98,6 +98,9 @@ export class QQMusicProvider extends MusicProvider {
       url: d.url,
       quality,
       size: d.size,
+      level: d.level || data?.quality,
+      // QQ 音乐在 purl 为空时通常代表需要登录或 VIP；保留原始字段以供上游判定
+      trial: !!d.try_begin || !!d.try_end || !!d.trial,
     }
   }
 

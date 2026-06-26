@@ -24,11 +24,128 @@
   --blur-surface: blur(20px);
   --glass-filter: blur(12px) saturate(1.8) brightness(1.16);
 
+  /* 分场景 backdrop-filter，拉开毛玻璃层次感 */
+  --blur-search: blur(34px) saturate(1.34);
+  --blur-bottom-bar: blur(30px) saturate(1.16);
+  --blur-fx-panel: blur(28px) saturate(1.4);
+  --blur-shelf: blur(40px) saturate(1.4);
+  --blur-modal: blur(24px) saturate(1.12);
+  --blur-toast: blur(20px);
+  --blur-desktop-lyrics: blur(46px) saturate(1.36);
+
+  /* 首页动态主题色（color-mix 基色）与原项目品牌青保持一致 */
+  --home-accent: #00f5d4;
+  --home-accent-rgb: 0, 245, 212;
+  /* 原项目品牌青的 RGB 通道，用于滚动条等 rgba() 调用 */
+  --fc-accent-rgb: 0, 245, 212;
+  /* 首页卡片默认三色调，组件内可通过 data-tone 覆盖 */
+  --tone-a: #00f5d4;
+  --tone-b: #2442ff;
+  --tone-c: #f8f4ee;
+
   --transition-theme: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* color-mix() 动态混色工具类：基于 --home-accent 实时混合出层次色 */
+.cm-accent-bg { background: color-mix(in srgb, var(--home-accent) 12%, transparent); }
+.cm-accent-border { border-color: color-mix(in srgb, var(--home-accent) 40%, transparent); }
+.cm-accent-text { color: color-mix(in srgb, var(--home-accent) 80%, white); }
+.cm-accent-glow { box-shadow: 0 0 34px color-mix(in srgb, var(--home-accent) 16%, transparent); }
+
+:root {
+  /* ===== 原项目 (Mineradio) CSS 变量体系（追加，别名兼容） ===== */
+  /* 香槟金 / 装饰色 */
+  --champagne: #f4d28a;
+  --champagne-deep: #d4a942;
+  /* 主品牌色（fc-* 体系） */
+  --fc-accent: #00F5D4;
+  --fc-accent-rgb: 0,245,212;
+  --fc-accent-hov: #5cfbe0;
+  --fc-bg: #060809;
+  --fc-paper: rgba(20,20,28,0.66);
+  --fc-ink: #f3f4f8;
+  --fc-ink-2: #b8bcc8;
+  --fc-muted: #6b7280;
+  --fc-hair: rgba(255,255,255,0.08);
+  --fc-hair-2: rgba(255,255,255,0.04);
+  --fc-blue: #3257F7;
+  --fc-warm: #ff5367;
+  /* chill 冷调体系 */
+  --chill-ink: #c8d6e5;
+  --chill-deep: #1a2532;
+  --chill-cyan: #00f5d4;
+  --chill-blue: #2442ff;
+  --chill-mint: #7ad7c2;
+  --chill-soft: rgba(0,245,212,0.12);
+  /* 首页 / 视觉强调 */
+  --home-accent: #00f5d4;
+  --home-accent-rgb: 0,245,212;
+  --visual-tint: #00f5d4;
+  /* 音源色 */
+  --source-netease: #ff5367;
+  --source-qq: #31c27c;
+  --source-local: #00f5d4;
+  /* 玻璃质感 */
+  --glass-bg: rgba(20,20,28,0.66);
+  --glass-bg-focus: rgba(20,20,28,0.82);
+  --glass-border: rgba(255,255,255,0.10);
+  --glass-border-soft: rgba(255,255,255,0.06);
+  --glass-shadow: 0 8px 32px rgba(0,0,0,0.37);
+  --glass-shadow-focus: 0 12px 40px rgba(0,0,0,0.44);
+  /* 收藏面板玻璃 */
+  --saved-panel-glass-bg: rgba(18,18,26,0.78);
+  --saved-panel-glass-border: rgba(244,210,138,0.18);
+  --saved-panel-glass-shadow: 0 10px 40px rgba(0,0,0,0.44);
+  /* 收藏按钮玻璃 */
+  --saved-button-glass-bg: rgba(22,22,30,0.72);
+  --saved-button-glass-border: rgba(255,255,255,0.08);
+  --saved-button-glass-shadow: 0 6px 24px rgba(0,0,0,0.32);
+  --saved-button-glass-hover-bg: rgba(28,28,36,0.82);
+  --saved-button-glass-hover-border: rgba(244,210,138,0.32);
+  --saved-button-glass-active-bg: rgba(32,32,40,0.88);
+  /* 图标色 */
+  --home-icon-color: #00f5d4;
+  --home-icon-rgb: 0,245,212;
+  --visual-icon-color: #00f5d4;
+  --visual-icon-rgb: 0,245,212;
+  /* 字体族 */
+  --font-sans: 'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+  --font-mono: 'JetBrains Mono','Consolas','Monaco',monospace;
 }
 
 .control-glass-svg-ok {
   --glass-filter: url(#mineradio-control-glass-filter) saturate(1);
+}
+
+/* ===== 玻璃质感类（原项目兼容） ===== */
+.glass-saved-panel {
+  background: var(--saved-panel-glass-bg);
+  border: 1px solid var(--saved-panel-glass-border);
+  box-shadow: var(--saved-panel-glass-shadow);
+}
+.glass-saved-button {
+  background: var(--saved-button-glass-bg);
+  border: 1px solid var(--saved-button-glass-border);
+  box-shadow: var(--saved-button-glass-shadow);
+}
+
+/* SVG 玻璃滤镜支持时的增强样式 */
+html.control-glass-svg-ok .icon-btn,
+html.control-glass-svg-ok .fx-mini-btn,
+html.control-glass-svg-ok .fx-toggle,
+html.control-glass-svg-ok .panel-tab,
+html.control-glass-svg-ok .preset-card,
+html.control-glass-svg-ok .pl-card,
+html.control-glass-svg-ok .queue-item,
+html.control-glass-svg-ok .modal,
+html.control-glass-svg-ok .volume-popover,
+html.control-glass-svg-ok #bottom-bar.visible,
+html.control-glass-svg-ok #play-btn,
+html.control-glass-svg-ok #home-btn,
+html.control-glass-svg-ok #upload-btn,
+html.control-glass-svg-ok #fx-fab {
+  backdrop-filter: var(--glass-filter, blur(20px) saturate(1.4));
+  -webkit-backdrop-filter: var(--glass-filter, blur(20px) saturate(1.4));
 }
 
 [data-theme='light'] {
@@ -255,4 +372,211 @@ body.desktop-titlebar-active .home-panel {
 
 body.desktop-titlebar-active .search-panel {
   top: 108px !important;
+}
+
+/* ============================================================
+ * 面板 Peek 半隐藏系统
+ * 进入触发区立即显示；离开触发区延迟 170ms 后半隐藏
+ * 鼠标移入面板时恢复显示（由 :hover 处理）
+ * ============================================================ */
+.search-panel,
+.visual-console,
+.playlist-shelf {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+/* 搜索面板：向顶部滑出 */
+body.peek-search-hidden .search-panel {
+  transform: translateX(-50%) translateY(-80%);
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* 视觉控制台：向右侧滑出 */
+body.peek-fx-hidden .visual-console {
+  transform: translateX(80%);
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* 歌单/队列面板：向左侧滑出 */
+body.peek-playlist-hidden .playlist-shelf {
+  transform: translateX(-80%);
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* 鼠标移入面板时恢复显示 */
+body.peek-search-hidden .search-panel:hover,
+body.peek-fx-hidden .visual-console:hover,
+body.peek-playlist-hidden .playlist-shelf:hover {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+body.peek-fx-hidden .visual-console:hover {
+  transform: translateX(0);
+}
+
+/* ============================================================
+ * 关键 @keyframes 动画（补齐）
+ * ============================================================ */
+
+/* 歌词呼吸摆动 —— 当前行入场后 */
+@keyframes lyr-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+/* 进度条粒子飞散 */
+@keyframes progress-particle-fade {
+  0% { opacity: 0.8; transform: scale(1) translate(0, 0); }
+  100% { opacity: 0; transform: scale(0.2) translate(var(--px, 8px), var(--py, -8px)); }
+}
+
+/* 播放模式切换弹跳 */
+@keyframes play-mode-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+/* 视觉引导扫描线 */
+@keyframes visual-guide-scan {
+  0% { transform: translateY(0); opacity: 0; }
+  20% { opacity: 0.86; }
+  80% { opacity: 0.86; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+
+/* 预设卡片切换脉冲 */
+@keyframes preset-card-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 245, 212, 0.4); }
+  100% { box-shadow: 0 0 0 12px rgba(0, 245, 212, 0); }
+}
+
+/* 启动页呼吸 */
+@keyframes splash-field-breathe {
+  0% { opacity: 0.82; }
+  100% { opacity: 0.94; }
+}
+
+/* 首页唱片旋转 */
+@keyframes home-disc-turn {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 首页均衡器 */
+@keyframes home-eq-rise {
+  0%, 100% { height: var(--h, 28px); }
+  50% { height: calc(var(--h, 28px) * 0.4); }
+}
+
+/* 首页骨架屏 */
+@keyframes home-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* 首页卡片浮动 */
+@keyframes home-card-float {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  33% { transform: translateY(-6px) translateX(2px); }
+  66% { transform: translateY(3px) translateX(-1px); }
+}
+
+/* 视觉预览漂移 */
+@keyframes home-visual-drift {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(8px, -4px) rotate(1deg); }
+}
+
+/* 队列骨架屏 */
+@keyframes queue-shimmer {
+  0% { background-position: 220% 0; }
+  100% { background-position: -220% 0; }
+}
+
+/* ============================================================
+ * 响应式断点（补齐）
+ * ============================================================ */
+
+/* 1180px - 大屏适配 */
+@media (max-width: 1180px) {
+  .visual-console { width: 320px; }
+  .playlist-shelf { width: 280px; }
+}
+
+/* 1120px */
+@media (max-width: 1120px) {
+  .search-panel { width: 360px; }
+}
+
+/* 1040px */
+@media (max-width: 1040px) {
+  .visual-console { width: 280px; }
+  .player-bar { padding: 0 16px; }
+}
+
+/* 940px */
+@media (max-width: 940px) {
+  .playlist-shelf { width: 240px; }
+  .home-card { min-width: 140px; }
+}
+
+/* 920px */
+@media (max-width: 920px) {
+  .search-panel { width: 300px; }
+}
+
+/* 840px */
+@media (max-width: 840px) {
+  .visual-console { display: none; }
+}
+
+/* 760px */
+@media (max-width: 760px) {
+  .player-bar { height: 64px; }
+  .player-bar .song-info { max-width: 180px; }
+}
+
+/* 720px */
+@media (max-width: 720px) {
+  .search-panel { width: 100%; left: 0; right: 0; }
+  .visual-console { display: none; }
+  .playlist-shelf { display: none; }
+}
+
+/* 620px */
+@media (max-width: 620px) {
+  .player-bar .ctrl-btn { width: 32px; height: 32px; }
+  .player-bar .progress-bar { display: none; }
+}
+
+/* 520px */
+@media (max-width: 520px) {
+  .player-bar { padding: 0 8px; }
+  .player-bar .song-info__cover { width: 36px; height: 36px; }
+  .player-bar .song-info__title { font-size: 12px; }
+  .player-bar .song-info__artist { font-size: 10px; }
+}
+
+/* 420px */
+@media (max-width: 420px) {
+  .player-bar .song-info { max-width: 120px; }
+  .player-bar .ctrl-btn--volume,
+  .player-bar .ctrl-btn--queue { display: none; }
+}
+
+/* max-height 适配 */
+@media (max-height: 760px) {
+  .home-card { padding: 12px; }
+  .search-results { max-height: 300px; }
+}
+
+@media (max-height: 700px) {
+  .visual-console { max-height: 400px; }
+  .playlist-shelf { max-height: 400px; }
 }

@@ -88,6 +88,10 @@ export const useUserStore = defineStore('user', () => {
   const loadingLiked = ref(false)
   const isRefreshingLogin = ref(false)
   const lastLoginRefreshTime = ref(0)
+  // 登录弹窗可见性：允许其他 store（如 player）在检测到 login_required 时触发
+  const loginModalVisible = ref(false)
+  // 指定登录弹窗应优先展示的音源（可选）
+  const loginModalSource = ref<MusicSource | null>(null)
 
   const isLoggedIn = computed(() => neteaseAccount.value.loggedIn || qqmusicAccount.value.loggedIn || kugouAccount.value.loggedIn)
 
@@ -553,6 +557,16 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  function showLoginModal(source?: MusicSource): void {
+    loginModalSource.value = source || null
+    loginModalVisible.value = true
+  }
+
+  function closeLoginModal(): void {
+    loginModalVisible.value = false
+    loginModalSource.value = null
+  }
+
   return {
     neteaseAccount,
     qqmusicAccount,
@@ -566,6 +580,8 @@ export const useUserStore = defineStore('user', () => {
     loadingLiked,
     isRefreshingLogin,
     lastLoginRefreshTime,
+    loginModalVisible,
+    loginModalSource,
     isLoggedIn,
     hasMultipleAccounts,
     primaryAccount,
@@ -596,6 +612,8 @@ export const useUserStore = defineStore('user', () => {
     addToRecentPlayed,
     loadRecentPlayed,
     refreshLoginStatus,
+    showLoginModal,
+    closeLoginModal,
     init,
   }
 })

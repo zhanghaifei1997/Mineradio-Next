@@ -53,6 +53,8 @@ import { useCustomBgStore } from '@/stores/customBg'
 import { useDragDrop } from '@/composables/useDragDrop'
 import { useTaskbar } from '@/composables/useTaskbar'
 import { useAppStartup } from '@/composables/useAppStartup'
+import { useInlineHotkeys } from '@/composables/useInlineHotkeys'
+import { usePanelPeek } from '@/composables/usePanelPeek'
 import { providerManager } from '@/modules/providers'
 import type { LyricLine } from '@/modules/lyrics'
 import type { Artist, Album } from '@/types'
@@ -71,6 +73,9 @@ const customBg = useCustomBgStore()
 const { isDragging } = useDragDrop()
 useTaskbar()
 const appStartup = useAppStartup()
+
+// 面板 Peek 系统（setPeek 在下方调用，先取得实例）
+const panelPeek = usePanelPeek()
 
 const showSplash = ref(true)
 const showQueuePanel = ref(false)
@@ -223,6 +228,7 @@ function updateFxFabAutoHideClass() {
 function handleGlobalMouseMove(e: MouseEvent) {
   handleMouseMoveForControls(e)
   handleMouseMoveForUserCapsule(e)
+  handleMouseMoveForPanelPeek(e)
 }
 
 const currentLyricText = computed(() => {
@@ -274,6 +280,93 @@ function toggleSettings() {
 function toggleVisualConsole() {
   showVisualConsole.value = !showVisualConsole.value
 }
+
+// ============================================================
+// 面板 Peek 系统：search(顶部) / fx(右侧) / playlist(左侧) 三个面板的半隐藏
+// ============================================================
+const PEEK_TOP_HOTZONE = 80      // 顶部触发区高度
+const PEEK_RIGHT_HOTZONE = 48    // 右侧触发区宽度
+const PEEK_LEFT_HOTZONE = 48     // 左侧触发区宽度
+
+function isPointOverPanel(e: MouseEvent, selector: string): boolean {
+  const el = document.querySelector(selector)
+  if (!el) return false
+  const rect = el.getBoundingClientRect()
+  return (
+    e.clientX >= rect.left - 12 &&
+    e.clientX <= rect.right + 12 &&
+    e.clientY >= rect.top - 12 &&
+    e.clientY <= rect.bottom + 12
+  )
+}
+
+function handleMouseMoveForPanelPeek(e: MouseEvent) {
+  // 沉浸模式下整体隐藏面板，不需要 peek
+  if (immersive.isImmersive) return
+
+  const w = window.innerWidth
+  const x = e.clientX
+  const y = e.clientY
+
+  // 搜索面板：顶部触发区 + 面板本身
+  const overSearchPanel = isPointOverPanel(e, '.search-panel')
+  if (y < PEEK_TOP_HOTZONE || overSearchPanel) {
+    panelPeek.setPeek('search', true)
+  } else {
+    panelPeek.setPeek('search', false)
+  }
+
+  // FX 视觉控制台：右侧触发区 + 面板本身（仅 DIY 模式下生效）
+  const overFxConsole = isPointOverPanel(e, '.visual-console')
+  if (fx.layoutMode === 'diy' && (x >= w - PEEK_RIGHT_HOTZONE || overFxConsole)) {
+    panelPeek.setPeek('fx', true)
+  } else {
+    panelPeek.setPeek('fx', false)
+  }
+
+  // 歌单/队列面板：左侧触发区 + 面板本身
+  const overPlaylistShelf = isPointOverPanel(e, '.playlist-shelf')
+  const overQueuePanel = isPointOverPanel(e, '.queue-panel')
+  if (x < PEEK_LEFT_HOTZONE || overPlaylistShelf || overQueuePanel) {
+    panelPeek.setPeek('playlist', true)
+  } else {
+    panelPeek.setPeek('playlist', false)
+  }
+}
+
+// ============================================================
+// 内嵌快捷键系统
+// ============================================================
+function closeAllPanelsAndModals() {
+  showQueuePanel.value = false
+  showLocalPanel.value = false
+  showRecentPanel.value = false
+  showSettings.value = false
+  showVisualConsole.value = false
+  showLogin.value = false
+  showTopList.value = false
+  showDailyRecommend.value = false
+  showWeatherRadio.value = false
+  showArtistDetail.value = false
+  showAlbumDetail.value = false
+  showSongComments.value = false
+  showSongDetail.value = false
+  showVisualGuide.value = false
+}
+
+useInlineHotkeys({
+  goHome: () => {
+    closeAllPanelsAndModals()
+    showHome.value = true
+  },
+  closeAllPanels: closeAllPanelsAndModals,
+  toggleLyricsPanel: () => {
+    lyrics.toggleStageLyrics()
+  },
+  toggleFxConsole: () => {
+    toggleVisualConsole()
+  },
+})
 
 function toggleTopList() {
   showTopList.value = !showTopList.value
@@ -583,6 +676,7 @@ onUnmounted(() => {
   if (hideControlsTimer) {
     clearTimeout(hideControlsTimer)
   }
+  panelPeek.cleanup()
 })
 </script>
 

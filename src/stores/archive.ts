@@ -5,7 +5,8 @@ import { useLyricsStore } from './lyrics'
 import type { VisualPreset, FxSettings, CinemaMode } from '@/types'
 import type { LyricPalette, LyricStyleConfig, LyricGlowConfig, LyricLayoutConfig } from '@/modules/lyrics'
 
-const STORAGE_KEY = 'mineradio_archive_slots'
+const STORAGE_KEY = 'mineradio-user-fx-archives-v1'
+const STORAGE_KEY_LEGACY = 'mineradio_archive_slots'
 
 export interface ArchiveSlot {
   id: string
@@ -86,7 +87,17 @@ const defaultSlotData = (index: number): ArchiveSlot => ({
 
 function loadSlots(): (ArchiveSlot | null)[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    let raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) {
+      raw = localStorage.getItem(STORAGE_KEY_LEGACY)
+      if (raw) {
+        // 迁移旧数据到新键名
+        localStorage.setItem(STORAGE_KEY, raw)
+        try {
+          localStorage.removeItem(STORAGE_KEY_LEGACY)
+        } catch (_) {}
+      }
+    }
     if (raw) {
       const parsed = JSON.parse(raw)
       const slots: (ArchiveSlot | null)[] = [null, null, null, null]

@@ -31,6 +31,13 @@ export interface SongUrlResult {
   quality: QualityLevel
   size?: number
   md5?: string
+  // 播放元信息：用于试听片段检测、音质降级诊断与 login_required 判定
+  level?: string
+  trial?: boolean
+  loggedIn?: boolean
+  vipLevel?: string
+  reason?: string
+  restriction?: { category?: string }
 }
 
 export interface LoginResult {

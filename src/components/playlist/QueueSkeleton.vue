@@ -41,7 +41,7 @@ defineProps<{
   border: 1px solid var(--color-border);
   position: relative;
   overflow: hidden;
-  animation: queue-shimmer 1.05s linear infinite;
+  animation: queue-shimmer-local 1.05s linear infinite;
   animation-delay: var(--skeleton-delay, 0s);
 }
 
@@ -62,7 +62,7 @@ defineProps<{
   animation-delay: var(--skeleton-delay, 0s);
 }
 
-@keyframes queue-shimmer {
+@keyframes queue-shimmer-local {
   0%, 100% {
     opacity: 0.6;
   }

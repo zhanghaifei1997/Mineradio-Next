@@ -194,6 +194,22 @@ export interface AudioAnalysisData {
   beatPulse: number
   isPlaying: boolean
   currentTime: number
+  /** 涟漪活跃度（0..1），由 RippleSystem 提供 */
+  rippleScatter?: number
+  /** 涟漪爆发量（0..1），由 RippleSystem 提供 */
+  rippleBurst?: number
+  /** 活跃涟漪数量 */
+  rippleCount?: number
+  /** 指针视差 X（典型 -0.15..0.15），由 ParticleInteraction 提供 */
+  pointerParallaxX?: number
+  /** 指针视差 Y */
+  pointerParallaxY?: number
+  /** 指针 NDC X (-1..1) */
+  pointerX?: number
+  /** 指针 NDC Y (-1..1) */
+  pointerY?: number
+  /** hand active 强度（0..1） */
+  handActive?: number
 }
 
 export interface ParticlePreset {

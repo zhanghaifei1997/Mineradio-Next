@@ -363,6 +363,33 @@ function onDragEnd() {
   overflow-y: auto;
 }
 
+/* 歌单面板品牌色滚动条 */
+.playlist-queue::-webkit-scrollbar,
+.queue-content::-webkit-scrollbar {
+  width: 3px;
+}
+
+.playlist-queue::-webkit-scrollbar-track,
+.queue-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.playlist-queue::-webkit-scrollbar-thumb,
+.queue-content::-webkit-scrollbar-thumb {
+  background: rgba(var(--fc-accent-rgb), 0.2);
+  border-radius: 999px;
+}
+
+.playlist-queue::-webkit-scrollbar-thumb:hover,
+.queue-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--fc-accent-rgb), 0.36);
+}
+
+.queue-content {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--fc-accent-rgb), 0.2) transparent;
+}
+
 .queue-item {
   display: flex;
   align-items: center;

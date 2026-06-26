@@ -895,7 +895,8 @@ defineExpose({
   gap: 12px;
   padding: 8px 16px;
   background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(10px);
+  backdrop-filter: var(--blur-desktop-lyrics);
+  -webkit-backdrop-filter: var(--blur-desktop-lyrics);
   border-radius: 999px;
   pointer-events: auto;
 }
@@ -1105,7 +1106,8 @@ defineExpose({
   gap: 8px;
   padding: 8px 12px;
   background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(10px);
+  backdrop-filter: var(--blur-desktop-lyrics);
+  -webkit-backdrop-filter: var(--blur-desktop-lyrics);
   border-radius: 999px;
   opacity: 0;
   transform: translateY(10px);

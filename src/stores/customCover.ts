@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
-const STORAGE_KEY = 'mineradio_custom_covers'
+const STORAGE_KEY = 'mineradio-custom-covers'
+const STORAGE_KEY_LEGACY = 'mineradio_custom_covers'
 const MAX_COVERS = 50
 
 interface CoverCacheItem {
@@ -12,7 +13,17 @@ interface CoverCacheItem {
 
 function loadCovers(): Map<string, CoverCacheItem> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    let raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) {
+      raw = localStorage.getItem(STORAGE_KEY_LEGACY)
+      if (raw) {
+        // 迁移旧数据到新键名
+        localStorage.setItem(STORAGE_KEY, raw)
+        try {
+          localStorage.removeItem(STORAGE_KEY_LEGACY)
+        } catch (_) {}
+      }
+    }
     if (raw) {
       const arr: CoverCacheItem[] = JSON.parse(raw)
       return new Map(arr.map((item) => [item.id, item]))

@@ -144,7 +144,8 @@ const lineStyle = computed(() => {
 }
 
 .lyric-line.in {
-  animation: lyr-in 820ms cubic-bezier(0.16, 0.84, 0.32, 1.02) forwards;
+  animation: lyr-in 900ms cubic-bezier(0.16, 0.84, 0.32, 1.02) forwards,
+             lyr-bob 5.6s ease-in-out 900ms infinite;
 }
 
 .lyric-translation {

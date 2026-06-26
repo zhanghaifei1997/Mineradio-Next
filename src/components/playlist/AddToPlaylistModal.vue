@@ -151,7 +151,8 @@ watch(() => props.visible, (val) => {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  backdrop-filter: var(--blur-modal);
+  -webkit-backdrop-filter: var(--blur-modal);
 }
 
 .modal-panel {

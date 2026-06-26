@@ -92,8 +92,8 @@ defineExpose({ show, hide })
   background: rgba(20, 20, 28, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: var(--blur-toast);
+  -webkit-backdrop-filter: var(--blur-toast);
   color: #ffffff;
   font-size: 12.5px;
   letter-spacing: 0.5px;

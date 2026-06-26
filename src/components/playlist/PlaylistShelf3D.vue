@@ -23,7 +23,10 @@ const emit = defineEmits<{
 const fx = useFxStore()
 const lyrics = useLyricsStore()
 const player = usePlayerStore()
-const { initAudio, playClick, playScroll, playSelect } = useShelfSound()
+const { initAudio, playClick, playScroll, playSelect, setTargetVolumeProvider } = useShelfSound()
+
+// 让 shelf sound 的 volumeScale 跟随主播放音量（对齐原项目 targetVolume 行为）
+setTargetVolumeProvider(() => player.volume)
 
 const containerRef = ref<HTMLDivElement | null>(null)
 const detailPanelRef = ref<HTMLDivElement | null>(null)
@@ -181,7 +184,7 @@ function handleWheel(e: WheelEvent) {
 
 function handleShelfScroll(direction: number) {
   if (fx.settings.shelfSoundEnabled) {
-    playScroll()
+    playScroll({ direction: direction > 0 ? 'up' : 'down' })
   }
 }
 
@@ -431,8 +434,8 @@ onUnmounted(() => {
   background: linear-gradient(145deg, rgba(18, 21, 26, 0.92), rgba(8, 9, 13, 0.96));
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 24px;
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
+  backdrop-filter: var(--blur-shelf);
+  -webkit-backdrop-filter: var(--blur-shelf);
   box-shadow: 0 28px 90px rgba(0, 0, 0, 0.6), 0 0 40px rgba(0, 245, 212, 0.08);
   padding: 24px;
   display: flex;

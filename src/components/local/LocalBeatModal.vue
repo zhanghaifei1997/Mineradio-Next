@@ -27,22 +27,46 @@ const beatCount = ref(0)
 const cancelRequested = ref(false)
 let audioContext: AudioContext | OfflineAudioContext | null = null
 
-const BEATMAP_STORAGE_PREFIX = 'mineradio-beatmap-'
+const BEATMAP_STORAGE_PREFIX = 'mineradio-local-beatmaps-v1:'
+const BEATMAP_STORAGE_PREFIX_LEGACY = 'mineradio-beatmap-'
+
+function readBeatmap(songId: string): string | null {
+  try {
+    let raw = localStorage.getItem(BEATMAP_STORAGE_PREFIX + songId)
+    if (raw === null) {
+      const legacy = localStorage.getItem(BEATMAP_STORAGE_PREFIX_LEGACY + songId)
+      if (legacy !== null) {
+        // 迁移旧数据到新键名
+        localStorage.setItem(BEATMAP_STORAGE_PREFIX + songId, legacy)
+        try {
+          localStorage.removeItem(BEATMAP_STORAGE_PREFIX_LEGACY + songId)
+        } catch (_) {}
+        raw = legacy
+      }
+    }
+    return raw
+  } catch (_) {
+    return null
+  }
+}
+
+function writeBeatmap(songId: string, value: string): void {
+  localStorage.setItem(BEATMAP_STORAGE_PREFIX + songId, value)
+}
+
+function removeBeatmap(songId: string): void {
+  localStorage.removeItem(BEATMAP_STORAGE_PREFIX + songId)
+}
 
 const hasAnalysis = computed(() => {
   if (!props.song) return false
-  try {
-    const raw = localStorage.getItem(BEATMAP_STORAGE_PREFIX + props.song.id)
-    return !!raw
-  } catch (_) {
-    return false
-  }
+  return !!readBeatmap(props.song.id)
 })
 
 const analysisInfo = computed(() => {
   if (!props.song) return null
   try {
-    const raw = localStorage.getItem(BEATMAP_STORAGE_PREFIX + props.song.id)
+    const raw = readBeatmap(props.song.id)
     if (raw) {
       const data = JSON.parse(raw)
       return {
@@ -180,7 +204,7 @@ async function startAnalysis() {
     }
 
     try {
-      localStorage.setItem(BEATMAP_STORAGE_PREFIX + props.song.id, JSON.stringify(toSave))
+      writeBeatmap(props.song.id, JSON.stringify(toSave))
     } catch (e) {
       console.warn('Failed to save beatmap to localStorage:', e)
     }
@@ -219,9 +243,9 @@ function handleClose() {
 function deleteAnalysis() {
   if (!props.song) return
   if (!confirm('确定要删除节拍分析数据吗？')) return
-  
+
   try {
-    localStorage.removeItem(BEATMAP_STORAGE_PREFIX + props.song.id)
+    removeBeatmap(props.song.id)
     status.value = 'idle'
     bpm.value = 0
     beatCount.value = 0
@@ -406,7 +430,8 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  backdrop-filter: var(--blur-modal);
+  -webkit-backdrop-filter: var(--blur-modal);
 }
 
 .modal-panel {

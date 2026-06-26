@@ -19,6 +19,7 @@ export interface WeatherData {
 }
 
 const STORAGE_KEY = 'mineradio_weather'
+const CITY_STORAGE_KEY = 'mineradio-weather-city'
 const CACHE_DURATION = 30 * 60 * 1000
 
 function loadCachedWeather(): WeatherData | null {
@@ -100,6 +101,32 @@ export const useWeatherStore = defineStore('weather', () => {
   const weatherSongs = ref<Song[]>([])
   const loadingSongs = ref(false)
 
+  // 用户偏好的城市，用于跨会话保留
+  const preferredCity = ref<string>(loadPreferredCity())
+
+  function loadPreferredCity(): string {
+    try {
+      return localStorage.getItem(CITY_STORAGE_KEY) || ''
+    } catch (_) {
+      return ''
+    }
+  }
+
+  function savePreferredCity(city: string): void {
+    try {
+      if (city) {
+        localStorage.setItem(CITY_STORAGE_KEY, city)
+      } else {
+        localStorage.removeItem(CITY_STORAGE_KEY)
+      }
+    } catch (_) {}
+  }
+
+  function setPreferredCity(city: string): void {
+    preferredCity.value = city
+    savePreferredCity(city)
+  }
+
   const mood = computed<WeatherMood>(() => {
     if (!weather.value) return 'sunny'
     return weatherCodeToMood(weather.value.weatherCode, isNightTime())
@@ -146,22 +173,28 @@ export const useWeatherStore = defineStore('weather', () => {
         `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m`
       )
       if (!response.ok) throw new Error('Weather API request failed')
-      
+
       const data = await response.json()
       const current = data.current
-      
+
+      const resolvedCity = city || preferredCity.value || `${lat.toFixed(2)}, ${lon.toFixed(2)}`
       const weatherData: WeatherData = {
         temperature: Math.round(current.temperature_2m),
         weatherCode: current.weather_code,
         weatherDescription: weatherCodeToDescription(current.weather_code),
         humidity: current.relative_humidity_2m,
         windSpeed: current.wind_speed_10m,
-        city: city || `${lat.toFixed(2)}, ${lon.toFixed(2)}`,
+        city: resolvedCity,
         latitude: lat,
         longitude: lon,
         fetchedAt: Date.now(),
       }
-      
+
+      // 当显式传入了城市名，则更新用户偏好
+      if (city) {
+        setPreferredCity(city)
+      }
+
       weather.value = weatherData
       saveWeather(weatherData)
     } catch (e) {
@@ -273,6 +306,8 @@ export const useWeatherStore = defineStore('weather', () => {
     moodGradient,
     weatherSongs,
     loadingSongs,
+    preferredCity,
+    setPreferredCity,
     fetchWeather,
     fetchWeatherByCoords,
     fetchWeatherByIP,

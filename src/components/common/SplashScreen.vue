@@ -168,6 +168,7 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  animation: splash-field-breathe 7s ease-in-out infinite alternate;
 }
 
 .splash-bg__gradient {

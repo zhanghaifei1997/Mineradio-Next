@@ -699,8 +699,8 @@ onUnmounted(() => {
   width: 360px;
   max-height: 80vh;
   background: var(--console-bg);
-  backdrop-filter: blur(20px) saturate(1.5);
-  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  backdrop-filter: var(--blur-fx-panel);
+  -webkit-backdrop-filter: var(--blur-fx-panel);
   border: 1px solid var(--console-border);
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
@@ -852,6 +852,33 @@ onUnmounted(() => {
   max-height: calc(80vh - 52px);
 }
 
+/* FX 面板品牌色滚动条 */
+.visual-console::-webkit-scrollbar,
+.console-content::-webkit-scrollbar {
+  width: 3px;
+}
+
+.visual-console::-webkit-scrollbar-track,
+.console-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.visual-console::-webkit-scrollbar-thumb,
+.console-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 245, 212, 0.24);
+  border-radius: 999px;
+}
+
+.visual-console::-webkit-scrollbar-thumb:hover,
+.console-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 245, 212, 0.4);
+}
+
+.console-content {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 245, 212, 0.24) transparent;
+}
+
 .content-panel {
   animation: fadeIn 0.2s ease;
 }
@@ -963,6 +990,7 @@ onUnmounted(() => {
 .preset-card.active {
   border-color: var(--color-primary);
   background: rgba(var(--color-primary-rgb), 0.1);
+  animation: preset-card-pulse 0.6s ease-out;
 }
 
 .preset-icon {

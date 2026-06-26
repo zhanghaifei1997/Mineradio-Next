@@ -27,7 +27,8 @@ import {
 import { usePlayerStore } from './player'
 
 const TRANSLATION_SETTINGS_KEY = 'mineradio-lyric-translation'
-const LYRIC_SETTINGS_KEY = 'mineradio-lyric-settings'
+const LYRIC_SETTINGS_KEY = 'mineradio-custom-lyric-prefs-v1'
+const LYRIC_SETTINGS_KEY_LEGACY = 'mineradio-lyric-settings'
 const LYRIC_PRESETS_KEY = 'mineradio-lyric-custom-presets'
 
 const defaultPalette: LyricPalette = {
@@ -188,7 +189,17 @@ function loadLyricSettings(): {
   cameraBind: boolean
 } {
   try {
-    const raw = localStorage.getItem(LYRIC_SETTINGS_KEY)
+    let raw = localStorage.getItem(LYRIC_SETTINGS_KEY)
+    if (!raw) {
+      raw = localStorage.getItem(LYRIC_SETTINGS_KEY_LEGACY)
+      if (raw) {
+        // 迁移旧数据到新键名
+        localStorage.setItem(LYRIC_SETTINGS_KEY, raw)
+        try {
+          localStorage.removeItem(LYRIC_SETTINGS_KEY_LEGACY)
+        } catch (_) {}
+      }
+    }
     if (raw) {
       return JSON.parse(raw)
     }
