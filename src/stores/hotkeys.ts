@@ -10,6 +10,7 @@ export type HotkeyAction =
   | 'volume-down'
   | 'toggle-main-window'
   | 'toggle-desktop-lyrics'
+  | 'toggle-desktop-lyrics-lock'
   | 'toggle-favorite'
 
 export interface HotkeyConfig {
@@ -34,6 +35,7 @@ const DEFAULT_HOTKEYS: HotkeyConfig[] = [
   { action: 'volume-down', accelerator: 'Ctrl+Alt+Down', enabled: true },
   { action: 'toggle-main-window', accelerator: 'Ctrl+Alt+M', enabled: true },
   { action: 'toggle-desktop-lyrics', accelerator: 'Ctrl+Alt+L', enabled: true },
+  { action: 'toggle-desktop-lyrics-lock', accelerator: 'Ctrl+Alt+K', enabled: true },
   { action: 'toggle-favorite', accelerator: 'Ctrl+Alt+S', enabled: true },
 ]
 
@@ -259,6 +261,9 @@ export const useHotkeysStore = defineStore('hotkeys', () => {
       case 'toggle-desktop-lyrics':
         toggleDesktopLyrics()
         break
+      case 'toggle-desktop-lyrics-lock':
+        toggleDesktopLyricsLock()
+        break
       case 'toggle-favorite':
         toggleFavorite()
         break
@@ -291,6 +296,18 @@ export const useHotkeysStore = defineStore('hotkeys', () => {
     }
   }
 
+  function toggleDesktopLyricsLock(): void {
+    const electronAPI = (window as any).electronAPI
+    if (electronAPI?.app?.toggleDesktopLyricsLock) {
+      electronAPI.app.toggleDesktopLyricsLock()
+    } else if (electronAPI?.desktopLyrics) {
+      electronAPI.desktopLyrics.getState().then((state: any) => {
+        const currentlyLocked = state?.clickThrough !== false
+        electronAPI.desktopLyrics.setLock(!currentlyLocked)
+      })
+    }
+  }
+
   function toggleFavorite(): void {
     // TODO: 集成到用户喜欢的歌曲功能
   }
@@ -304,6 +321,7 @@ export const useHotkeysStore = defineStore('hotkeys', () => {
       'volume-down': '音量减',
       'toggle-main-window': '显示/隐藏主窗口',
       'toggle-desktop-lyrics': '桌面歌词开关',
+      'toggle-desktop-lyrics-lock': '桌面歌词锁定切换',
       'toggle-favorite': '喜欢/取消喜欢',
     }
     return names[action] || action

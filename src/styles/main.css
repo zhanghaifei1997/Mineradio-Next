@@ -140,3 +140,58 @@ img {
   opacity: 0;
   transform: translateY(20px);
 }
+
+body.immersive-mode {
+  cursor: none;
+}
+
+body.immersive-mode:hover {
+  cursor: default;
+}
+
+body.immersive-mode .top-toolbar,
+body.immersive-mode .app-content > .top-toolbar,
+body.immersive-mode .side-panels,
+body.immersive-mode .home-panel,
+body.immersive-mode .search-panel,
+body.immersive-mode .settings-panel,
+body.immersive-mode .toplist-panel,
+body.immersive-mode .daily-recommend,
+body.immersive-mode .weather-radio,
+body.immersive-mode .artist-detail,
+body.immersive-mode .album-detail,
+body.immersive-mode .song-comments,
+body.immersive-mode .song-detail,
+body.immersive-mode .user-capsule,
+body.immersive-mode .dj-mode-indicator,
+body.immersive-mode .fm-mode-indicator,
+body.immersive-mode .notification-container,
+body.immersive-mode .toast-container,
+body.immersive-mode .modal-overlay,
+body.immersive-mode .context-menu {
+  display: none !important;
+}
+
+body.immersive-mode .app-content {
+  pointer-events: none;
+}
+
+body.immersive-mode .player-bar {
+  display: none !important;
+}
+
+body.immersive-mode .playlist-shelf {
+  display: none !important;
+}
+
+body.immersive-mode .visual-canvas {
+  z-index: 1;
+}
+
+body.immersive-mode .stage-lyrics {
+  z-index: 5;
+}
+
+body.immersive-mode .immersive-player {
+  z-index: 1000;
+}

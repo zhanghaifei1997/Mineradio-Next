@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { OrbitState, FreeCameraState, BeatCameraState, CinemaDynamics } from './types'
+import type { CinemaMode } from '@/types'
 
 const BASE_FOV = 45
 const FREE_CAMERA_STORE_KEY = 'mineradio_free_camera_state'
@@ -61,6 +62,12 @@ export class CameraSystem {
   private freeCameraResetQuat = new THREE.Quaternion()
   private freeCameraUp = new THREE.Vector3(0, 1, 0)
   private zeroVec = new THREE.Vector3(0, 0, 0)
+
+  private cinemaMode: CinemaMode = 'cinema'
+  private breathingPhase = 0
+  private cinemaShakeX = 0
+  private cinemaShakeY = 0
+  private cinemaShakeZ = 0
 
   constructor(camera: THREE.PerspectiveCamera, domElement: HTMLElement) {
     this.camera = camera
@@ -360,6 +367,10 @@ export class CameraSystem {
     }, delay || 720)
   }
 
+  setCinemaMode(mode: CinemaMode): void {
+    this.cinemaMode = mode
+  }
+
   updateCinemaDynamics(rawEnergy: number, rawLow: number, cinemaIntensity: number): void {
     const e = clamp01(rawEnergy || 0)
     const l = clamp01(rawLow || 0)
@@ -378,6 +389,13 @@ export class CameraSystem {
     const scaledTarget = clampRange(target * cinemaIntensity, 0.18, 1.08)
 
     this.cinemaDynamics.scale += (scaledTarget - this.cinemaDynamics.scale) * (scaledTarget > this.cinemaDynamics.scale ? 0.045 : 0.022)
+
+    if (this.cinemaMode === 'dynamic' && composite > 0.3) {
+      const shakeAmount = composite * cinemaIntensity * 0.02
+      this.cinemaShakeX += (Math.random() - 0.5) * shakeAmount
+      this.cinemaShakeY += (Math.random() - 0.5) * shakeAmount
+      this.cinemaShakeZ += (Math.random() - 0.5) * shakeAmount * 0.5
+    }
   }
 
   update(dt: number, isPlaying: boolean, cinemaIntensity: number): void {
@@ -396,10 +414,40 @@ export class CameraSystem {
   private updateOrbit(dt: number, cinemaIntensity: number): void {
     const t = this.cinemaT
     const dynScale = this.cinemaDynamics.scale
+    const mode = this.cinemaMode
 
-    this.orbit.cineTheta = Math.sin(t * 0.12) * 0.08 * dynScale
-    this.orbit.cinePhi = Math.sin(t * 0.18 + 0.5) * 0.04 * dynScale
-    this.orbit.cineRadius = Math.sin(t * 0.22 + 1.2) * 0.15 * dynScale
+    this.breathingPhase += dt * 0.5
+
+    let thetaScale = 0
+    let phiScale = 0
+    let radiusScale = 0
+
+    switch (mode) {
+      case 'static':
+        thetaScale = 0
+        phiScale = 0
+        radiusScale = 0
+        break
+      case 'breathing':
+        radiusScale = Math.sin(this.breathingPhase) * 0.05 * cinemaIntensity
+        thetaScale = Math.sin(this.breathingPhase * 0.7) * 0.02 * cinemaIntensity
+        phiScale = Math.sin(this.breathingPhase * 1.3) * 0.01 * cinemaIntensity
+        break
+      case 'cinema':
+        thetaScale = Math.sin(t * 0.12) * 0.08 * dynScale
+        phiScale = Math.sin(t * 0.18 + 0.5) * 0.04 * dynScale
+        radiusScale = Math.sin(t * 0.22 + 1.2) * 0.15 * dynScale
+        break
+      case 'dynamic':
+        thetaScale = Math.sin(t * 0.18) * 0.12 * dynScale
+        phiScale = Math.sin(t * 0.25 + 0.5) * 0.08 * dynScale
+        radiusScale = Math.sin(t * 0.3 + 1.2) * 0.25 * dynScale
+        break
+    }
+
+    this.orbit.cineTheta = thetaScale
+    this.orbit.cinePhi = phiScale
+    this.orbit.cineRadius = radiusScale
 
     if (this.orbit.recentering) {
       const ease = 0.04
@@ -416,15 +464,19 @@ export class CameraSystem {
       }
     }
 
-    this.orbit.theta = this.orbit.userTheta + this.orbit.cineTheta + this.beatCam.thetaKick
-    this.orbit.phi = this.orbit.userPhi + this.orbit.cinePhi + this.beatCam.phiKick
-    this.orbit.radius = this.orbit.userRadius + this.orbit.cineRadius + this.beatCam.radiusKick
+    this.orbit.theta = this.orbit.userTheta + this.orbit.cineTheta + this.beatCam.thetaKick + this.cinemaShakeX
+    this.orbit.phi = this.orbit.userPhi + this.orbit.cinePhi + this.beatCam.phiKick + this.cinemaShakeY
+    this.orbit.radius = this.orbit.userRadius + this.orbit.cineRadius + this.beatCam.radiusKick + this.cinemaShakeZ
 
     this.beatCam.punch *= Math.pow(0.08, dt)
     this.beatCam.thetaKick *= Math.pow(0.05, dt)
     this.beatCam.phiKick *= Math.pow(0.05, dt)
     this.beatCam.radiusKick *= Math.pow(0.05, dt)
     this.beatCam.rollKick *= Math.pow(0.05, dt)
+
+    this.cinemaShakeX *= Math.pow(0.01, dt)
+    this.cinemaShakeY *= Math.pow(0.01, dt)
+    this.cinemaShakeZ *= Math.pow(0.01, dt)
   }
 
   private applyOrbitCamera(isPlaying: boolean, cinemaIntensity: number): void {

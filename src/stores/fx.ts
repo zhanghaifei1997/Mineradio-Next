@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { FxSettings, VisualPreset, PerformanceQuality, PerformanceBackgroundMode, SpectrumMode } from '@/types'
+import type { FxSettings, VisualPreset, PerformanceQuality, PerformanceBackgroundMode, SpectrumMode, CinemaMode, ShelfMode, ShelfCameraMode, ShelfPresence } from '@/types'
 import { normalizePerformanceQuality, normalizePerformanceBackgroundMode } from '@/modules/performance'
 
 const STORAGE_KEY = 'mineradio_fx_settings'
@@ -8,12 +8,35 @@ const STORAGE_KEY = 'mineradio_fx_settings'
 const defaultSettings: FxSettings = {
   preset: 'emily',
   particleResolution: 1,
+  particleSize: 1,
+  particleColorMode: 'colorful',
   cinemaIntensity: 0.7,
+  cinemaMode: 'cinema',
   lyricGlow: 0.6,
   accentColor: '#d95b67',
   glowColor: '#d95b67',
-  shelfShowPodcasts: false,
+  bgColor: '#0a0e17',
+  brightness: 1,
+  contrast: 1,
+  visualIntensity: 1,
+  beatResponseStrength: 0.5,
+  particleMotionSpeed: 1,
+  autoSwitchPreset: false,
+  visualWithSong: false,
+  shelfMode: 'sidebar',
+  shelfCameraMode: 'dynamic',
+  shelfPresence: 'always',
+  shelfShowPodcasts: true,
   shelfMergeCollections: false,
+  shelfSize: 1.0,
+  shelfOffsetX: 0,
+  shelfOffsetY: 0,
+  shelfOffsetZ: 0,
+  shelfAngleY: 0,
+  shelfOpacity: 0.95,
+  shelfBgOpacity: 0.75,
+  shelfAccentColor: '#f4d28a',
+  shelfSoundEnabled: true,
   liveBackgroundKeep: false,
   performanceBackground: 'auto',
   performanceQuality: 'high',
@@ -27,6 +50,9 @@ const defaultSettings: FxSettings = {
   glassEffect: true,
   glassOpacity: 0.85,
   glassBlur: 20,
+  consoleTint: 0.5,
+  consoleOpacity: 0.85,
+  coverColorEnabled: true,
   onboardingCompleted: false,
 }
 
@@ -48,6 +74,11 @@ export const useFxStore = defineStore('fx', () => {
     set: (v: number) => { settings.value.cinemaIntensity = v; save() },
   })
 
+  const cinemaMode = computed({
+    get: () => settings.value.cinemaMode,
+    set: (v: CinemaMode) => { settings.value.cinemaMode = v; save() },
+  })
+
   const lyricGlow = computed({
     get: () => settings.value.lyricGlow,
     set: (v: number) => { settings.value.lyricGlow = v; save() },
@@ -61,6 +92,76 @@ export const useFxStore = defineStore('fx', () => {
   const glowColor = computed({
     get: () => settings.value.glowColor,
     set: (v: string) => { settings.value.glowColor = v; save() },
+  })
+
+  const shelfMode = computed({
+    get: () => settings.value.shelfMode,
+    set: (v: ShelfMode) => { settings.value.shelfMode = v; save() },
+  })
+
+  const shelfCameraMode = computed({
+    get: () => settings.value.shelfCameraMode,
+    set: (v: ShelfCameraMode) => { settings.value.shelfCameraMode = v; save() },
+  })
+
+  const shelfPresence = computed({
+    get: () => settings.value.shelfPresence,
+    set: (v: ShelfPresence) => { settings.value.shelfPresence = v; save() },
+  })
+
+  const shelfShowPodcasts = computed({
+    get: () => settings.value.shelfShowPodcasts,
+    set: (v: boolean) => { settings.value.shelfShowPodcasts = v; save() },
+  })
+
+  const shelfMergeCollections = computed({
+    get: () => settings.value.shelfMergeCollections,
+    set: (v: boolean) => { settings.value.shelfMergeCollections = v; save() },
+  })
+
+  const shelfSize = computed({
+    get: () => settings.value.shelfSize,
+    set: (v: number) => { settings.value.shelfSize = v; save() },
+  })
+
+  const shelfOffsetX = computed({
+    get: () => settings.value.shelfOffsetX,
+    set: (v: number) => { settings.value.shelfOffsetX = v; save() },
+  })
+
+  const shelfOffsetY = computed({
+    get: () => settings.value.shelfOffsetY,
+    set: (v: number) => { settings.value.shelfOffsetY = v; save() },
+  })
+
+  const shelfOffsetZ = computed({
+    get: () => settings.value.shelfOffsetZ,
+    set: (v: number) => { settings.value.shelfOffsetZ = v; save() },
+  })
+
+  const shelfAngleY = computed({
+    get: () => settings.value.shelfAngleY,
+    set: (v: number) => { settings.value.shelfAngleY = v; save() },
+  })
+
+  const shelfOpacity = computed({
+    get: () => settings.value.shelfOpacity,
+    set: (v: number) => { settings.value.shelfOpacity = v; save() },
+  })
+
+  const shelfBgOpacity = computed({
+    get: () => settings.value.shelfBgOpacity,
+    set: (v: number) => { settings.value.shelfBgOpacity = v; save() },
+  })
+
+  const shelfAccentColor = computed({
+    get: () => settings.value.shelfAccentColor,
+    set: (v: string) => { settings.value.shelfAccentColor = v; save() },
+  })
+
+  const shelfSoundEnabled = computed({
+    get: () => settings.value.shelfSoundEnabled,
+    set: (v: boolean) => { settings.value.shelfSoundEnabled = v; save() },
   })
 
   const performanceQuality = computed({
@@ -163,9 +264,24 @@ export const useFxStore = defineStore('fx', () => {
     preset,
     particleResolution,
     cinemaIntensity,
+    cinemaMode,
     lyricGlow,
     accentColor,
     glowColor,
+    shelfMode,
+    shelfCameraMode,
+    shelfPresence,
+    shelfShowPodcasts,
+    shelfMergeCollections,
+    shelfSize,
+    shelfOffsetX,
+    shelfOffsetY,
+    shelfOffsetZ,
+    shelfAngleY,
+    shelfOpacity,
+    shelfBgOpacity,
+    shelfAccentColor,
+    shelfSoundEnabled,
     performanceQuality,
     performanceBackground,
     liveBackgroundKeep,

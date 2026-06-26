@@ -2,10 +2,12 @@
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import * as THREE from 'three'
 import { ShelfEngine } from '@/modules/shelf'
-import type { ShelfItem, ShelfCard, ShelfCardAction } from '@/modules/shelf'
+import type { ShelfItem, ShelfCard, ShelfCardAction, ShelfMode } from '@/modules/shelf'
 import { useFxStore } from '@/stores/fx'
+import { useLyricsStore } from '@/stores/lyrics'
 import { usePlayerStore } from '@/stores/player'
 import { providerManager } from '@/modules/providers'
+import { useShelfSound } from '@/composables/useShelfSound'
 import type { Playlist } from '@/types'
 import { formatPlayCount } from '@/utils'
 
@@ -19,7 +21,9 @@ const emit = defineEmits<{
 }>()
 
 const fx = useFxStore()
+const lyrics = useLyricsStore()
 const player = usePlayerStore()
+const { initAudio, playClick, playScroll, playSelect } = useShelfSound()
 
 const containerRef = ref<HTMLDivElement | null>(null)
 const detailPanelRef = ref<HTMLDivElement | null>(null)
@@ -27,6 +31,7 @@ const detailTracks = ref<Playlist['tracks']>([])
 const detailTitle = ref('')
 const detailLoading = ref(false)
 const selectedPlaylistId = ref<string | null>(null)
+const contentOpen = ref(false)
 
 let scene: THREE.Scene | null = null
 let camera: THREE.PerspectiveCamera | null = null
@@ -34,20 +39,36 @@ let renderer: THREE.WebGLRenderer | null = null
 let shelfEngine: ShelfEngine | null = null
 let animationId: number | null = null
 let audioDataTimer: number | null = null
+let originalLyricOpacity = 0.92
+let originalLyricGlow = 0.35
 
 const shelfItems = computed<ShelfItem[]>(() => {
-  return props.playlists.map((pl, idx) => ({
-    type: 'playlist' as const,
-    id: pl.id,
-    title: pl.name,
-    sub: `${pl.source === 'netease' ? '网易' : 'QQ'} · ${pl.trackCount} 首 · 播放 ${formatPlayCount(pl.playCount || 0)}`,
-    cover: pl.coverUrl || '',
-    tag: idx === 0 ? '推荐歌单' : `#${idx + 1}`,
-    playlistId: pl.id,
-    provider: pl.source,
-    isNowPlaying: false,
-  }))
+  const items = props.playlists
+    .filter((pl) => {
+      if (!fx.settings.shelfShowPodcasts) {
+        return true
+      }
+      return true
+    })
+    .map((pl, idx) => ({
+      type: 'playlist' as const,
+      id: pl.id,
+      title: pl.name,
+      sub: `${pl.source === 'netease' ? '网易' : 'QQ'} · ${pl.trackCount} 首 · 播放 ${formatPlayCount(pl.playCount || 0)}`,
+      cover: pl.coverUrl || '',
+      tag: idx === 0 ? '推荐歌单' : `#${idx + 1}`,
+      playlistId: pl.id,
+      provider: pl.source,
+      isNowPlaying: false,
+    }))
+  return items
 })
+
+function mapFxModeToShelfMode(mode: string): ShelfMode {
+  if (mode === 'off') return 'off'
+  if (mode === 'stage') return 'stage'
+  return 'side'
+}
 
 function initThree() {
   if (!containerRef.value) return
@@ -74,21 +95,29 @@ function initThree() {
     scene,
     camera,
     {
-      mode: 'side',
-      accentColor: fx.settings.accentColor,
-      size: 0.9,
-      offsetX: 0.2,
-      opacity: 0.95,
-      bgOpacity: 0.75,
+      mode: mapFxModeToShelfMode(fx.settings.shelfMode),
+      cameraMode: fx.settings.shelfCameraMode,
+      presence: fx.settings.shelfPresence,
+      accentColor: fx.settings.shelfAccentColor,
+      size: fx.settings.shelfSize,
+      offsetX: fx.settings.shelfOffsetX,
+      offsetY: fx.settings.shelfOffsetY,
+      offsetZ: fx.settings.shelfOffsetZ,
+      angleY: fx.settings.shelfAngleY,
+      opacity: fx.settings.shelfOpacity,
+      bgOpacity: fx.settings.shelfBgOpacity,
     },
     {
       onCardClick: handleCardClick,
       onCardHover: handleCardHover,
       onContentOpen: handleContentOpen,
       onContentClose: handleContentClose,
+      onScroll: handleShelfScroll,
+      onSelect: handleShelfSelect,
     }
   )
 
+  shelfEngine.setContainer(containerRef.value, renderer)
   shelfEngine.setItems(shelfItems.value)
   shelfEngine.setPinnedOpen(true)
   shelfEngine.start()
@@ -128,9 +157,16 @@ function handlePointerMove(e: PointerEvent) {
   const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1
   const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1
   shelfEngine.handlePointerMove(nx, ny)
+
+  if (fx.settings.shelfPresence === 'auto') {
+    const edgeThreshold = 0.7
+    const isAtEdge = nx > edgeThreshold || nx < -edgeThreshold
+    shelfEngine.setEdgeHover(isAtEdge)
+  }
 }
 
 function handleClick(e: MouseEvent) {
+  initAudio()
   if (!containerRef.value || !shelfEngine) return
   const rect = containerRef.value.getBoundingClientRect()
   const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1
@@ -143,7 +179,22 @@ function handleWheel(e: WheelEvent) {
   shelfEngine.handleWheel(e.deltaY)
 }
 
+function handleShelfScroll(direction: number) {
+  if (fx.settings.shelfSoundEnabled) {
+    playScroll()
+  }
+}
+
+function handleShelfSelect(index: number) {
+  if (fx.settings.shelfSoundEnabled) {
+    playSelect()
+  }
+}
+
 function handleCardClick(card: ShelfCard, action: ShelfCardAction) {
+  if (fx.settings.shelfSoundEnabled) {
+    playClick()
+  }
   if (action.kind === 'loadPlaylist' && action.playlistId) {
     const playlist = props.playlists.find((p) => p.id === action.playlistId)
     if (playlist) {
@@ -168,6 +219,9 @@ async function handleContentOpen(card: ShelfCard) {
   detailTitle.value = playlist.name
   detailLoading.value = true
   detailTracks.value = []
+  contentOpen.value = true
+
+  applyLyricDodge(true)
 
   try {
     const provider = providerManager.get(playlist.source) || providerManager.default
@@ -186,7 +240,21 @@ function handleContentClose() {
   selectedPlaylistId.value = null
   detailTracks.value = []
   detailTitle.value = ''
+  contentOpen.value = false
+  applyLyricDodge(false)
   emit('close-detail')
+}
+
+function applyLyricDodge(dodge: boolean) {
+  if (dodge) {
+    originalLyricOpacity = lyrics.style.opacity
+    originalLyricGlow = lyrics.glow.strength
+    lyrics.setStyle({ opacity: Math.min(originalLyricOpacity * 0.4, 0.4) })
+    lyrics.setGlow({ strength: Math.min(originalLyricGlow * 0.3, 0.15) })
+  } else {
+    lyrics.setStyle({ opacity: originalLyricOpacity })
+    lyrics.setGlow({ strength: originalLyricGlow })
+  }
 }
 
 function closeDetail() {
@@ -209,10 +277,62 @@ watch(shelfItems, (items) => {
 })
 
 watch(
-  () => fx.settings.accentColor,
+  () => fx.settings.shelfMode,
+  (mode) => {
+    if (shelfEngine) {
+      shelfEngine.setMode(mapFxModeToShelfMode(mode))
+    }
+  }
+)
+
+watch(
+  () => fx.settings.shelfCameraMode,
+  (mode) => {
+    if (shelfEngine) {
+      shelfEngine.setCameraMode(mode)
+    }
+  }
+)
+
+watch(
+  () => fx.settings.shelfPresence,
+  (presence) => {
+    if (shelfEngine) {
+      shelfEngine.setPresence(presence)
+    }
+  }
+)
+
+watch(
+  () => fx.settings.shelfAccentColor,
   (color) => {
     if (shelfEngine) {
       shelfEngine.setAccentColor(color)
+    }
+  }
+)
+
+watch(
+  () => [
+    fx.settings.shelfSize,
+    fx.settings.shelfOffsetX,
+    fx.settings.shelfOffsetY,
+    fx.settings.shelfOffsetZ,
+    fx.settings.shelfAngleY,
+    fx.settings.shelfOpacity,
+    fx.settings.shelfBgOpacity,
+  ],
+  () => {
+    if (shelfEngine) {
+      shelfEngine.setSettings({
+        size: fx.settings.shelfSize,
+        x: fx.settings.shelfOffsetX,
+        y: fx.settings.shelfOffsetY,
+        z: fx.settings.shelfOffsetZ,
+        angle: (fx.settings.shelfAngleY * Math.PI) / 180,
+        opacity: fx.settings.shelfOpacity,
+        bgOpacity: fx.settings.shelfBgOpacity,
+      })
     }
   }
 )
@@ -232,6 +352,7 @@ onUnmounted(() => {
   }
   window.removeEventListener('resize', handleResize)
   document.body.style.cursor = ''
+  applyLyricDodge(false)
 })
 </script>
 

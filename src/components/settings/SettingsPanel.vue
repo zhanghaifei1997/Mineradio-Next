@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import { useFxStore } from '@/stores/fx'
 import { useLyricsStore } from '@/stores/lyrics'
 import { usePerformanceStore } from '@/stores/performance'
@@ -8,6 +8,7 @@ import { useHotkeysStore } from '@/stores/hotkeys'
 import { useThemeStore } from '@/stores/theme'
 import { useI18nStore } from '@/stores/i18n'
 import { useNotificationStore } from '@/stores/notification'
+import { useCoverColor } from '@/composables/useCoverColor'
 import type { VisualPreset, PerformanceQuality, PerformanceBackgroundMode, QualityLevel, ThemeMode, Language, PresetCategory, PresetInfo } from '@/types'
 import type {
   DesktopLyricsPosition,
@@ -19,6 +20,7 @@ import EqualizerPanel from '@/components/player/EqualizerPanel.vue'
 import HotkeySettings from '@/components/settings/HotkeySettings.vue'
 import CacheManager from '@/components/settings/CacheManager.vue'
 import DownloadPanel from '@/components/settings/DownloadPanel.vue'
+import ArchiveSlots from '@/components/settings/ArchiveSlots.vue'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -32,6 +34,7 @@ const hotkeys = useHotkeysStore()
 const theme = useThemeStore()
 const i18n = useI18nStore()
 const notification = useNotificationStore()
+const coverColor = useCoverColor()
 
 type SettingsTab = 'general' | 'playback' | 'cache' | 'download' | 'lyrics' | 'visual' | 'equalizer' | 'hotkeys' | 'about'
 
@@ -62,6 +65,14 @@ const desktopLyricsSettings = ref<DesktopLyricsSettings>({
   animationEnabled: true,
 })
 
+const appSettings = ref({
+  autoStart: false,
+  closeToTray: true,
+  minimizeToTray: false,
+})
+
+const isDesktop = !!(window as any).electronAPI?.isDesktop
+
 const tabs = [
   { id: 'general', name: '通用', icon: '⚙️' },
   { id: 'playback', name: '播放', icon: '🎵' },
@@ -81,7 +92,7 @@ const presets: PresetInfo[] = [
   { id: 'planet', name: '星球', icon: '🪐', category: 'basic', description: '行星轨道' },
   { id: 'cylinder', name: '圆柱', icon: '🏛️', category: 'basic', description: '圆柱形粒子' },
   { id: 'void', name: '虚空', icon: '🕳️', category: 'minimal', description: '极简虚空' },
-  { id: 'skull', name: 'Skull', icon: '💀', category: 'cool', description: '骷髅头特效' },
+  { id: 'skull', name: '安魂', icon: '💀', category: 'cool', description: '骷髅 · YUI7W' },
   { id: 'aurora', name: '极光', icon: '🌈', category: 'cool', description: '流动的彩色光带' },
   { id: 'starry', name: '星空', icon: '⭐', category: 'cool', description: '深邃星空闪烁' },
   { id: 'ocean', name: '海洋', icon: '🌊', category: 'cool', description: '波浪起伏海底' },
@@ -89,6 +100,9 @@ const presets: PresetInfo[] = [
   { id: 'matrix', name: '矩阵', icon: '💻', category: 'cool', description: '数字雨效果' },
   { id: 'geometry', name: '几何', icon: '🔷', category: 'cool', description: '几何图形变换' },
   { id: 'particleFlow', name: '粒子流', icon: '💫', category: 'cool', description: '粒子流动效果' },
+  { id: 'podcast', name: '播客', icon: '🎙️', category: 'minimal', description: '舒缓长时聆听' },
+  { id: 'dj', name: 'DJ', icon: '🎧', category: 'cool', description: '派对节奏视觉' },
+  { id: 'wallpaper', name: '星河壁纸', icon: '✨', category: 'minimal', description: '静谧银河背景' },
 ]
 
 const presetCategories: { id: PresetCategory; name: string }[] = [
@@ -310,9 +324,44 @@ watch(
   { immediate: true },
 )
 
+async function loadAppSettings() {
+  const electronAPI = (window as any).electronAPI
+  if (!electronAPI?.app?.getSettings) return
+  try {
+    const result = await electronAPI.app.getSettings()
+    if (result?.ok && result.settings) {
+      appSettings.value = { ...appSettings.value, ...result.settings }
+    }
+  } catch (e) {
+    console.warn('Failed to load app settings:', e)
+  }
+}
+
+async function saveAppSetting<K extends keyof typeof appSettings.value>(
+  key: K,
+  value: typeof appSettings.value[K]
+) {
+  appSettings.value[key] = value
+  const electronAPI = (window as any).electronAPI
+  if (!electronAPI?.app?.setSettings) return
+  try {
+    await electronAPI.app.setSettings({ [key]: value })
+  } catch (e) {
+    console.warn('Failed to save app setting:', e)
+  }
+}
+
+function setCloseBehavior(behavior: string) {
+  saveAppSetting('closeToTray', behavior === 'minimize')
+}
+
 function closePanel() {
   emit('close')
 }
+
+onMounted(() => {
+  loadAppSettings()
+})
 </script>
 
 <template>
@@ -448,19 +497,39 @@ function closePanel() {
                 <span>启动时自动播放</span>
               </label>
             </div>
+            <div v-if="isDesktop" class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="appSettings.autoStart"
+                  @change="saveAppSetting('autoStart', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>开机自动启动</span>
+              </label>
+            </div>
           </div>
 
-          <div class="settings-section">
+          <div v-if="isDesktop" class="settings-section">
             <div class="section-title">关闭行为</div>
-            <div class="segmented">
-              <button
-                v-for="behavior in closeBehaviors"
-                :key="behavior.id"
-                class="seg-btn"
-                :class="{ active: behavior.id === 'minimize' }"
-              >
-                {{ behavior.name }}
-              </button>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="appSettings.closeToTray"
+                  @change="saveAppSetting('closeToTray', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>关闭窗口时最小化到托盘</span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="appSettings.minimizeToTray"
+                  @change="saveAppSetting('minimizeToTray', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>最小化时到托盘</span>
+              </label>
             </div>
           </div>
         </div>
@@ -841,6 +910,8 @@ function closePanel() {
         </div>
 
         <div v-show="activeTab === 'visual'" class="settings-tab-content">
+          <ArchiveSlots />
+
           <div class="settings-section">
             <div class="section-title">视觉预设</div>
             <div class="preset-category-tabs">
@@ -905,6 +976,39 @@ function closePanel() {
               <div class="setting-hint">{{ fx.particleCountLabel }} 粒子网格</div>
             </div>
             <div class="setting-row">
+              <label>电影镜头模式</label>
+              <div class="segmented">
+                <button
+                  class="seg-btn"
+                  :class="{ active: fx.settings.cinemaMode === 'static' }"
+                  @click="fx.update('cinemaMode', 'static')"
+                >
+                  静态
+                </button>
+                <button
+                  class="seg-btn"
+                  :class="{ active: fx.settings.cinemaMode === 'breathing' }"
+                  @click="fx.update('cinemaMode', 'breathing')"
+                >
+                  呼吸
+                </button>
+                <button
+                  class="seg-btn"
+                  :class="{ active: fx.settings.cinemaMode === 'cinema' }"
+                  @click="fx.update('cinemaMode', 'cinema')"
+                >
+                  电影
+                </button>
+                <button
+                  class="seg-btn"
+                  :class="{ active: fx.settings.cinemaMode === 'dynamic' }"
+                  @click="fx.update('cinemaMode', 'dynamic')"
+                >
+                  动态
+                </button>
+              </div>
+            </div>
+            <div class="setting-row">
               <label>动感强度: {{ Math.round(fx.settings.cinemaIntensity * 100) }}%</label>
               <input
                 type="range"
@@ -914,6 +1018,40 @@ function closePanel() {
                 :value="fx.settings.cinemaIntensity"
                 @input="fx.update('cinemaIntensity', parseFloat(($event.target as HTMLInputElement).value))"
               />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">封面取色</div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="coverColor.isEnabled"
+                  @change="coverColor.isEnabled = ($event.target as HTMLInputElement).checked"
+                />
+                <span>跟随封面颜色</span>
+              </label>
+            </div>
+            <div v-if="coverColor.isEnabled" class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="coverColor.applyToHighlight"
+                  @change="coverColor.applyToHighlight = ($event.target as HTMLInputElement).checked"
+                />
+                <span>应用到高亮色</span>
+              </label>
+            </div>
+            <div v-if="coverColor.isEnabled" class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="coverColor.applyToGlow"
+                  @change="coverColor.applyToGlow = ($event.target as HTMLInputElement).checked"
+                />
+                <span>应用到发光色</span>
+              </label>
             </div>
           </div>
 
@@ -1026,6 +1164,206 @@ function closePanel() {
                 step="1"
                 :value="fx.settings.glassBlur"
                 @input="fx.update('glassBlur', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">3D 歌单架</div>
+            <div class="setting-row">
+              <label>显示模式</label>
+              <div class="segmented">
+                <button
+                  class="seg-btn"
+                  :class="{ active: fx.settings.shelfMode === 'off' }"
+                  @click="fx.update('shelfMode', 'off')"
+                >
+                  关闭
+                </button>
+                <button
+                  class="seg-btn"
+                  :class="{ active: fx.settings.shelfMode === 'sidebar' }"
+                  @click="fx.update('shelfMode', 'sidebar')"
+                >
+                  侧栏
+                </button>
+                <button
+                  class="seg-btn"
+                  :class="{ active: fx.settings.shelfMode === 'stage' }"
+                  @click="fx.update('shelfMode', 'stage')"
+                >
+                  舞台
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-row" v-if="fx.settings.shelfMode !== 'off'">
+              <label>镜头模式</label>
+              <div class="segmented">
+                <button
+                  class="seg-btn"
+                  :class="{ active: fx.settings.shelfCameraMode === 'dynamic' }"
+                  @click="fx.update('shelfCameraMode', 'dynamic')"
+                >
+                  动态
+                </button>
+                <button
+                  class="seg-btn"
+                  :class="{ active: fx.settings.shelfCameraMode === 'static' }"
+                  @click="fx.update('shelfCameraMode', 'static')"
+                >
+                  静态
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-row" v-if="fx.settings.shelfMode !== 'off'">
+              <label>显示方式</label>
+              <div class="segmented">
+                <button
+                  class="seg-btn"
+                  :class="{ active: fx.settings.shelfPresence === 'auto' }"
+                  @click="fx.update('shelfPresence', 'auto')"
+                >
+                  自动隐藏
+                </button>
+                <button
+                  class="seg-btn"
+                  :class="{ active: fx.settings.shelfPresence === 'always' }"
+                  @click="fx.update('shelfPresence', 'always')"
+                >
+                  常驻显示
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-row" v-if="fx.settings.shelfMode !== 'off'">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="fx.settings.shelfShowPodcasts"
+                  @change="fx.update('shelfShowPodcasts', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>显示播客歌单</span>
+              </label>
+            </div>
+
+            <div class="setting-row" v-if="fx.settings.shelfMode !== 'off'">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="fx.settings.shelfMergeCollections"
+                  @change="fx.update('shelfMergeCollections', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>合并收藏歌单</span>
+              </label>
+            </div>
+
+            <div class="setting-row" v-if="fx.settings.shelfMode !== 'off'">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="fx.settings.shelfSoundEnabled"
+                  @change="fx.update('shelfSoundEnabled', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>滚动选择音效</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-section" v-if="fx.settings.shelfMode !== 'off'">
+            <div class="section-title">歌单架外观</div>
+
+            <div class="setting-row">
+              <label>大小: {{ fx.settings.shelfSize.toFixed(2) }}</label>
+              <input
+                type="range"
+                min="0.5"
+                max="2"
+                step="0.05"
+                :value="fx.settings.shelfSize"
+                @input="fx.update('shelfSize', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+
+            <div class="setting-row">
+              <label>左右位置: {{ fx.settings.shelfOffsetX.toFixed(2) }}</label>
+              <input
+                type="range"
+                min="-1"
+                max="1"
+                step="0.05"
+                :value="fx.settings.shelfOffsetX"
+                @input="fx.update('shelfOffsetX', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+
+            <div class="setting-row">
+              <label>上下位置: {{ fx.settings.shelfOffsetY.toFixed(2) }}</label>
+              <input
+                type="range"
+                min="-1"
+                max="1"
+                step="0.05"
+                :value="fx.settings.shelfOffsetY"
+                @input="fx.update('shelfOffsetY', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+
+            <div class="setting-row">
+              <label>前后景深: {{ fx.settings.shelfOffsetZ.toFixed(2) }}</label>
+              <input
+                type="range"
+                min="-1"
+                max="1"
+                step="0.05"
+                :value="fx.settings.shelfOffsetZ"
+                @input="fx.update('shelfOffsetZ', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+
+            <div class="setting-row">
+              <label>侧向角度: {{ fx.settings.shelfAngleY.toFixed(0) }}°</label>
+              <input
+                type="range"
+                min="-45"
+                max="45"
+                step="1"
+                :value="fx.settings.shelfAngleY"
+                @input="fx.update('shelfAngleY', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+
+            <div class="setting-row">
+              <label>整体透明度: {{ Math.round(fx.settings.shelfOpacity * 100) }}%</label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                :value="fx.settings.shelfOpacity"
+                @input="fx.update('shelfOpacity', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+
+            <div class="setting-row">
+              <label>背景透明度: {{ Math.round(fx.settings.shelfBgOpacity * 100) }}%</label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                :value="fx.settings.shelfBgOpacity"
+                @input="fx.update('shelfBgOpacity', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+
+            <div class="setting-row">
+              <label>强调色</label>
+              <input
+                type="color"
+                :value="fx.settings.shelfAccentColor"
+                @input="fx.update('shelfAccentColor', ($event.target as HTMLInputElement).value)"
               />
             </div>
           </div>

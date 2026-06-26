@@ -87,6 +87,7 @@ export class VisualEngine {
     this.renderer.domElement.tabIndex = 0
 
     this.cameraSystem = new CameraSystem(this.camera, this.renderer.domElement)
+    this.cameraSystem.setCinemaMode(this.fxSettings.cinemaMode)
     this.beatSync = new BeatSync()
 
     this.setupEventListeners()
@@ -215,6 +216,10 @@ export class VisualEngine {
 
     if (settings.preset) {
       this.setPreset(settings.preset)
+    }
+
+    if (settings.cinemaMode) {
+      this.cameraSystem.setCinemaMode(settings.cinemaMode)
     }
   }
 

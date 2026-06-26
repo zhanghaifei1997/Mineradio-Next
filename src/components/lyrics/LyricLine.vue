@@ -28,6 +28,14 @@ interface Props {
   letterSpacing?: number
   lineHeight?: number
   beatGlow?: number
+  strokeEnabled?: boolean
+  strokeColor?: string
+  strokeWidth?: number
+  shadowEnabled?: boolean
+  shadowColor?: string
+  shadowBlur?: number
+  shadowOffsetX?: number
+  shadowOffsetY?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -46,6 +54,14 @@ const props = withDefaults(defineProps<Props>(), {
   letterSpacing: 0,
   lineHeight: 1,
   beatGlow: 0,
+  strokeEnabled: false,
+  strokeColor: 'rgba(4, 6, 12, 0.8)',
+  strokeWidth: 2,
+  shadowEnabled: true,
+  shadowColor: 'rgba(4, 6, 12, 0.5)',
+  shadowBlur: 8,
+  shadowOffsetX: 0,
+  shadowOffsetY: 2,
 })
 
 const lineRef = ref<HTMLDivElement | null>(null)
@@ -53,6 +69,17 @@ const lineRef = ref<HTMLDivElement | null>(null)
 const lineStyle = computed(() => {
   const progress = Math.max(0, Math.min(1, props.progress))
   const feather = Math.max(0.03, Math.min(0.075, props.feather))
+
+  const textShadowParts: string[] = []
+  if (props.shadowEnabled) {
+    textShadowParts.push(`${props.shadowOffsetX}px ${props.shadowOffsetY}px ${props.shadowBlur}px ${props.shadowColor}`)
+  }
+  textShadowParts.push(`0 0 calc(6px + ${Math.max(0, Math.min(12, props.beatGlow * 8))}px) rgba(156, 255, 223, 0.34)`)
+  textShadowParts.push(`0 0 calc(14px + ${Math.max(0, Math.min(12, props.beatGlow * 8))}px) rgba(156, 255, 223, 0.26)`)
+
+  const strokeStyle = props.strokeEnabled
+    ? `${props.strokeWidth}px ${props.strokeColor}`
+    : '0.18px rgba(255, 255, 255, 0.72)'
 
   return {
     '--lyric-primary': props.primaryColor,
@@ -65,7 +92,8 @@ const lineStyle = computed(() => {
     '--lyric-font': props.fontFamily,
     '--lyric-letter-spacing': `${props.fontSize * props.letterSpacing}px`,
     '--lyric-line-height': props.lineHeight,
-    '--lyric-beat-glow': `${Math.max(0, Math.min(12, props.beatGlow * 8))}px`,
+    '--lyric-stroke': strokeStyle,
+    '--lyric-shadow': textShadowParts.join(', '),
   }
 })
 </script>
@@ -91,12 +119,9 @@ const lineStyle = computed(() => {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  -webkit-text-stroke: 0.18px rgba(255, 255, 255, 0.72);
+  -webkit-text-stroke: var(--lyric-stroke);
   paint-order: stroke fill;
-  text-shadow:
-    0 0 1px rgba(255, 255, 255, 0.34),
-    0 0 calc(6px + var(--lyric-css-beat-glow)) rgba(156, 255, 223, 0.34),
-    0 0 calc(14px + var(--lyric-css-beat-glow)) rgba(156, 255, 223, 0.26);
+  text-shadow: var(--lyric-shadow);
   filter: none;
   opacity: 0;
   transform: translate3d(0, 0, 0);

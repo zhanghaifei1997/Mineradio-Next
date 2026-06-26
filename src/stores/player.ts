@@ -29,8 +29,34 @@ import { djModeEngine } from '@/modules/dj'
 import type { DjProgram, DjRadio } from '@/modules/dj'
 
 const QUALITY_STORAGE_KEY = 'mineradio_player_quality'
+const CONTINUE_KEY = 'mineradio_continue_listening'
 
 const beatMapCache = new Map<string, BeatMap>()
+
+export interface ContinueListeningData {
+  queue: Song[]
+  currentIndex: number
+  currentTime: number
+  lastPlayedAt: number
+  playlistName?: string
+  playlistCover?: string
+}
+
+function loadContinueData(): ContinueListeningData | null {
+  try {
+    const raw = localStorage.getItem(CONTINUE_KEY)
+    if (raw) {
+      return JSON.parse(raw)
+    }
+  } catch (_) {}
+  return null
+}
+
+function saveContinueData(data: ContinueListeningData): void {
+  try {
+    localStorage.setItem(CONTINUE_KEY, JSON.stringify(data))
+  } catch (_) {}
+}
 
 export const usePlayerStore = defineStore('player', () => {
   const audio = ref<HTMLAudioElement | null>(null)
@@ -75,6 +101,7 @@ export const usePlayerStore = defineStore('player', () => {
   const currentQuality = ref<QualityLevel>(loadQuality())
   const wifiQuality = ref<QualityLevel>('exhigh')
   const mobileQuality = ref<QualityLevel>('standard')
+  const continueListening = ref<ContinueListeningData | null>(loadContinueData())
 
   const audioDevices = ref<MediaDeviceInfo[]>([])
   const currentOutputDeviceId = ref<string>(loadOutputDevice())
@@ -520,6 +547,55 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 
+  function saveContinueListening(playlistName?: string, playlistCover?: string): void {
+    const queueStore = playQueueStore()
+    if (queueStore.queue.length === 0 || !currentSong.value) return
+    
+    const data: ContinueListeningData = {
+      queue: [...queueStore.queue],
+      currentIndex: queueStore.currentIndex,
+      currentTime: currentTime.value,
+      lastPlayedAt: Date.now(),
+      playlistName,
+      playlistCover,
+    }
+    continueListening.value = data
+    saveContinueData(data)
+  }
+
+  async function continueFromLast(): Promise<boolean> {
+    if (!continueListening.value) return false
+    
+    const data = continueListening.value
+    if (data.queue.length === 0) return false
+    
+    const queueStore = playQueueStore()
+    queueStore.setQueue(data.queue, data.currentIndex)
+    
+    const song = data.queue[data.currentIndex]
+    if (song) {
+      await play(song)
+      setTimeout(() => {
+        if (audio.value && data.currentTime > 0) {
+          audio.value.currentTime = data.currentTime
+        }
+      }, 500)
+      return true
+    }
+    return false
+  }
+
+  function hasContinueData(): boolean {
+    return continueListening.value !== null && continueListening.value.queue.length > 0
+  }
+
+  function clearContinueListening(): void {
+    continueListening.value = null
+    try {
+      localStorage.removeItem(CONTINUE_KEY)
+    } catch (_) {}
+  }
+
   function loadOutputDevice(): string {
     try {
       const saved = localStorage.getItem('mineradio_output_device')
@@ -793,6 +869,7 @@ export const usePlayerStore = defineStore('player', () => {
     currentQuality,
     wifiQuality,
     mobileQuality,
+    continueListening,
     audioDevices,
     currentOutputDeviceId,
     initAudio,
@@ -837,5 +914,9 @@ export const usePlayerStore = defineStore('player', () => {
     getSupportedQualities,
     refreshAudioDevices,
     setOutputDevice,
+    saveContinueListening,
+    continueFromLast,
+    hasContinueData,
+    clearContinueListening,
   }
 })

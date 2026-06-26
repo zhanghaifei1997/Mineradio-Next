@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import type {
   ShelfMode,
+  ShelfCameraMode,
+  ShelfPresence,
   ShelfItem,
   ShelfCard,
   ShelfSettings,
@@ -30,6 +32,8 @@ export class ShelfEngine {
   private renderedStart = -1
 
   private mode: ShelfMode = 'side'
+  private cameraMode: ShelfCameraMode = 'dynamic'
+  private presence: ShelfPresence = 'always'
   private selectedIdx = -1
   private centerTarget = 0
   private centerSmooth = 0
@@ -41,6 +45,7 @@ export class ShelfEngine {
   private shelfVisibility = 0
   private shelfPinnedOpen = false
   private shelfOpenAnimAt = 0
+  private edgeHover = false
 
   private settings: ShelfSettings = {
     size: 1.0,
@@ -73,6 +78,8 @@ export class ShelfEngine {
     this.camera = camera
     if (options) {
       if (options.mode) this.mode = options.mode
+      if (options.cameraMode) this.cameraMode = options.cameraMode
+      if (options.presence) this.presence = options.presence
       if (options.accentColor) this.settings.accent = options.accentColor
       if (options.size != null) this.settings.size = options.size
       if (options.offsetX != null) this.settings.x = options.offsetX
@@ -123,6 +130,26 @@ export class ShelfEngine {
 
   getMode(): ShelfMode {
     return this.mode
+  }
+
+  setCameraMode(mode: ShelfCameraMode): void {
+    this.cameraMode = mode
+  }
+
+  getCameraMode(): ShelfCameraMode {
+    return this.cameraMode
+  }
+
+  setPresence(presence: ShelfPresence): void {
+    this.presence = presence
+  }
+
+  getPresence(): ShelfPresence {
+    return this.presence
+  }
+
+  setEdgeHover(hovering: boolean): void {
+    this.edgeHover = hovering
   }
 
   setAccentColor(color: string): void {
@@ -256,6 +283,10 @@ export class ShelfEngine {
     const prevTarget = Math.round(this.centerTarget)
     this.centerTarget = Math.max(0, Math.min(this.allItems.length - 1, this.centerTarget + direction))
     const nextTarget = Math.round(this.centerTarget)
+    if (prevTarget !== nextTarget) {
+      this.events.onScroll?.(direction > 0 ? 1 : -1)
+      this.events.onSelect?.(nextTarget)
+    }
     this.syncRenderedWindow(false)
     this.setSelected(nextTarget)
   }
@@ -376,8 +407,12 @@ export class ShelfEngine {
     if (this.mode === 'off') return 0
     if (this.contentOpen) return 1.0
     if (this.shelfPinnedOpen) return 1.0
-    if (this.hoveredCard) return 0.9
-    return 0.3
+    if (this.hoveredCard) return 0.95
+
+    if (this.presence === 'auto') {
+      return this.edgeHover ? 0.9 : 0
+    }
+    return 0.35
   }
 
   private updateGroupTransform(): void {
@@ -386,16 +421,18 @@ export class ShelfEngine {
     const px = this.pointerParallax.x
     const py = this.pointerParallax.y
 
+    const parallaxFactor = this.cameraMode === 'dynamic' ? 1 : 0
+
     if (this.mode === 'side') {
       this.group.position.set(0, 0, 0)
-      this.group.rotation.y += (px * 0.018 - this.group.rotation.y) * 0.045
-      this.group.rotation.x += (-py * 0.010 - this.group.rotation.x) * 0.045
+      this.group.rotation.y += (px * 0.018 * parallaxFactor - this.group.rotation.y) * 0.045
+      this.group.rotation.x += (-py * 0.010 * parallaxFactor - this.group.rotation.x) * 0.045
       this.group.rotation.z += (0 - this.group.rotation.z) * 0.045
     } else {
       this.group.position.y = Math.sin(this.time * 0.3) * 0.04
-      this.group.position.x = px * 0.10
-      this.group.rotation.y = px * 0.025
-      this.group.rotation.x = -py * 0.012
+      this.group.position.x = px * 0.10 * parallaxFactor
+      this.group.rotation.y = px * 0.025 * parallaxFactor
+      this.group.rotation.x = -py * 0.012 * parallaxFactor
     }
   }
 
@@ -436,6 +473,7 @@ export class ShelfEngine {
     const py = this.pointerParallax.y
     const parWeight = Math.max(0, 1 - absD * 0.16)
     const pulse = card.fxPulse || 0
+    const parallaxFactor = this.cameraMode === 'dynamic' ? 1 : 0
 
     const liftTarget = card.selected && !this.contentOpen ? 1 : 0
     const liftRate = liftTarget > (card.floatMix || 0) ? 0.2 : 0.13
@@ -450,9 +488,9 @@ export class ShelfEngine {
     let posY = (layout.sideY || 0) - delta * layout.sideYStep + (1 - revealRaw) * (delta < 0 ? -0.18 : 0.18)
     let posZ = layout.sideZ - absD * layout.sideZStep - (1 - revealRaw) * 0.2
 
-    posX += px * 0.06 * parWeight
-    posY += py * 0.046 * parWeight
-    posZ += (py * 0.026 - px * 0.028) * parWeight
+    posX += px * 0.06 * parWeight * parallaxFactor
+    posY += py * 0.046 * parWeight * parallaxFactor
+    posZ += (py * 0.026 - px * 0.028) * parWeight * parallaxFactor
 
     if (lift > 0.001) {
       posX -= lift * (layout.portrait ? 0.065 : 0.145)
@@ -463,9 +501,13 @@ export class ShelfEngine {
     let scale = (absD < 0.5 ? 1.12 : Math.max(0.55, 1.04 - absD * 0.14)) * (0.88 + revealRaw * 0.12) * (1 + pulse * 0.056 + lift * 0.075) * layout.sideScale
 
     card.mesh.position.set(posX, posY, posZ)
-    card.mesh.rotation.y = layout.sideRotY + (1 - revealRaw) * 0.16 + px * 0.038 * parWeight
-    card.mesh.rotation.x = -delta * layout.sideRotX - py * 0.024 * parWeight
+    card.mesh.rotation.y = layout.sideRotY + (1 - revealRaw) * 0.16 + px * 0.038 * parWeight * parallaxFactor
+    card.mesh.rotation.x = -delta * layout.sideRotX - py * 0.024 * parWeight * parallaxFactor
     card.mesh.scale.setScalar(scale)
+
+    const isForeground = card.selected || this.hoveredCard === card || this.contentOpen
+    const baseRenderOrder = 60 + Math.round((SHELF_CONSTANTS.VISIBLE_RADIUS + 1 - Math.min(absD, SHELF_CONSTANTS.VISIBLE_RADIUS + 1)) * 10)
+    card.mesh.renderOrder = isForeground ? baseRenderOrder + 100 : baseRenderOrder
 
     let opacity = absD < 0.5 ? 1.0 : Math.max(0.22, 1.0 - absD * 0.3)
     if (this.contentOpen) {
@@ -486,12 +528,13 @@ export class ShelfEngine {
     const py = this.pointerParallax.y
     const parWeight = Math.max(0, 1 - absD * 0.16)
     const pulse = card.fxPulse || 0
+    const parallaxFactor = this.cameraMode === 'dynamic' ? 1 : 0
 
-    const posX = (layout.stageX || 0) + delta * layout.stageXStep + px * 0.11 * parWeight
-    const posY = layout.stageY + py * 0.06 * parWeight
+    const posX = (layout.stageX || 0) + delta * layout.stageXStep + px * 0.11 * parWeight * parallaxFactor
+    const posY = layout.stageY + py * 0.06 * parWeight * parallaxFactor
     const posZ =
       (absD < 0.5 ? layout.stageZ : layout.stageZ - Math.min(2.0, absD) * 0.55) +
-      (py * 0.04 - px * 0.035) * parWeight
+      (py * 0.04 - px * 0.035) * parWeight * parallaxFactor
 
     const scale =
       (absD < 0.5 ? 1.2 : Math.max(0.45, 1.0 - absD * 0.22)) *
@@ -499,9 +542,13 @@ export class ShelfEngine {
       layout.stageScale
 
     card.mesh.position.set(posX, posY, posZ)
-    card.mesh.rotation.y = -delta * 0.22 + px * 0.05 * parWeight
-    card.mesh.rotation.x = 0.1 - absD * 0.04 - py * 0.028 * parWeight
+    card.mesh.rotation.y = -delta * 0.22 + px * 0.05 * parWeight * parallaxFactor
+    card.mesh.rotation.x = 0.1 - absD * 0.04 - py * 0.028 * parWeight * parallaxFactor
     card.mesh.scale.setScalar(scale)
+
+    const isForeground = card.selected || this.hoveredCard === card || this.contentOpen
+    const baseRenderOrder = 60 + Math.round((SHELF_CONSTANTS.VISIBLE_RADIUS + 1 - Math.min(absD, SHELF_CONSTANTS.VISIBLE_RADIUS + 1)) * 10)
+    card.mesh.renderOrder = isForeground ? baseRenderOrder + 100 : baseRenderOrder
 
     let op = absD < 0.5 ? 1.0 : Math.max(0.18, 1.0 - absD * 0.32)
     if (this.contentOpen) {

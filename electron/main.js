@@ -72,6 +72,12 @@ let wallpaperState = {
   enabled: false,
 }
 
+let appSettings = {
+  autoStart: false,
+  closeToTray: true,
+  minimizeToTray: false,
+}
+
 let workerwAppState = {
   enabled: false,
   wallpaperMode: false,
@@ -107,6 +113,46 @@ function getAppIcon() {
     return nativeImage.createFromPath(iconPath)
   } catch (e) {
     return nativeImage.createEmpty()
+  }
+}
+
+function getAppSettingsPath() {
+  return path.join(app.getPath('userData'), 'app-settings.json')
+}
+
+function loadAppSettings() {
+  try {
+    const settingsPath = getAppSettingsPath()
+    if (fs.existsSync(settingsPath)) {
+      const data = fs.readFileSync(settingsPath, 'utf8')
+      const parsed = JSON.parse(data)
+      appSettings = { ...appSettings, ...parsed }
+    }
+  } catch (e) {
+    console.warn('Failed to load app settings:', e.message)
+  }
+}
+
+function saveAppSettings() {
+  try {
+    const settingsPath = getAppSettingsPath()
+    fs.writeFileSync(settingsPath, JSON.stringify(appSettings, null, 2), 'utf8')
+    return true
+  } catch (e) {
+    console.warn('Failed to save app settings:', e.message)
+    return false
+  }
+}
+
+function applyAutoStart() {
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: !!appSettings.autoStart,
+      path: process.execPath,
+      args: [],
+    })
+  } catch (e) {
+    console.warn('Failed to set login item settings:', e.message)
   }
 }
 
@@ -190,8 +236,23 @@ function createMainWindow() {
     return { action: 'deny' }
   })
 
+  mainWindow.on('close', (event) => {
+    if (appSettings.closeToTray && tray && !mainWindow?.isDestroyed()) {
+      event.preventDefault()
+      mainWindow.hide()
+      updateTrayMenu()
+    }
+  })
+
   mainWindow.on('closed', () => {
     mainWindow = null
+  })
+
+  mainWindow.on('minimize', () => {
+    if (appSettings.minimizeToTray && tray && !mainWindow?.isDestroyed()) {
+      mainWindow.hide()
+      updateTrayMenu()
+    }
   })
 }
 
@@ -875,6 +936,23 @@ function setupIpc() {
     return { ok: true, mini: isMini }
   })
 
+  ipcMain.handle('window:show', (event) => {
+    const win = getSenderWindow(event)
+    if (win && !win.isDestroyed()) {
+      win.show()
+      win.focus()
+    }
+    return { ok: true }
+  })
+
+  ipcMain.handle('window:hide', (event) => {
+    const win = getSenderWindow(event)
+    if (win && !win.isDestroyed()) {
+      win.hide()
+    }
+    return { ok: true }
+  })
+
   ipcMain.handle('media:setNowPlaying', (_event, data) => {
     try {
       if (process.platform === 'win32' && mainWindow && !mainWindow.isDestroyed()) {
@@ -1486,12 +1564,41 @@ function setupIpc() {
       return { ok: false, error: e.message }
     }
   })
+
+  ipcMain.handle('app:getSettings', () => {
+    return { ok: true, settings: { ...appSettings } }
+  })
+
+  ipcMain.handle('app:setSettings', (_event, newSettings) => {
+    try {
+      appSettings = { ...appSettings, ...(newSettings || {}) }
+      saveAppSettings()
+      if (newSettings && 'autoStart' in newSettings) {
+        applyAutoStart()
+      }
+      return { ok: true, settings: { ...appSettings } }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('app:toggleDesktopLyricsLock', () => {
+    try {
+      const newLocked = desktopLyricsState.clickThrough === false
+      desktopLyricsState = { ...desktopLyricsState, clickThrough: newLocked, locked: newLocked }
+      applyDesktopLyricsMouseBehavior()
+      broadcastDesktopLyricsLockState()
+      return { ok: true, locked: newLocked }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  })
 }
 
 if (!gotSingleInstanceLock) {
   app.quit()
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, commandLine, workingDirectory) => {
     if (!focusMainWindow()) {
       app.whenReady().then(() => createMainWindow()).catch((e) => console.error('Second instance window restore failed:', e))
     }
@@ -1500,6 +1607,9 @@ if (!gotSingleInstanceLock) {
   app.whenReady().then(() => {
     app.setName(APP_NAME)
     if (process.platform === 'win32') app.setAppUserModelId(APP_USER_MODEL_ID)
+
+    loadAppSettings()
+    applyAutoStart()
 
     if (!isDev) {
       createSplashWindow()

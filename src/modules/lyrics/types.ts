@@ -53,10 +53,68 @@ export interface LyricGlowConfig {
 export interface LyricLayoutConfig {
   size: number
   verticalPosition: number
+  horizontalPosition: number
+  depthPosition: number
+  rotationX: number
+  rotationY: number
   clickThrough: boolean
   cinema: boolean
   highlightFollow: boolean
   frameRate: number
+}
+
+export interface LyricStrokeConfig {
+  enabled: boolean
+  color: string
+  width: number
+}
+
+export interface LyricShadowConfig {
+  enabled: boolean
+  color: string
+  blur: number
+  offsetX: number
+  offsetY: number
+}
+
+export interface LyricAnimationConfig {
+  enterDuration: number
+  exitDuration: number
+  easing: string
+  charAnimationSpeed: number
+  scrollSpeed: number
+}
+
+export type LyricPreset = 'minimal' | 'neon' | 'gradient' | 'stroke' | 'classic'
+
+export interface LyricPresetConfig {
+  id: LyricPreset
+  name: string
+  description: string
+  palette: Partial<LyricPalette>
+  style: Partial<LyricStyleConfig>
+  glow: Partial<LyricGlowConfig>
+  stroke: Partial<LyricStrokeConfig>
+  shadow: Partial<LyricShadowConfig>
+  layout: Partial<LyricLayoutConfig>
+  animation: Partial<LyricAnimationConfig>
+}
+
+export interface StageLyricSettings {
+  layout: LyricLayoutConfig
+  style: LyricStyleConfig
+  palette: LyricPalette
+  glow: LyricGlowConfig
+  stroke: LyricStrokeConfig
+  shadow: LyricShadowConfig
+  animation: LyricAnimationConfig
+  cameraBind: boolean
+}
+
+export interface DesktopLyricExtendedSettings {
+  windowOpacity: number
+  alwaysOnTop: boolean
+  locked: boolean
 }
 
 export interface DesktopLyricState {

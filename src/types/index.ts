@@ -196,6 +196,9 @@ export type VisualPreset =
   | 'matrix'
   | 'geometry'
   | 'particleFlow'
+  | 'podcast'
+  | 'dj'
+  | 'wallpaper'
 
 export type PresetCategory = 'basic' | 'cool' | 'minimal'
 
@@ -209,15 +212,44 @@ export interface PresetInfo {
 
 export type SpectrumMode = 'bars' | 'waveform' | 'circular'
 
+export type CinemaMode = 'static' | 'breathing' | 'cinema' | 'dynamic'
+
+export type ShelfMode = 'off' | 'sidebar' | 'stage'
+export type ShelfCameraMode = 'dynamic' | 'static'
+export type ShelfPresence = 'auto' | 'always'
+
 export interface FxSettings {
   preset: VisualPreset
   particleResolution: number
+  particleSize: number
+  particleColorMode: 'mono' | 'colorful' | 'gradient'
   cinemaIntensity: number
+  cinemaMode: CinemaMode
   lyricGlow: number
   accentColor: string
   glowColor: string
+  bgColor: string
+  brightness: number
+  contrast: number
+  visualIntensity: number
+  beatResponseStrength: number
+  particleMotionSpeed: number
+  autoSwitchPreset: boolean
+  visualWithSong: boolean
+  shelfMode: ShelfMode
+  shelfCameraMode: ShelfCameraMode
+  shelfPresence: ShelfPresence
   shelfShowPodcasts: boolean
   shelfMergeCollections: boolean
+  shelfSize: number
+  shelfOffsetX: number
+  shelfOffsetY: number
+  shelfOffsetZ: number
+  shelfAngleY: number
+  shelfOpacity: number
+  shelfBgOpacity: number
+  shelfAccentColor: string
+  shelfSoundEnabled: boolean
   liveBackgroundKeep: boolean
   performanceBackground: 'auto' | 'keep' | 'release'
   performanceQuality: 'eco' | 'balanced' | 'high' | 'ultra'
@@ -231,6 +263,9 @@ export interface FxSettings {
   glassEffect: boolean
   glassOpacity: number
   glassBlur: number
+  consoleTint: number
+  consoleOpacity: number
+  coverColorEnabled: boolean
   onboardingCompleted: boolean
 }
 

@@ -15,6 +15,9 @@ import { FlamePreset } from './FlamePreset'
 import { MatrixPreset } from './MatrixPreset'
 import { GeometryPreset } from './GeometryPreset'
 import { ParticleFlowPreset } from './ParticleFlowPreset'
+import { PodcastPreset } from './PodcastPreset'
+import { DJPreset } from './DJPreset'
+import { WallpaperPreset } from './WallpaperPreset'
 
 export function createPreset(
   name: VisualPreset,
@@ -66,6 +69,15 @@ export function createPreset(
     case 'particleFlow':
       preset = new ParticleFlowPreset(options)
       break
+    case 'podcast':
+      preset = new PodcastPreset(options)
+      break
+    case 'dj':
+      preset = new DJPreset(options)
+      break
+    case 'wallpaper':
+      preset = new WallpaperPreset(options)
+      break
     default:
       preset = new EmilyPreset(options)
   }
@@ -89,4 +101,7 @@ export {
   MatrixPreset,
   GeometryPreset,
   ParticleFlowPreset,
+  PodcastPreset,
+  DJPreset,
+  WallpaperPreset,
 }

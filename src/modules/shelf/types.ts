@@ -1,6 +1,8 @@
 import type * as THREE from 'three'
 
 export type ShelfMode = 'off' | 'side' | 'stage'
+export type ShelfCameraMode = 'dynamic' | 'static'
+export type ShelfPresence = 'auto' | 'always'
 
 export type ShelfItemType = 'playlist' | 'podcastCollection' | 'queue' | 'empty'
 
@@ -83,6 +85,8 @@ export interface PointerParallax {
 
 export interface ShelfEngineOptions {
   mode?: ShelfMode
+  cameraMode?: ShelfCameraMode
+  presence?: ShelfPresence
   accentColor?: string
   showPodcasts?: boolean
   mergeCollections?: boolean
@@ -101,6 +105,8 @@ export interface ShelfEngineEvents {
   onContentOpen?: (card: ShelfCard) => void
   onContentClose?: () => void
   onModeChange?: (mode: ShelfMode) => void
+  onScroll?: (direction: number) => void
+  onSelect?: (index: number) => void
 }
 
 export interface ShelfCardAction {

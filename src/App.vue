@@ -3,6 +3,7 @@ import { onMounted, ref, watch, onUnmounted, computed, defineAsyncComponent, Sus
 import VisualCanvas from '@/components/visual/VisualCanvas.vue'
 import PlayerBar from '@/components/player/PlayerBar.vue'
 import StageLyrics from '@/components/lyrics/StageLyrics.vue'
+import VisualConsole from '@/components/visual/VisualConsole.vue'
 import UserCapsule from '@/components/user/UserCapsule.vue'
 import DjModeIndicator from '@/components/dj/DjModeIndicator.vue'
 import MiniPlayer from '@/components/player/MiniPlayer.vue'
@@ -20,6 +21,8 @@ const ArtistDetail = defineAsyncComponent(() => import('@/components/artist/Arti
 const AlbumDetail = defineAsyncComponent(() => import('@/components/album/AlbumDetail.vue'))
 const SongComments = defineAsyncComponent(() => import('@/components/comments/SongComments.vue'))
 const SongDetail = defineAsyncComponent(() => import('@/components/song/SongDetail.vue'))
+const HomePanel = defineAsyncComponent(() => import('@/components/home/HomePanel.vue'))
+const WeatherRadio = defineAsyncComponent(() => import('@/components/weather/WeatherRadio.vue'))
 import { usePlayerStore } from '@/stores/player'
 import { useFxStore } from '@/stores/fx'
 import { useLyricsStore } from '@/stores/lyrics'
@@ -28,6 +31,7 @@ import { useHistoryStore } from '@/stores/history'
 import { useFMStore } from '@/stores/fm'
 import { useThemeStore } from '@/stores/theme'
 import { useNotificationStore } from '@/stores/notification'
+import { useImmersiveStore } from '@/stores/immersive'
 import { useDragDrop } from '@/composables/useDragDrop'
 import { useTaskbar } from '@/composables/useTaskbar'
 import { providerManager } from '@/modules/providers'
@@ -42,6 +46,7 @@ const history = useHistoryStore()
 const fm = useFMStore()
 const theme = useThemeStore()
 const notification = useNotificationStore()
+const immersive = useImmersiveStore()
 const { isDragging } = useDragDrop()
 useTaskbar()
 
@@ -49,10 +54,13 @@ const showQueuePanel = ref(false)
 const showLocalPanel = ref(false)
 const showRecentPanel = ref(false)
 const showSettings = ref(false)
+const showVisualConsole = ref(false)
 const showLogin = ref(false)
 const showTopList = ref(false)
 const showDailyRecommend = ref(false)
+const showWeatherRadio = ref(false)
 const isMiniMode = ref(false)
+const showHome = ref(true)
 
 const showArtistDetail = ref(false)
 const showAlbumDetail = ref(false)
@@ -118,12 +126,24 @@ function toggleSettings() {
   showSettings.value = !showSettings.value
 }
 
+function toggleVisualConsole() {
+  showVisualConsole.value = !showVisualConsole.value
+}
+
 function toggleTopList() {
   showTopList.value = !showTopList.value
 }
 
 function toggleDailyRecommend() {
   showDailyRecommend.value = !showDailyRecommend.value
+}
+
+function toggleWeatherRadio() {
+  showWeatherRadio.value = !showWeatherRadio.value
+}
+
+function toggleHome() {
+  showHome.value = !showHome.value
 }
 
 function openArtistDetail(artist: Artist, source?: string) {
@@ -340,12 +360,14 @@ onMounted(() => {
   player.initAudio()
   updateLyricsProgress()
   setupMediaSession()
+  immersive.setupListeners()
 })
 
 onUnmounted(() => {
   if (rafId) {
     cancelAnimationFrame(rafId)
   }
+  immersive.cleanupListeners()
 })
 </script>
 
@@ -371,6 +393,11 @@ onUnmounted(() => {
         :progress="lyrics.currentProgress"
         :palette="lyrics.palette"
         :size="lyrics.layout.size"
+        :vertical-position="lyrics.layout.verticalPosition"
+        :horizontal-position="lyrics.layout.horizontalPosition"
+        :depth-position="lyrics.layout.depthPosition"
+        :rotation-x="lyrics.layout.rotationX"
+        :rotation-y="lyrics.layout.rotationY"
         :highlight-follow="lyrics.layout.highlightFollow"
         :feather="lyrics.style.feather"
         :font-family="lyrics.style.fontFamily"
@@ -385,15 +412,35 @@ onUnmounted(() => {
         :beat-glow="lyrics.glow.beatGlow"
         :cinema="lyrics.layout.cinema"
         :opacity="lyrics.style.opacity"
+        :stroke-enabled="lyrics.stroke.enabled"
+        :stroke-color="lyrics.stroke.color"
+        :stroke-width="lyrics.stroke.width"
+        :shadow-enabled="lyrics.shadow.enabled"
+        :shadow-color="lyrics.shadow.color"
+        :shadow-blur="lyrics.shadow.blur"
+        :shadow-offset-x="lyrics.shadow.offsetX"
+        :shadow-offset-y="lyrics.shadow.offsetY"
+        :camera-bind="lyrics.cameraBind"
+      />
+
+      <VisualConsole
+        :visible="showVisualConsole"
+        @close="showVisualConsole = false"
       />
 
       <div class="app-content">
         <div class="top-toolbar">
           <div class="top-toolbar__left">
+            <button class="icon-btn" @click="toggleHome" :title="showHome ? '隐藏首页' : '显示首页'">
+              {{ showHome ? '🏠' : '🎵' }}
+            </button>
             <DjModeIndicator />
             <FMModeIndicator @toggle="toggleFMMode" />
           </div>
           <div class="top-toolbar__right">
+            <button class="icon-btn" @click="toggleWeatherRadio" title="天气电台">
+              🌤️
+            </button>
             <button class="icon-btn" @click="toggleDailyRecommend" title="每日推荐">
               📅
             </button>
@@ -405,6 +452,9 @@ onUnmounted(() => {
             </button>
             <button class="icon-btn" @click="toggleLyrics" :title="lyrics.stageEnabled ? '隐藏歌词' : '显示歌词'">
               {{ lyrics.stageEnabled ? '🎵' : '🎤' }}
+            </button>
+            <button class="icon-btn" @click="toggleVisualConsole" :title="showVisualConsole ? '关闭视觉控制台' : '打开视觉控制台'">
+              🎨
             </button>
             <button class="icon-btn" @click="theme.toggleTheme" :title="theme.mode === 'dark' ? '暗色模式' : theme.mode === 'light' ? '亮色模式' : '跟随系统'">
               {{ theme.isDark ? '🌙' : '☀️' }}
@@ -421,6 +471,21 @@ onUnmounted(() => {
 
         <PlaylistShelf />
         <SearchPanel />
+
+        <Suspense>
+          <HomePanel
+            v-if="showHome"
+            @open-weather-radio="toggleWeatherRadio"
+            @open-daily-recommend="toggleDailyRecommend"
+            @open-fm="toggleFMMode"
+            @open-toplist="toggleTopList"
+            @open-playlist="() => {}"
+          />
+        </Suspense>
+
+        <Suspense>
+          <WeatherRadio v-if="showWeatherRadio" :visible="showWeatherRadio" @close="showWeatherRadio = false" />
+        </Suspense>
 
         <SettingsPanel v-if="showSettings" @close="showSettings = false" />
         <TopListPanel v-if="showTopList" :visible="showTopList" @close="showTopList = false" />
@@ -497,6 +562,8 @@ onUnmounted(() => {
       </div>
 
       <PlayerBar @show-queue="toggleQueuePanel" @show-local="toggleLocalPanel" />
+      <ImmersivePlayer />
+      <ContextMenu @open-settings="toggleSettings" @open-about="toggleSettings" />
     </template>
 
     <template v-else>

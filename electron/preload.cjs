@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
     getState: () => ipcRenderer.invoke('window:getState'),
     setMiniMode: (isMini) => ipcRenderer.invoke('window:setMiniMode', isMini),
+    show: () => ipcRenderer.invoke('window:show'),
+    hide: () => ipcRenderer.invoke('window:hide'),
   },
 
   media: {
@@ -82,6 +84,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getVersion: () => ipcRenderer.invoke('app:getVersion'),
     restart: () => ipcRenderer.invoke('app:restart'),
     quit: () => ipcRenderer.invoke('app:quit'),
+    getSettings: () => ipcRenderer.invoke('app:getSettings'),
+    setSettings: (settings) => ipcRenderer.invoke('app:setSettings', settings),
+    toggleDesktopLyricsLock: () => ipcRenderer.invoke('app:toggleDesktopLyricsLock'),
   },
 
   login: {

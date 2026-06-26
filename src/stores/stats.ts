@@ -39,6 +39,25 @@ export interface SongStats {
   lastPlayedAt: number
 }
 
+export interface MusicProfile {
+  topArtists: ArtistStats[]
+  topSongs: SongStats[]
+  totalPlayCount: number
+  totalPlayDuration: number
+  timePreference: TimePreference
+  tasteTags: string[]
+  personality: string
+  generatedAt: number
+}
+
+export interface TimePreference {
+  morning: number
+  afternoon: number
+  evening: number
+  night: number
+  preferredPeriod: string
+}
+
 export interface StatsData {
   records: PlayRecord[]
   totalPlayCount: number
@@ -173,6 +192,144 @@ export const useStatsStore = defineStore('stats', () => {
     return days
   })
 
+  const timePreference = computed<TimePreference>(() => {
+    let morning = 0
+    let afternoon = 0
+    let evening = 0
+    let night = 0
+
+    data.value.records.forEach(record => {
+      const hour = new Date(record.playedAt).getHours()
+      if (hour >= 6 && hour < 12) {
+        morning++
+      } else if (hour >= 12 && hour < 18) {
+        afternoon++
+      } else if (hour >= 18 && hour < 22) {
+        evening++
+      } else {
+        night++
+      }
+    })
+
+    const total = morning + afternoon + evening + night
+    let preferredPeriod = '晚上'
+    let maxCount = evening
+
+    if (morning > maxCount) {
+      maxCount = morning
+      preferredPeriod = '早上'
+    }
+    if (afternoon > maxCount) {
+      maxCount = afternoon
+      preferredPeriod = '下午'
+    }
+    if (night > maxCount) {
+      maxCount = night
+      preferredPeriod = '深夜'
+    }
+
+    return {
+      morning: total > 0 ? Math.round((morning / total) * 100) : 0,
+      afternoon: total > 0 ? Math.round((afternoon / total) * 100) : 0,
+      evening: total > 0 ? Math.round((evening / total) * 100) : 0,
+      night: total > 0 ? Math.round((night / total) * 100) : 0,
+      preferredPeriod,
+    }
+  })
+
+  const tasteTags = computed<string[]>(() => {
+    const tags: string[] = []
+    const records = data.value.records
+
+    if (records.length === 0) {
+      return ['音乐探索者']
+    }
+
+    const top5Artists = topArtists.value.slice(0, 5)
+    if (top5Artists.length >= 3) {
+      tags.push('博爱听众')
+    }
+
+    const totalHours = data.value.totalPlayDuration / 3600
+    if (totalHours > 100) {
+      tags.push('重度音乐爱好者')
+    } else if (totalHours > 50) {
+      tags.push('音乐发烧友')
+    } else if (totalHours > 10) {
+      tags.push('音乐爱好者')
+    }
+
+    if (timePreference.value.preferredPeriod === '深夜') {
+      tags.push('夜猫子')
+    } else if (timePreference.value.preferredPeriod === '早上') {
+      tags.push('晨型人')
+    }
+
+    if (records.length > 0) {
+      const uniqueArtists = new Set(records.map(r => r.artistName)).size
+      if (uniqueArtists > 50) {
+        tags.push('探索型')
+      } else if (uniqueArtists < 10) {
+        tags.push('专一型')
+      }
+    }
+
+    if (topSongs.value.length > 0) {
+      const topSongPlays = topSongs.value[0].playCount
+      if (topSongPlays > 20) {
+        tags.push('单曲循环党')
+      }
+    }
+
+    if (tags.length === 0) {
+      tags.push('音乐新手')
+    }
+
+    return tags.slice(0, 6)
+  })
+
+  const personality = computed(() => {
+    const records = data.value.records
+    if (records.length === 0) return '音乐探索者'
+
+    const uniqueArtists = new Set(records.map(r => r.artistName)).size
+    const totalHours = data.value.totalPlayDuration / 3600
+    const nightRatio = timePreference.value.night
+
+    let result = ''
+    
+    if (uniqueArtists < 10) {
+      result = '专一深情型'
+    } else if (uniqueArtists > 50 && totalHours > 50) {
+      result = '音乐冒险家'
+    } else if (nightRatio > 40) {
+      result = '深夜治愈系'
+    } else if (totalHours > 100) {
+      result = '重度沉迷型'
+    } else if (timePreference.value.morning > 30) {
+      result = '晨间活力型'
+    } else if (uniqueArtists > 30) {
+      result = '品味多元型'
+    } else {
+      result = '悠然自得型'
+    }
+
+    return result
+  })
+
+  const musicProfile = computed<MusicProfile>(() => {
+    return {
+      topArtists: topArtists.value.slice(0, 5),
+      topSongs: topSongs.value.slice(0, 10),
+      totalPlayCount: data.value.totalPlayCount,
+      totalPlayDuration: data.value.totalPlayDuration,
+      timePreference: timePreference.value,
+      tasteTags: tasteTags.value,
+      personality: personality.value,
+      generatedAt: Date.now(),
+    }
+  })
+
   function recordPlay(song: Song, duration: number, completed: boolean = false): void {
     const record: PlayRecord = {
       songId: song.id,
@@ -247,6 +404,10 @@ export const useStatsStore = defineStore('stats', () => {
     topArtists,
     topSongs,
     weeklyTrend,
+    timePreference,
+    tasteTags,
+    personality,
+    musicProfile,
     recordPlay,
     clearStats,
     exportJSON,

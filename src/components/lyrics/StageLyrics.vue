@@ -1,9 +1,9 @@
 <template>
   <div v-if="visible" class="stage-lyrics-container">
     <canvas ref="canvasRef" class="lyrics-canvas"></canvas>
-    <div class="lyrics-wrap">
-      <div ref="stageRef" class="lyrics-stage">
-        <div class="lyric-viewport">
+    <div class="lyrics-wrap" :style="wrapStyle">
+      <div ref="stageRef" class="lyrics-stage" :style="stageStyle">
+        <div class="lyric-viewport" :style="viewportStyle">
           <div class="lyric-scroll" :style="scrollStyle">
             <LyricLine
               :key="currentKey"
@@ -22,6 +22,14 @@
               :letter-spacing="letterSpacing"
               :line-height="lineHeight"
               :beat-glow="liveMotion.beat"
+              :stroke-color="strokeColor"
+              :stroke-width="strokeWidth"
+              :stroke-enabled="strokeEnabled"
+              :shadow-color="shadowColor"
+              :shadow-blur="shadowBlur"
+              :shadow-offset-x="shadowOffsetX"
+              :shadow-offset-y="shadowOffsetY"
+              :shadow-enabled="shadowEnabled"
             />
           </div>
         </div>
@@ -62,6 +70,11 @@ interface Props {
   progress?: number
   palette?: Partial<LyricPalette>
   size?: number
+  verticalPosition?: number
+  horizontalPosition?: number
+  depthPosition?: number
+  rotationX?: number
+  rotationY?: number
   highlightFollow?: boolean
   feather?: number
   fontFamily?: string
@@ -78,6 +91,15 @@ interface Props {
   bass?: number
   cinema?: boolean
   opacity?: number
+  strokeEnabled?: boolean
+  strokeColor?: string
+  strokeWidth?: number
+  shadowEnabled?: boolean
+  shadowColor?: string
+  shadowBlur?: number
+  shadowOffsetX?: number
+  shadowOffsetY?: number
+  cameraBind?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -90,6 +112,11 @@ const props = withDefaults(defineProps<Props>(), {
   progress: 0,
   palette: () => ({}),
   size: 1,
+  verticalPosition: 0.76,
+  horizontalPosition: 0.5,
+  depthPosition: 0,
+  rotationX: 0,
+  rotationY: 0,
   highlightFollow: false,
   feather: 0.055,
   fontFamily: 'Inter, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", Arial, sans-serif',
@@ -106,6 +133,15 @@ const props = withDefaults(defineProps<Props>(), {
   bass: 0,
   cinema: true,
   opacity: 0.92,
+  strokeEnabled: false,
+  strokeColor: 'rgba(4, 6, 12, 0.8)',
+  strokeWidth: 2,
+  shadowEnabled: true,
+  shadowColor: 'rgba(4, 6, 12, 0.5)',
+  shadowBlur: 8,
+  shadowOffsetX: 0,
+  shadowOffsetY: 2,
+  cameraBind: false,
 })
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -141,6 +177,21 @@ const currentTranslation = computed(() => currentLine.value?.translation || '')
 const currentKey = computed(() => `${props.currentIndex}-${currentText.value}`)
 
 const baseFontSize = computed(() => Math.round(58 * Math.max(0.72, Math.min(1.55, props.size))))
+
+const wrapStyle = computed(() => ({
+  alignItems: props.verticalPosition < 0.33 ? 'flex-start' : props.verticalPosition > 0.66 ? 'flex-end' : 'center',
+  justifyContent: props.horizontalPosition < 0.33 ? 'flex-start' : props.horizontalPosition > 0.66 ? 'flex-end' : 'center',
+  paddingTop: `${props.verticalPosition * 10}vh`,
+  paddingBottom: `${(1 - props.verticalPosition) * 10}vh`,
+}))
+
+const stageStyle = computed(() => ({
+  transform: `perspective(1000px) translateZ(${props.depthPosition * 100}px) rotateX(${props.rotationX}deg) rotateY(${props.rotationY}deg)`,
+}))
+
+const viewportStyle = computed(() => ({
+  opacity: props.opacity,
+}))
 
 const scrollStyle = computed(() => ({
   transform: `translate3d(${scrollState.value.offset.toFixed(2)}px, 0, 0) scaleX(${fitScaleX.value.toFixed(4)})`,
