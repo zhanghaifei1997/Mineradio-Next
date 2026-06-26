@@ -139,7 +139,6 @@ function handleClick(e: MouseEvent) {
 }
 
 function handleWheel(e: WheelEvent) {
-  e.preventDefault()
   if (!shelfEngine) return
   shelfEngine.handleWheel(e.deltaY)
 }
@@ -243,7 +242,7 @@ onUnmounted(() => {
       class="shelf-canvas"
       @pointermove="handlePointerMove"
       @click="handleClick"
-      @wheel.passive="handleWheel"
+      @wheel="handleWheel"
     ></div>
 
     <Transition name="detail-fade">

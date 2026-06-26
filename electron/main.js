@@ -161,9 +161,10 @@ function createMainWindow() {
     title: APP_NAME,
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
       backgroundThrottling: false,
     },
     visualEffectState: 'active',
@@ -215,9 +216,10 @@ function createDesktopLyricsWindow(payload = {}) {
     focusable: false,
     hasShadow: false,
     webPreferences: {
-      preload: path.join(__dirname, 'overlay-preload.js'),
+      preload: path.join(__dirname, 'overlay-preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
     },
   })
 
@@ -276,9 +278,10 @@ function createWallpaperWindow(payload = {}) {
     focusable: false,
     hasShadow: false,
     webPreferences: {
-      preload: path.join(__dirname, 'overlay-preload.js'),
+      preload: path.join(__dirname, 'overlay-preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
     },
   })
 

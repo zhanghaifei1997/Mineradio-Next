@@ -102,9 +102,32 @@ export function startServer(options = {}) {
   loadCookies()
 
   serverInstance = createServer()
-  serverInstance.listen(PORT, HOST, () => {
-    logger.info(`Mineradio server running on http://${HOST}:${PORT}`)
-  })
+
+  let settled = false
+  function tryListen(port, retries = 5) {
+    const onListen = () => {
+      if (settled) return
+      settled = true
+      process.env.PORT = String(port)
+      logger.info(`Mineradio server running on http://${HOST}:${port}`)
+    }
+
+    const onError = (err) => {
+      if (settled) return
+      serverInstance.removeListener('listening', onListen)
+      if (err.code === 'EADDRINUSE' && retries > 0) {
+        logger.warn(`Port ${port} is in use, trying ${port + 1}...`)
+        serverInstance.close(() => tryListen(port + 1, retries - 1))
+      } else {
+        logger.error(`Server failed to start: ${err.message}`)
+      }
+    }
+
+    serverInstance.once('error', onError)
+    serverInstance.listen(port, HOST, onListen)
+  }
+
+  tryListen(PORT)
 
   return serverInstance
 }
@@ -121,7 +144,11 @@ export function getServer() {
   return serverInstance
 }
 
-if (process.env.NODE_ENV === 'development' || process.argv[1]?.includes('server/index.js')) {
+const isMainModule = process.argv[1] && (
+  process.argv[1].endsWith('server/index.js') || process.argv[1].endsWith('server/index')
+)
+
+if (isMainModule) {
   startServer()
 }
 
