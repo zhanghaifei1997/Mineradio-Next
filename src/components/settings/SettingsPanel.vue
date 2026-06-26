@@ -126,9 +126,14 @@ const qualityLevels = [
 ]
 
 const bgModes = [
-  { id: 'auto', name: '自动' },
-  { id: 'keep', name: '保持渲染' },
-  { id: 'release', name: '后台释放' },
+  { id: 'auto', name: '自动优化', desc: '后台时自动降低性能，前台恢复' },
+  { id: 'keep', name: '保持运行', desc: '后台也保持完整渲染和性能' },
+  { id: 'release', name: '停止释放', desc: '后台时完全停止渲染，释放资源' },
+]
+
+const layoutModes = [
+  { id: 'diy', name: 'DIY 模式', desc: '完整功能，显示所有控制台和调整选项' },
+  { id: 'simple', name: '简约模式', desc: '隐藏控制台和悬浮按钮，界面更简洁' },
 ]
 
 const positionOptions: { id: DesktopLyricsPosition; name: string }[] = [
@@ -195,6 +200,10 @@ function setPerformanceQuality(quality: PerformanceQuality) {
 function setBackgroundMode(mode: PerformanceBackgroundMode) {
   fx.update('performanceBackground', mode)
   performance.setBackgroundMode(mode, fx.settings.liveBackgroundKeep)
+}
+
+function setLayoutMode(mode: 'simple' | 'diy') {
+  fx.update('layoutMode', mode)
 }
 
 function resetSettings() {
@@ -1068,27 +1077,45 @@ onMounted(() => {
           </div>
 
           <div class="settings-section">
-            <div class="section-title">后台模式</div>
-            <div class="segmented">
+            <div class="section-title">界面布局</div>
+            <div class="layout-mode-grid">
+              <button
+                v-for="m in layoutModes"
+                :key="m.id"
+                class="layout-mode-item"
+                :class="{ active: fx.settings.layoutMode === m.id }"
+                @click="setLayoutMode(m.id as 'simple' | 'diy')"
+              >
+                <div class="layout-mode-name">{{ m.name }}</div>
+                <div class="layout-mode-desc">{{ m.desc }}</div>
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">后台策略</div>
+            <div class="bg-mode-grid">
               <button
                 v-for="b in bgModes"
                 :key="b.id"
-                class="seg-btn"
+                class="bg-mode-item"
                 :class="{ active: fx.settings.performanceBackground === b.id }"
                 @click="setBackgroundMode(b.id as PerformanceBackgroundMode)"
               >
-                {{ b.name }}
+                <div class="bg-mode-name">{{ b.name }}</div>
+                <div class="bg-mode-desc">{{ b.desc }}</div>
               </button>
             </div>
-            <div class="setting-row" style="margin-top: 10px;">
+            <div class="setting-row" style="margin-top: 12px;">
               <label class="checkbox-label">
                 <input
                   type="checkbox"
                   :checked="fx.settings.liveBackgroundKeep"
                   @change="fx.update('liveBackgroundKeep', ($event.target as HTMLInputElement).checked)"
                 />
-                <span>后台保持活动背景</span>
+                <span>直播后台保持</span>
               </label>
+              <div class="setting-hint">开启后后台或最小化时保持视觉渲染，不进入低占用暂停</div>
             </div>
           </div>
 
@@ -1733,6 +1760,54 @@ onMounted(() => {
 .setting-hint {
   font-size: 11px;
   color: var(--color-text-muted);
+}
+
+.layout-mode-grid,
+.bg-mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.layout-mode-item,
+.bg-mode-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-input-bg);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.layout-mode-item:hover,
+.bg-mode-item:hover {
+  background: var(--color-hover);
+  border-color: var(--color-text-muted);
+}
+
+.layout-mode-item.active,
+.bg-mode-item.active {
+  border-color: rgba(217, 91, 103, 0.6);
+  background: rgba(217, 91, 103, 0.1);
+}
+
+.layout-mode-name,
+.bg-mode-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.layout-mode-desc,
+.bg-mode-desc {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
 }
 
 .checkbox-label {

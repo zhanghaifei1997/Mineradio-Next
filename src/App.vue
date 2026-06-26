@@ -8,6 +8,10 @@ import UserCapsule from '@/components/user/UserCapsule.vue'
 import DjModeIndicator from '@/components/dj/DjModeIndicator.vue'
 import MiniPlayer from '@/components/player/MiniPlayer.vue'
 import FMModeIndicator from '@/components/fm/FMModeIndicator.vue'
+import StatusChips from '@/components/status/StatusChips.vue'
+import IdleGuide from '@/components/guide/IdleGuide.vue'
+import SourceFallbackNotice from '@/components/player/SourceFallbackNotice.vue'
+import BannerNotice from '@/components/common/BannerNotice.vue'
 
 const SearchPanel = defineAsyncComponent(() => import('@/components/search/SearchPanel.vue'))
 const PlaylistShelf = defineAsyncComponent(() => import('@/components/playlist/PlaylistShelf.vue'))
@@ -356,6 +360,20 @@ watch(
   }
 )
 
+watch(
+  () => fx.settings.layoutMode,
+  (mode) => {
+    updateLayoutModeClass(mode)
+  },
+  { immediate: true }
+)
+
+function updateLayoutModeClass(mode: string) {
+  if (typeof document === 'undefined' || !document.body) return
+  document.body.classList.toggle('simple-mode', mode === 'simple')
+  document.body.classList.toggle('diy-mode', mode === 'diy')
+}
+
 onMounted(() => {
   player.initAudio()
   updateLyricsProgress()
@@ -373,6 +391,16 @@ onUnmounted(() => {
 
 <template>
   <div class="app-container" :class="{ 'fx-eco': fx.settings.performanceQuality === 'eco', 'mini-mode': isMiniMode, 'drag-over': isDragging }">
+    <BannerNotice
+      id="welcome-trial"
+      type="trial"
+      icon="✨"
+      title="欢迎使用 Mineradio Next"
+      message="全新沉浸式音乐体验，DIY 模式等你探索"
+      link-text="了解更多"
+      link-url="https://github.com/XxHuberrr/Mineradio"
+    />
+
     <div v-if="isDragging" class="drag-drop-overlay">
       <div class="drag-drop-content">
         <div class="drag-drop-icon">🎵</div>
@@ -467,6 +495,15 @@ onUnmounted(() => {
             </button>
             <UserCapsule @open-login="openLogin" @open-recent="toggleRecentPanel" />
           </div>
+        </div>
+
+        <StatusChips v-if="fx.layoutMode === 'diy' || player.isPlaying" />
+
+        <div class="source-fallback-container">
+          <SourceFallbackNotice
+            :notice="notification.currentFallbackNotice"
+            @close="notification.dismissFallbackNotice()"
+          />
         </div>
 
         <PlaylistShelf />
@@ -564,6 +601,7 @@ onUnmounted(() => {
       <PlayerBar @show-queue="toggleQueuePanel" @show-local="toggleLocalPanel" />
       <ImmersivePlayer />
       <ContextMenu @open-settings="toggleSettings" @open-about="toggleSettings" />
+      <IdleGuide />
     </template>
 
     <template v-else>
@@ -592,6 +630,15 @@ onUnmounted(() => {
 }
 
 .app-content > * {
+  pointer-events: auto;
+}
+
+.source-fallback-container {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
   pointer-events: auto;
 }
 

@@ -43,6 +43,7 @@ export const useHotkeysStore = defineStore('hotkeys', () => {
   const hotkeys = ref<HotkeyConfig[]>(loadHotkeys())
   const globalEnabled = ref(true)
   const recordingAction = ref<HotkeyAction | null>(null)
+  const arrowKeyVolumeEnabled = ref(true)
 
   const enabledHotkeys = computed(() => hotkeys.value.filter((h) => h.enabled))
 
@@ -236,6 +237,34 @@ export const useHotkeysStore = defineStore('hotkeys', () => {
     })
   }
 
+  function isEditableTarget(target: EventTarget | null): boolean {
+    if (!target || !(target instanceof HTMLElement)) return false
+    const tagName = target.tagName.toLowerCase()
+    if (['input', 'textarea', 'select'].includes(tagName)) return true
+    if (target.isContentEditable) return true
+    return false
+  }
+
+  function handleArrowKeyVolume(e: KeyboardEvent): void {
+    if (!arrowKeyVolumeEnabled.value) return
+    if (!globalEnabled.value) return
+    if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return
+    if (isEditableTarget(e.target)) return
+
+    const player = usePlayerStore()
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      player.setVolume(Math.min(1, player.volume + 0.05))
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      player.setVolume(Math.max(0, player.volume - 0.05))
+    }
+  }
+
+  function setArrowKeyVolumeEnabled(enabled: boolean): void {
+    arrowKeyVolumeEnabled.value = enabled
+  }
+
   function executeAction(action: HotkeyAction): void {
     const player = usePlayerStore()
 
@@ -330,18 +359,25 @@ export const useHotkeysStore = defineStore('hotkeys', () => {
   function init(): void {
     setupGlobalHotkeyListener()
     registerAllHotkeys()
+    window.addEventListener('keydown', handleArrowKeyVolume)
+  }
+
+  function cleanup(): void {
+    window.removeEventListener('keydown', handleArrowKeyVolume)
   }
 
   return {
     hotkeys,
     globalEnabled,
     recordingAction,
+    arrowKeyVolumeEnabled,
     enabledHotkeys,
     getHotkey,
     getAccelerator,
     setHotkey,
     setEnabled,
     setGlobalEnabled,
+    setArrowKeyVolumeEnabled,
     checkConflict,
     resetToDefaults,
     startRecording,
@@ -349,6 +385,7 @@ export const useHotkeysStore = defineStore('hotkeys', () => {
     handleRecordedKey,
     getActionName,
     init,
+    cleanup,
     registerAllHotkeys,
   }
 })

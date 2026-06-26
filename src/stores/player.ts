@@ -4,6 +4,7 @@ import type { Song, PlayerStatus, QualityLevel } from '@/types'
 import { providerManager } from '@/modules/providers'
 import { localMusicLibrary } from '@/modules/local'
 import { playQueueStore } from './playQueue'
+import { useNotificationStore } from './notification'
 import {
   AudioAnalyzer,
   BeatMapData,
@@ -746,6 +747,8 @@ export const usePlayerStore = defineStore('player', () => {
   function handleAudioError(): void {
     if (audioEnhancer.value?.canRetry()) {
       retryPlay()
+    } else {
+      tryFallbackSource()
     }
   }
 
@@ -755,7 +758,63 @@ export const usePlayerStore = defineStore('player', () => {
     audio.value.load()
     audio.value.play().catch(() => {
       console.error('Retry failed')
+      tryFallbackSource()
     })
+  }
+
+  async function tryFallbackSource(): Promise<boolean> {
+    if (!currentSong.value || !audio.value) return false
+    
+    const originalSource = currentSong.value.source
+    if (originalSource === 'local') return false
+    
+    const allProviders = providerManager.getAll().filter(p => p.id !== originalSource && p.id !== 'local')
+    
+    for (const provider of allProviders) {
+      try {
+        console.log(`Trying fallback source: ${provider.id}`)
+        const searchResult = await provider.search(currentSong.value.name, { limit: 5 })
+        
+        if (searchResult.songs.length > 0) {
+          const matchedSong = searchResult.songs[0]
+          const urlResult = await provider.getSongUrl(matchedSong.id, currentQuality.value)
+          
+          if (urlResult?.url) {
+            const notification = useNotificationStore()
+            notification.notifySourceFallback(originalSource, provider.id, currentSong.value)
+            
+            const updatedSong: Song = {
+              ...currentSong.value,
+              id: matchedSong.id,
+              source: provider.id,
+              url: urlResult.url,
+            }
+            
+            const wasPlaying = isPlaying.value
+            const currentTime = audio.value.currentTime
+            
+            currentSong.value = updatedSong
+            audio.value.src = urlResult.url
+            audio.value.currentTime = Math.min(currentTime, 5)
+            
+            if (wasPlaying) {
+              try {
+                await audio.value.play()
+              } catch {
+                continue
+              }
+            }
+            
+            return true
+          }
+        }
+      } catch (e) {
+        console.warn(`Fallback to ${provider.id} failed:`, e)
+        continue
+      }
+    }
+    
+    return false
   }
 
   function setPlayMode(mode: typeof playMode.value): void {
@@ -900,6 +959,7 @@ export const usePlayerStore = defineStore('player', () => {
     setReplayGainEnabled,
     getBufferProgress,
     retryPlay,
+    tryFallbackSource,
     setEqualizerEnabled,
     setEqualizerGain,
     setEqualizerPreset,

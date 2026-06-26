@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { FxSettings, VisualPreset, PerformanceQuality, PerformanceBackgroundMode, SpectrumMode, CinemaMode, ShelfMode, ShelfCameraMode, ShelfPresence } from '@/types'
+import type { FxSettings, VisualPreset, PerformanceQuality, PerformanceBackgroundMode, SpectrumMode, CinemaMode, ShelfMode, ShelfCameraMode, ShelfPresence, LayoutMode } from '@/types'
 import { normalizePerformanceQuality, normalizePerformanceBackgroundMode } from '@/modules/performance'
 
 const STORAGE_KEY = 'mineradio_fx_settings'
@@ -54,6 +54,9 @@ const defaultSettings: FxSettings = {
   consoleOpacity: 0.85,
   coverColorEnabled: true,
   onboardingCompleted: false,
+  homeWallpaperEnabled: true,
+  homeWallpaperPreset: 'wallpaper' as VisualPreset,
+  layoutMode: 'diy' as LayoutMode,
 }
 
 export const useFxStore = defineStore('fx', () => {
@@ -188,6 +191,30 @@ export const useFxStore = defineStore('fx', () => {
     },
   })
 
+  const layoutMode = computed({
+    get: () => settings.value.layoutMode,
+    set: (v: LayoutMode) => {
+      settings.value.layoutMode = v
+      save()
+    },
+  })
+
+  const homeWallpaperEnabled = computed({
+    get: () => settings.value.homeWallpaperEnabled ?? true,
+    set: (v: boolean) => {
+      settings.value.homeWallpaperEnabled = v
+      save()
+    },
+  })
+
+  const homeWallpaperPreset = computed({
+    get: () => settings.value.homeWallpaperPreset ?? 'wallpaper',
+    set: (v: VisualPreset) => {
+      settings.value.homeWallpaperPreset = v
+      save()
+    },
+  })
+
   const particleGridSize = computed(() => {
     const grid = Math.round(118 * normalizeCoverResolution(settings.value.particleResolution))
     return Math.max(88, Math.min(183, grid % 2 ? grid : grid + 1))
@@ -230,6 +257,11 @@ export const useFxStore = defineStore('fx', () => {
     save()
   }
 
+  function toggleLayoutMode(): void {
+    settings.value.layoutMode = settings.value.layoutMode === 'diy' ? 'simple' : 'diy'
+    save()
+  }
+
   function loadSettings(): FxSettings {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
@@ -243,6 +275,7 @@ export const useFxStore = defineStore('fx', () => {
             parsed.performanceBackground,
             parsed.liveBackgroundKeep
           ),
+          layoutMode: normalizeLayoutMode(parsed.layoutMode),
         }
       }
     } catch (e) {
@@ -285,6 +318,9 @@ export const useFxStore = defineStore('fx', () => {
     performanceQuality,
     performanceBackground,
     liveBackgroundKeep,
+    layoutMode,
+    homeWallpaperEnabled,
+    homeWallpaperPreset,
     particleGridSize,
     particleCountLabel,
     coverTextureSize,
@@ -293,9 +329,14 @@ export const useFxStore = defineStore('fx', () => {
     setPerformanceQuality,
     setPerformanceBackgroundMode,
     toggleLiveBackgroundKeep,
+    toggleLayoutMode,
   }
 })
 
 function normalizeCoverResolution(v: number): number {
   return Math.max(0.75, Math.min(1.55, Number(v) || 1))
+}
+
+function normalizeLayoutMode(v: string): LayoutMode {
+  return v === 'simple' || v === 'diy' ? (v as LayoutMode) : 'diy'
 }

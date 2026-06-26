@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import CoverCropper from './CoverCropper.vue'
 import { useCustomCoverStore } from '@/stores/customCover'
 
@@ -19,6 +19,29 @@ const showCropper = ref(false)
 const selectedImage = ref('')
 const isDragging = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
+const showUploadTip = ref(false)
+
+const TIP_STORAGE_KEY = 'mineradio_cover_upload_tip_shown'
+
+function checkShouldShowTip() {
+  try {
+    const shown = localStorage.getItem(TIP_STORAGE_KEY)
+    if (!shown) {
+      showUploadTip.value = true
+    }
+  } catch (_) {}
+}
+
+function closeUploadTip() {
+  showUploadTip.value = false
+  try {
+    localStorage.setItem(TIP_STORAGE_KEY, 'true')
+  } catch (_) {}
+}
+
+onMounted(() => {
+  checkShouldShowTip()
+})
 
 const currentCover = computed(() => {
   const custom = customCoverStore.getCustomCover(props.coverId)
@@ -115,6 +138,19 @@ function removeCustomCover() {
         </div>
       </slot>
     </div>
+
+    <Transition name="tip-fade">
+      <div v-if="showUploadTip" class="upload-tip-bubble">
+        <div class="upload-tip-bubble__arrow"></div>
+        <button class="upload-tip-bubble__close" @click="closeUploadTip" title="关闭">✕</button>
+        <div class="upload-tip-bubble__title">上传封面提示</div>
+        <div class="upload-tip-bubble__content">
+          <p>支持 JPG, PNG, WebP, GIF 格式</p>
+          <p>建议使用正方形图片，效果更佳</p>
+          <p>图片大小不超过 5MB</p>
+        </div>
+      </div>
+    </Transition>
     
     <Teleport to="body">
       <Transition name="fade">
@@ -171,8 +207,98 @@ function removeCustomCover() {
 </template>
 
 <style scoped>
+.cover-uploader {
+  position: relative;
+  display: inline-block;
+}
+
 .cover-uploader__trigger {
   cursor: pointer;
+}
+
+.upload-tip-bubble {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 12px;
+  width: 240px;
+  padding: 16px;
+  background: rgba(20, 20, 28, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.upload-tip-bubble__arrow {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 14px;
+  height: 14px;
+  background: rgba(20, 20, 28, 0.95);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.upload-tip-bubble__close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.upload-tip-bubble__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.upload-tip-bubble__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 10px;
+  padding-right: 24px;
+}
+
+.upload-tip-bubble__content {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.6;
+}
+
+.upload-tip-bubble__content p {
+  margin: 0 0 4px;
+}
+
+.upload-tip-bubble__content p:last-child {
+  margin-bottom: 0;
+}
+
+.tip-fade-enter-active,
+.tip-fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.tip-fade-enter-from,
+.tip-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-8px);
 }
 
 .cover-uploader__default-cover {

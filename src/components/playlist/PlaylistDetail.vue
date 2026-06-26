@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import type { Playlist, Song } from '@/types'
 import { playQueueStore } from '@/stores/playQueue'
 import { usePlayerStore } from '@/stores/player'
@@ -27,6 +27,49 @@ const actionLoading = ref(false)
 const showMoreMenu = ref(false)
 const showDeleteConfirm = ref(false)
 const showEditModal = ref(false)
+
+const renderLimit = ref(50)
+const batchSize = ref(50)
+const showBackToTop = ref(false)
+const songListRef = ref<HTMLDivElement | null>(null)
+
+const displayedTracks = computed(() => {
+  if (!props.playlist) return []
+  return props.playlist.tracks.slice(0, renderLimit.value)
+})
+
+const hasMore = computed(() => {
+  if (!props.playlist) return false
+  return renderLimit.value < props.playlist.tracks.length
+})
+
+function loadMore() {
+  if (!props.playlist) return
+  renderLimit.value = Math.min(
+    renderLimit.value + batchSize.value,
+    props.playlist.tracks.length
+  )
+}
+
+function scrollToTop() {
+  if (songListRef.value) {
+    songListRef.value.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
+
+function handleSongListScroll() {
+  if (!songListRef.value) return
+  showBackToTop.value = songListRef.value.scrollTop > 300
+}
+
+watch(() => props.playlist, (pl) => {
+  if (pl) {
+    renderLimit.value = batchSize.value
+    showBackToTop.value = false
+    checkSubscriptionStatus()
+    loadLikeStatuses()
+  }
+}, { immediate: true })
 
 const editName = ref('')
 const editDesc = ref('')
@@ -279,14 +322,14 @@ const canManage = computed(() => {
 
         <div class="detail-divider"></div>
 
-        <div class="song-list">
+        <div class="song-list" ref="songListRef" @scroll="handleSongListScroll">
           <div v-if="loading" class="loading-state">
             <div class="loading-spinner"></div>
             <span>加载中...</span>
           </div>
           <template v-else>
             <div
-              v-for="(song, index) in playlist.tracks"
+              v-for="(song, index) in displayedTracks"
               :key="song.id + '-' + index"
               class="song-item"
               @click="handlePlaySong(song, index)"
@@ -310,7 +353,27 @@ const canManage = computed(() => {
               </button>
               <div class="song-duration">{{ formatTime(song.duration) }}</div>
             </div>
+
+            <div v-if="hasMore" class="load-more-container">
+              <button class="load-more-btn" @click="loadMore">
+                加载更多 {{ Math.min(renderLimit + batchSize, playlist!.tracks.length) }} / {{ playlist!.tracks.length }}
+              </button>
+            </div>
+            <div v-else-if="playlist && playlist.tracks.length > batchSize" class="load-more-container">
+              <div class="all-loaded-text">已加载全部 {{ playlist.tracks.length }} 首</div>
+            </div>
           </template>
+
+          <Transition name="fade">
+            <button
+              v-if="showBackToTop"
+              class="back-to-top-btn"
+              @click="scrollToTop"
+              title="回到顶部"
+            >
+              ↑
+            </button>
+          </Transition>
         </div>
       </div>
 
@@ -747,6 +810,72 @@ const canManage = computed(() => {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.4);
   flex-shrink: 0;
+}
+
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  padding: 20px 12px;
+}
+
+.load-more-btn {
+  padding: 12px 32px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(217, 91, 103, 0.15), rgba(232, 120, 130, 0.1));
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.load-more-btn:hover {
+  background: linear-gradient(135deg, rgba(217, 91, 103, 0.25), rgba(232, 120, 130, 0.2));
+  border-color: rgba(217, 91, 103, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(217, 91, 103, 0.2);
+}
+
+.all-loaded-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 8px 0;
+}
+
+.song-list {
+  position: relative;
+}
+
+.back-to-top-btn {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  background: rgba(20, 20, 28, 0.9);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  font-family: inherit;
+  z-index: 10;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.back-to-top-btn:hover {
+  background: rgba(217, 91, 103, 0.2);
+  border-color: rgba(217, 91, 103, 0.4);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .confirm-modal,

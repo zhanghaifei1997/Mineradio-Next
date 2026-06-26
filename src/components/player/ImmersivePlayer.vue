@@ -2,12 +2,24 @@
 import { computed, ref } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { useImmersiveStore } from '@/stores/immersive'
+import { useLyricsStore } from '@/stores/lyrics'
 
 const player = usePlayerStore()
 const immersive = useImmersiveStore()
+const lyrics = useLyricsStore()
 
 const progressBarRef = ref<HTMLDivElement | null>(null)
 const isDragging = ref(false)
+const isDiyMode = ref(true)
+
+function toggleDiyMode() {
+  isDiyMode.value = !isDiyMode.value
+  if (isDiyMode.value) {
+    lyrics.applyPreset('classic')
+  } else {
+    lyrics.applyPreset('minimal')
+  }
+}
 
 const currentTimeFormatted = computed(() => {
   return formatTime(player.currentTime)
@@ -70,6 +82,12 @@ function handleProgressDragStart(e: MouseEvent) {
 <template>
   <Transition name="slide-up">
     <div v-if="immersive.isImmersive && immersive.showControls" class="immersive-player" @mouseenter="immersive.showPlayerControls()">
+      <div class="fullscreen-diy-zone">
+        <button class="fullscreen-diy-btn" @click="toggleDiyMode" :title="isDiyMode ? '切换到简约模式' : '切换到 DIY 模式'">
+          {{ isDiyMode ? 'DIY' : '简约' }}
+        </button>
+      </div>
+
       <div class="immersive-player__progress" ref="progressBarRef" @mousedown="handleProgressDragStart">
         <div class="immersive-player__progress-bg"></div>
         <div class="immersive-player__progress-fill" :style="{ width: `${progressPercent}%` }"></div>
@@ -109,6 +127,39 @@ function handleProgressDragStart(e: MouseEvent) {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   animation: slideUp 0.3s ease;
+}
+
+.fullscreen-diy-zone {
+  position: absolute;
+  top: -50px;
+  right: 40px;
+  z-index: 1001;
+}
+
+.fullscreen-diy-btn {
+  padding: 8px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  background: rgba(20, 20, 28, 0.6);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: inherit;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  opacity: 0.6;
+  transform: translateX(10px);
+}
+
+.fullscreen-diy-zone:hover .fullscreen-diy-btn {
+  opacity: 1;
+  transform: translateX(0);
+  background: rgba(217, 91, 103, 0.2);
+  border-color: rgba(217, 91, 103, 0.4);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .immersive-player__progress {

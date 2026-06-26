@@ -3,7 +3,17 @@ import { ref, computed } from 'vue'
 import type { NotificationSettings, Song } from '@/types'
 import { useI18nStore } from './i18n'
 
+export interface SourceFallbackRecord {
+  id: string
+  fromSource: string
+  toSource: string
+  songId: string
+  songName: string
+  timestamp: number
+}
+
 const STORAGE_KEY = 'mineradio_notification_settings'
+const FALLBACK_HISTORY_KEY = 'mineradio_fallback_history'
 
 function loadSettings(): NotificationSettings {
   try {
@@ -15,6 +25,7 @@ function loadSettings(): NotificationSettings {
         trackChange: parsed.trackChange !== false,
         downloadComplete: parsed.downloadComplete !== false,
         updateAvailable: parsed.updateAvailable !== false,
+        sourceFallback: parsed.sourceFallback !== false,
       }
     }
   } catch (e) {
@@ -25,6 +36,7 @@ function loadSettings(): NotificationSettings {
     trackChange: true,
     downloadComplete: true,
     updateAvailable: true,
+    sourceFallback: true,
   }
 }
 
@@ -36,11 +48,33 @@ function saveSettings(settings: NotificationSettings): void {
   }
 }
 
+function loadFallbackHistory(): SourceFallbackRecord[] {
+  try {
+    const saved = localStorage.getItem(FALLBACK_HISTORY_KEY)
+    if (saved) {
+      return JSON.parse(saved)
+    }
+  } catch (e) {
+    console.warn('Failed to load fallback history:', e)
+  }
+  return []
+}
+
+function saveFallbackHistory(history: SourceFallbackRecord[]): void {
+  try {
+    localStorage.setItem(FALLBACK_HISTORY_KEY, JSON.stringify(history.slice(0, 50)))
+  } catch (e) {
+    console.warn('Failed to save fallback history:', e)
+  }
+}
+
 const electronAPI = (typeof window !== 'undefined') ? (window as any).electronAPI : null
 
 export const useNotificationStore = defineStore('notification', () => {
   const settings = ref<NotificationSettings>(loadSettings())
   const permissionGranted = ref(false)
+  const currentFallbackNotice = ref<SourceFallbackRecord | null>(null)
+  const fallbackHistory = ref<SourceFallbackRecord[]>(loadFallbackHistory())
 
   const isSupported = computed(() => {
     return typeof Notification !== 'undefined' || (electronAPI && electronAPI.notification)
@@ -162,18 +196,67 @@ export const useNotificationStore = defineStore('notification', () => {
     })
   }
 
+  function setSourceFallbackEnabled(enabled: boolean) {
+    ;(settings.value as any).sourceFallback = enabled
+    saveSettings(settings.value)
+  }
+
+  function notifySourceFallback(fromSource: string, toSource: string, song: Song): SourceFallbackRecord {
+    const record: SourceFallbackRecord = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      fromSource,
+      toSource,
+      songId: song.id,
+      songName: song.name,
+      timestamp: Date.now(),
+    }
+
+    fallbackHistory.value.unshift(record)
+    if (fallbackHistory.value.length > 50) {
+      fallbackHistory.value = fallbackHistory.value.slice(0, 50)
+    }
+    saveFallbackHistory(fallbackHistory.value)
+
+    if ((settings.value as any).sourceFallback !== false) {
+      currentFallbackNotice.value = record
+    }
+
+    showNotification('播放源切换', {
+      body: `已从 ${fromSource} 切换到 ${toSource}`,
+      tag: 'source-fallback',
+      requireInteraction: false,
+    })
+
+    return record
+  }
+
+  function dismissFallbackNotice() {
+    currentFallbackNotice.value = null
+  }
+
+  function clearFallbackHistory() {
+    fallbackHistory.value = []
+    saveFallbackHistory([])
+  }
+
   return {
     settings,
     isSupported,
     permissionGranted,
+    currentFallbackNotice,
+    fallbackHistory,
     setEnabled,
     setTrackChangeEnabled,
     setDownloadCompleteEnabled,
     setUpdateAvailableEnabled,
+    setSourceFallbackEnabled,
     requestPermission,
     showNotification,
     notifyTrackChange,
     notifyDownloadComplete,
     notifyUpdateAvailable,
+    notifySourceFallback,
+    dismissFallbackNotice,
+    clearFallbackHistory,
   }
 })

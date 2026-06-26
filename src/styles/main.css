@@ -195,3 +195,47 @@ body.immersive-mode .stage-lyrics {
 body.immersive-mode .immersive-player {
   z-index: 1000;
 }
+
+body.simple-mode .fx-fab,
+body.simple-mode .visual-console,
+body.simple-mode .console-hide-btn,
+body.simple-mode .upload-btn,
+body.simple-mode .search-no-result-tag,
+body.simple-mode .fullscreen-btn,
+body.simple-mode .control-bar-hide-btn {
+  display: none !important;
+}
+
+body.simple-mode .player-bar {
+  width: 100%;
+  left: 0;
+  right: 0;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+body.simple-mode .player-bar__right .volume-control {
+  display: none;
+}
+
+body.simple-mode .top-toolbar__right .icon-btn[title="打开视觉控制台"],
+body.simple-mode .top-toolbar__right .icon-btn[title="关闭视觉控制台"] {
+  display: none;
+}
+
+body.simple-mode .playlist-shelf {
+  display: none !important;
+}
+
+body.diy-mode .player-bar {
+  right: 320px;
+}
+
+body.render-deep-sleep .visual-canvas {
+  display: none !important;
+}
+
+body.render-deep-sleep .visual-canvas canvas {
+  opacity: 0;
+  visibility: hidden;
+}

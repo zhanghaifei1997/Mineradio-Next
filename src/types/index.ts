@@ -267,6 +267,9 @@ export interface FxSettings {
   consoleOpacity: number
   coverColorEnabled: boolean
   onboardingCompleted: boolean
+  layoutMode: LayoutMode
+  homeWallpaperEnabled?: boolean
+  homeWallpaperPreset?: VisualPreset
 }
 
 export interface BeatAnalysisResult {
@@ -297,6 +300,8 @@ export interface PlayerState {
 export type PerformanceQuality = 'eco' | 'balanced' | 'high' | 'ultra'
 
 export type PerformanceBackgroundMode = 'auto' | 'keep' | 'release'
+
+export type LayoutMode = 'simple' | 'diy'
 
 export interface TopListItem {
   id: string
@@ -394,6 +399,7 @@ export interface NotificationSettings {
   trackChange: boolean
   downloadComplete: boolean
   updateAvailable: boolean
+  sourceFallback?: boolean
 }
 
 export interface MV {
