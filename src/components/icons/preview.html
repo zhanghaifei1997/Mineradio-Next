@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mineradio Next — 矢量图标库</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: rgba(15, 15, 20, 0.85);
+    --border: rgba(255, 255, 255, 0.08);
+    --text: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.6);
+    --text-muted: rgba(255, 255, 255, 0.35);
+    --accent: #d95b67;
+    --accent-light: #f0a0a0;
+    --accent-glow: rgba(217, 91, 103, 0.3);
+    --radius: 12px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .bg-glow {
+    position: fixed;
+    top: -50%;
+    left: -20%;
+    width: 140%;
+    height: 200%;
+    background: radial-gradient(ellipse at 30% 20%, rgba(217, 91, 103, 0.08) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 80%, rgba(100, 80, 180, 0.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  .header {
+    padding: 64px 0 48px;
+    text-align: center;
+  }
+
+  .header__tag {
+    display: inline-block;
+    padding: 4px 14px;
+    background: var(--accent-glow);
+    border: 1px solid rgba(217, 91, 103, 0.25);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent-light);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .header h1 {
+    font-size: clamp(28px, 5vw, 42px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, #fff 0%, rgba(240, 160, 160, 0.9) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .header p {
+    color: var(--text-secondary);
+    font-size: 16px;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  .header__stats {
+    display: flex;
+    gap: 32px;
+    justify-content: center;
+    margin-top: 28px;
+  }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat__num {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent-light);
+  }
+
+  .stat__label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  /* Category */
+  .category {
+    margin-bottom: 48px;
+  }
+
+  .category__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .category__icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(217, 91, 103, 0.15);
+    border-radius: 8px;
+    color: var(--accent-light);
+    font-size: 16px;
+  }
+
+  .category__title {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .category__count {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-left: auto;
+  }
+
+  /* Icon Grid */
+  .icon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+  }
+
+  .icon-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 8px 12px;
+    background: var(--surface);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .icon-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(217, 91, 103, 0.1), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .icon-card:hover {
+    border-color: rgba(217, 91, 103, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  .icon-card:hover::before {
+    opacity: 1;
+  }
+
+  .icon-card__svg {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.8);
+    position: relative;
+    z-index: 1;
+    transition: color 0.2s;
+  }
+
+  .icon-card:hover .icon-card__svg {
+    color: var(--accent-light);
+  }
+
+  .icon-card__name {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .icon-card__code {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    color: rgba(217, 91, 103, 0.5);
+    text-align: center;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: all 0.2s;
+    position: relative;
+    z-index: 1;
+  }
+
+  .icon-card:hover .icon-card__code {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Footer / Usage */
+  .usage-section {
+    margin-top: 64px;
+    padding: 48px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .usage-section h2 {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 24px;
+    letter-spacing: -0.01em;
+    text-align: center;
+  }
+
+  .code-blocks {
+    display: grid;
+    gap: 16px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .code-block {
+    background: var(--surface);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    overflow-x: auto;
+  }
+
+  .code-block__label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent-light);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+  }
+
+  .code-block pre {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  .code-block .hl-keyword { color: #c792ea; }
+  .code-block .hl-string { color: #c3e88d; }
+  .code-block .hl-component { color: #ffcb6b; }
+  .code-block .hl-attr { color: #82aaff; }
+  .code-block .hl-comment { color: rgba(255,255,255,0.25); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: rgba(30, 30, 40, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 24px;
+    font-size: 13px;
+    color: var(--text);
+    z-index: 100;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .toast--show {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  @media (max-width: 600px) {
+    .container { padding: 0 16px; }
+    .icon-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+    .icon-card { padding: 12px 6px 10px; }
+    .header { padding: 40px 0 32px; }
+  }
+</style>
+</head>
+<body>
+<div class="bg-glow"></div>
+
+<div class="container">
+  <!-- Header -->
+  <header class="header">
+    <span class="header__tag">Mineradio Next Icons v2.0</span>
+    <h1>矢量图标组件库</h1>
+    <p>36 个精心设计的 SVG 图标组件，为 Mineradio Next 沉浸式音乐播放器提供统一、一致的视觉语言，替代现有 Emoji 图标方案。</p>
+    <div class="header__stats">
+      <div class="stat"><div class="stat__num">36</div><div class="stat__label">图标组件</div></div>
+      <div class="stat"><div class="stat__num">7</div><div class="stat__label">功能分类</div></div>
+      <div class="stat"><div class="stat__num">24px</div><div class="stat__label">标准画布</div></div>
+      <div class="stat"><div class="stat__num">2</div><div class="stat__label">使用方式</div></div>
+    </div>
+  </header>
+
+  <!-- Category: 播放控制 -->
+  <section class="category">
+    <div class="category__header">
+      <div class="category__icon">▶</div>
+      <h3 class="category__title">播放控制 Playback Controls</h3>
+      <span class="category__count">6 个图标</span>
+    </div>
+    <div class="icon-grid">
+      <div class="icon-card" onclick="copyCode('IconPlay')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
+        <div class="icon-card__name">播放</div>
+        <div class="icon-card__code">&lt;IconPlay&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconPause')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </div>
+        <div class="icon-card__name">暂停</div>
+        <div class="icon-card__code">&lt;IconPause&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconSkipBack')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
+        </div>
+        <div class="icon-card__name">上一首</div>
+        <div class="icon-card__code">&lt;IconSkipBack&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconSkipForward')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+        </div>
+        <div class="icon-card__name">下一首</div>
+        <div class="icon-card__code">&lt;IconSkipForward&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconMusic')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        </div>
+        <div class="icon-card__name">音乐</div>
+        <div class="icon-card__code">&lt;IconMusic&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconEdit')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        </div>
+        <div class="icon-card__name">编辑</div>
+        <div class="icon-card__code">&lt;IconEdit&gt;</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Category: 播放模式 -->
+  <section class="category">
+    <div class="category__header">
+      <div class="category__icon">🔀</div>
+      <h3 class="category__title">播放模式 Play Modes</h3>
+      <span class="category__count">4 个图标</span>
+    </div>
+    <div class="icon-grid">
+      <div class="icon-card" onclick="copyCode('IconListOrdered')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><polyline points="4 6 5 4 7 6"/><line x1="4" y1="12" x2="4" y2="18"/><polyline points="4 18 6 16 4 18"/></svg>
+        </div>
+        <div class="icon-card__name">顺序播放</div>
+        <div class="icon-card__code">&lt;IconListOrdered&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconRepeat')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        </div>
+        <div class="icon-card__name">列表循环</div>
+        <div class="icon-card__code">&lt;IconRepeat&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconRepeat1')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/><path d="M11 11h1v4"/></svg>
+        </div>
+        <div class="icon-card__name">单曲循环</div>
+        <div class="icon-card__code">&lt;IconRepeat1&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconShuffle')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+        </div>
+        <div class="icon-card__name">随机播放</div>
+        <div class="icon-card__code">&lt;IconShuffle&gt;</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Category: 音量控制 -->
+  <section class="category">
+    <div class="category__header">
+      <div class="category__icon">🔊</div>
+      <h3 class="category__title">音量控制 Volume</h3>
+      <span class="category__count">2 个图标</span>
+    </div>
+    <div class="icon-grid">
+      <div class="icon-card" onclick="copyCode('IconVolume')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+        </div>
+        <div class="icon-card__name">音量</div>
+        <div class="icon-card__code">&lt;IconVolume&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconVolumeX')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+        </div>
+        <div class="icon-card__name">静音</div>
+        <div class="icon-card__code">&lt;IconVolumeX&gt;</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Category: 队列与列表 -->
+  <section class="category">
+    <div class="category__header">
+      <div class="category__icon">📋</div>
+      <h3 class="category__title">队列与列表 Queue & List</h3>
+      <span class="category__count">5 个图标</span>
+    </div>
+    <div class="icon-grid">
+      <div class="icon-card" onclick="copyCode('IconList')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        </div>
+        <div class="icon-card__name">播放队列</div>
+        <div class="icon-card__code">&lt;IconList&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconTrash')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        </div>
+        <div class="icon-card__name">清空/删除</div>
+        <div class="icon-card__code">&lt;IconTrash&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconPlus')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </div>
+        <div class="icon-card__name">添加到队列</div>
+        <div class="icon-card__code">&lt;IconPlus&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconGripVertical')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+        </div>
+        <div class="icon-card__name">拖动排序</div>
+        <div class="icon-card__code">&lt;IconGripVertical&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconGripHorizontal')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/></svg>
+        </div>
+        <div class="icon-card__name">水平拖动</div>
+        <div class="icon-card__code">&lt;IconGripHorizontal&gt;</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Category: 面板与窗口 -->
+  <section class="category">
+    <div class="category__header">
+      <div class="category__icon">🪟</div>
+      <h3 class="category__title">面板与窗口 Panels & Windows</h3>
+      <span class="category__count">11 个图标</span>
+    </div>
+    <div class="icon-grid">
+      <div class="icon-card" onclick="copyCode('IconSettings')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </div>
+        <div class="icon-card__name">设置</div>
+        <div class="icon-card__code">&lt;IconSettings&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconSearch')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <div class="icon-card__name">搜索</div>
+        <div class="icon-card__code">&lt;IconSearch&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconX')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+        <div class="icon-card__name">关闭</div>
+        <div class="icon-card__code">&lt;IconX&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconMinimize')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </div>
+        <div class="icon-card__name">最小化</div>
+        <div class="icon-card__code">&lt;IconMinimize&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconMaximize')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        </div>
+        <div class="icon-card__name">展开/最大化</div>
+        <div class="icon-card__code">&lt;IconMaximize&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconCompact')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        </div>
+        <div class="icon-card__name">迷你模式</div>
+        <div class="icon-card__code">&lt;IconCompact&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconChevronDown')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="icon-card__name">折叠</div>
+        <div class="icon-card__code">&lt;IconChevronDown&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconChevronUp')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+        </div>
+        <div class="icon-card__name">展开</div>
+        <div class="icon-card__code">&lt;IconChevronUp&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconChevronLeft')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </div>
+        <div class="icon-card__name">左箭头</div>
+        <div class="icon-card__code">&lt;IconChevronLeft&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconChevronRight')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div class="icon-card__name">右箭头</div>
+        <div class="icon-card__code">&lt;IconChevronRight&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconArrowDown')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+        </div>
+        <div class="icon-card__name">下载箭头</div>
+        <div class="icon-card__code">&lt;IconArrowDown&gt;</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Category: 功能特性 -->
+  <section class="category">
+    <div class="category__header">
+      <div class="category__icon">🎛️</div>
+      <h3 class="category__title">功能特性 Features</h3>
+      <span class="category__count">8 个图标</span>
+    </div>
+    <div class="icon-grid">
+      <div class="icon-card" onclick="copyCode('IconMic')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </div>
+        <div class="icon-card__name">歌词</div>
+        <div class="icon-card__code">&lt;IconMic&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconEqualizer')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        </div>
+        <div class="icon-card__name">均衡器</div>
+        <div class="icon-card__code">&lt;IconEqualizer&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconKeyboard')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01"/><path d="M7 16h10"/></svg>
+        </div>
+        <div class="icon-card__name">快捷键</div>
+        <div class="icon-card__code">&lt;IconKeyboard&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconClock')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div class="icon-card__name">最近播放</div>
+        <div class="icon-card__code">&lt;IconClock&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconFolder')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="icon-card__name">本地音乐</div>
+        <div class="icon-card__code">&lt;IconFolder&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconDownload')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <div class="icon-card__name">下载/更新</div>
+        <div class="icon-card__code">&lt;IconDownload&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconInfo')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </div>
+        <div class="icon-card__name">关于/信息</div>
+        <div class="icon-card__code">&lt;IconInfo&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconUser')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div class="icon-card__name">用户/账户</div>
+        <div class="icon-card__code">&lt;IconUser&gt;</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Category: 唱片架视图 -->
+  <section class="category">
+    <div class="category__header">
+      <div class="category__icon">💿</div>
+      <h3 class="category__title">唱片架视图 Shelf Views</h3>
+      <span class="category__count">2 个图标</span>
+    </div>
+    <div class="icon-grid">
+      <div class="icon-card" onclick="copyCode('IconLayers')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <div class="icon-card__name">2D 视图</div>
+        <div class="icon-card__code">&lt;IconLayers&gt;</div>
+      </div>
+      <div class="icon-card" onclick="copyCode('IconBox')">
+        <div class="icon-card__svg">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        </div>
+        <div class="icon-card__name">3D 视图</div>
+        <div class="icon-card__code">&lt;IconBox&gt;</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Usage Section -->
+  <section class="usage-section">
+    <h2>快速集成指南</h2>
+    <div class="code-blocks">
+      <div class="code-block">
+        <div class="code-block__label">方式一：直接导入 Vue 组件</div>
+        <pre><span class="hl-comment">&lt;!-- 在任意 .vue 文件中 --&gt;</span>
+<span class="hl-keyword">&lt;script setup lang="ts"&gt;</span>
+<span class="hl-keyword">import</span> { <span class="hl-component">IconPlay</span>, <span class="hl-component">IconPause</span>, <span class="hl-component">IconSkipBack</span>, <span class="hl-component">IconSkipForward</span> } <span class="hl-keyword">from</span> <span class="hl-string">'@/components/icons'</span>
+<span class="hl-keyword">&lt;/script&gt;</span>
+
+<span class="hl-keyword">&lt;template&gt;</span>
+  <span class="hl-comment">&lt;!-- 替换之前的 emoji: '▶' → IconPlay --&gt;</span>
+  &lt;button @click=<span class="hl-string">"player.togglePlay()"</span>&gt;
+    <span class="hl-component">&lt;IconPlay</span> <span class="hl-attr">v-if</span>=<span class="hl-string">"!player.isPlaying"</span> <span class="hl-attr">:size</span>=<span class="hl-string">"24"</span> <span class="hl-component">/&gt;</span>
+    <span class="hl-component">&lt;IconPause</span> <span class="hl-attr">v-else</span> <span class="hl-attr">:size</span>=<span class="hl-string">"24"</span> <span class="hl-component">/&gt;</span>
+  &lt;/button&gt;
+
+  <span class="hl-comment">&lt;!-- 替换 emoji: '⏮' → IconSkipBack --&gt;</span>
+  &lt;button @click=<span class="hl-string">"player.prev()"</span> title=<span class="hl-string">"上一首"</span>&gt;
+    <span class="hl-component">&lt;IconSkipBack</span> <span class="hl-attr">:size</span>=<span class="hl-string">"20"</span> <span class="hl-component">/&gt;</span>
+  &lt;/button&gt;
+<span class="hl-keyword">&lt;/template&gt;</span></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-block__label">方式二：使用统一 Icon 组件（按名称动态切换）</div>
+        <pre><span class="hl-keyword">&lt;script setup lang="ts"&gt;</span>
+<span class="hl-keyword">import</span> { <span class="hl-component">Icon</span> } <span class="hl-keyword">from</span> <span class="hl-string">'@/components/icons/Icon.vue'</span>
+<span class="hl-keyword">import</span> { computed } <span class="hl-keyword">from</span> <span class="hl-string">'vue'</span>
+
+<span class="hl-keyword">const</span> playModeIcon = computed(() => {
+  <span class="hl-keyword">const</span> map = {
+    sequence: <span class="hl-string">'list-ordered'</span>,
+    loop: <span class="hl-string">'repeat'</span>,
+    single: <span class="hl-string">'repeat-1'</span>,
+    shuffle: <span class="hl-string">'shuffle'</span>
+  }
+  <span class="hl-keyword">return</span> map[player.playMode]
+})
+<span class="hl-keyword">&lt;/script&gt;</span>
+
+<span class="hl-keyword">&lt;template&gt;</span>
+  <span class="hl-comment">&lt;!-- 一个组件，自动切换图标 --&gt;</span>
+  <span class="hl-component">&lt;Icon</span> <span class="hl-attr">:name</span>=<span class="hl-string">"playModeIcon"</span> <span class="hl-attr">:size</span>=<span class="hl-string">"18"</span> <span class="hl-component">/&gt;</span>
+<span class="hl-keyword">&lt;/template&gt;</span></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-block__label">Props 说明</div>
+        <pre><span class="hl-comment">// 所有图标组件共享相同的 Props 接口</span>
+<span class="hl-keyword">interface</span> <span class="hl-component">IconProps</span> {
+  <span class="hl-attr">size</span>?: <span class="hl-string">number | string</span>  <span class="hl-comment">// 默认: 20</span>
+}
+
+<span class="hl-comment">// Icon 组件额外支持 name 属性</span>
+<span class="hl-keyword">interface</span> <span class="hl-component">IconDynamicProps</span> <span class="hl-keyword">extends</span> <span class="hl-component">IconProps</span> {
+  <span class="hl-attr">name</span>: <span class="hl-string">'play' | 'pause' | 'skip-back' | 'skip-forward' | 'volume' | 'volume-x'</span>
+      <span class="hl-string">| 'shuffle' | 'repeat' | 'repeat-1' | 'list-ordered' | 'list'</span>
+      <span class="hl-string">| 'settings' | 'search' | 'x' | 'minimize' | 'maximize'</span>
+      <span class="hl-string">| 'chevron-down' | 'chevron-up' | 'chevron-left' | 'chevron-right'</span>
+      <span class="hl-string">| 'music' | 'mic' | 'user' | 'clock' | 'folder' | 'equalizer'</span>
+      <span class="hl-string">| 'keyboard' | 'info' | 'trash' | 'plus'</span>
+      <span class="hl-string">| 'grip-horizontal' | 'grip-vertical' | 'download' | 'compact'</span>
+      <span class="hl-string">| 'arrow-down' | 'layers' | 'box' | 'edit'</span>
+}</pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-block__label">PlayerBar.vue 集成示例（完整替换 Emoji）</div>
+        <pre><span class="hl-comment">&lt;!-- 播放模式切换: 🔁/🔂/🔄/🔀 → Icon + name --&gt;</span>
+&lt;button @click=<span class="hl-string">"player.cyclePlayMode()"</span>&gt;
+  <span class="hl-component">&lt;Icon</span> <span class="hl-attr">:name</span>=<span class="hl-string">"playModeIcon"</span> <span class="hl-attr">:size</span>=<span class="hl-string">"16"</span> <span class="hl-component">/&gt;</span>
+  {{ playModeLabel }}
+&lt;/button&gt;
+
+<span class="hl-comment">&lt;!-- 播放控制: ⏮/▶/⏸/⏭ → 直接使用组件 --&gt;</span>
+<span class="hl-component">&lt;IconSkipBack</span> <span class="hl-attr">:size</span>=<span class="hl-string">"20"</span> <span class="hl-component">/&gt;</span>
+<span class="hl-component">&lt;IconPlay</span> <span class="hl-attr">v-if</span>=<span class="hl-string">"!player.isPlaying"</span> <span class="hl-attr">:size</span>=<span class="hl-string">"24"</span> <span class="hl-component">/&gt;</span>
+<span class="hl-component">&lt;IconPause</span> <span class="hl-attr">v-else</span> <span class="hl-attr">:size</span>=<span class="hl-string">"24"</span> <span class="hl-component">/&gt;</span>
+<span class="hl-component">&lt;IconSkipForward</span> <span class="hl-attr">:size</span>=<span class="hl-string">"20"</span> <span class="hl-component">/&gt;</span>
+
+<span class="hl-comment">&lt;!-- 播放队列: 📋 → IconList --&gt;</span>
+<span class="hl-component">&lt;IconList</span> <span class="hl-attr">:size</span>=<span class="hl-string">"20"</span> <span class="hl-component">/&gt;</span>
+
+<span class="hl-comment">&lt;!-- 本地音乐: 💾 → IconFolder --&gt;</span>
+<span class="hl-component">&lt;IconFolder</span> <span class="hl-attr">:size</span>=<span class="hl-string">"18"</span> <span class="hl-component">/&gt;</span>
+
+<span class="hl-comment">&lt;!-- 音量/静音: 🔊/🔇 → IconVolume/IconVolumeX --&gt;</span>
+<span class="hl-component">&lt;IconVolumeX</span> <span class="hl-attr">v-if</span>=<span class="hl-string">"player.muted"</span> <span class="hl-attr">:size</span>=<span class="hl-string">"18"</span> <span class="hl-component">/&gt;</span>
+<span class="hl-component">&lt;IconVolume</span> <span class="hl-attr">v-else</span> <span class="hl-attr">:size</span>=<span class="hl-string">"18"</span> <span class="hl-component">/&gt;</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer style="text-align:center; padding: 32px 0 64px; color: var(--text-muted); font-size:13px;">
+    <p>Mineradio Next 矢量图标库 · Lucide 风格 · 24×24 viewBox · stroke-width: 2</p>
+    <p style="margin-top:4px;">所有图标通过 <code style="color:var(--accent-light);">stroke="currentColor"</code> 继承父元素颜色</p>
+  </footer>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">已复制到剪贴板</div>
+
+<script>
+function copyCode(name) {
+  const code = `import { ${name} } from '@/components/icons'`
+  navigator.clipboard.writeText(code).then(() => {
+    const toast = document.getElementById('toast')
+    toast.textContent = `已复制: ${code}`
+    toast.classList.add('toast--show')
+    setTimeout(() => toast.classList.remove('toast--show'), 2000)
+  })
+}
+</script>
+</body>
+</html>

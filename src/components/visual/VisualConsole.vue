@@ -389,24 +389,24 @@
         <span class="expand-hint">点击展开</span>
       </div>
     </div>
-
-    <ColorLab
-      v-if="colorLabVisible"
-      v-model="currentColorLabColor"
-      :visible="colorLabVisible"
-      :style="{ top: colorLabPosition.top + 'px', left: colorLabPosition.left + 'px', position: 'fixed' }"
-      @update:model-value="handleColorLabUpdate"
-      @confirm="handleColorLabConfirm"
-      @cancel="handleColorLabCancel"
-    />
-
-    <CoverColorPicker
-      :visible="coverPickerVisible"
-      :target-color="coverPickerTarget"
-      @confirm="handleCoverPickerConfirm"
-      @cancel="handleCoverPickerCancel"
-    />
   </Transition>
+
+  <ColorLab
+    v-if="colorLabVisible"
+    v-model="currentColorLabColor"
+    :visible="colorLabVisible"
+    :style="{ top: colorLabPosition.top + 'px', left: colorLabPosition.left + 'px', position: 'fixed' }"
+    @update:model-value="handleColorLabUpdate"
+    @confirm="handleColorLabConfirm"
+    @cancel="handleColorLabCancel"
+  />
+
+  <CoverColorPicker
+    :visible="coverPickerVisible"
+    :target-color="coverPickerTarget"
+    @confirm="handleCoverPickerConfirm"
+    @cancel="handleCoverPickerCancel"
+  />
 </template>
 
 <script setup lang="ts">

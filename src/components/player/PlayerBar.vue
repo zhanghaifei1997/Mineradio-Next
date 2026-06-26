@@ -18,7 +18,6 @@ const showCollectModal = ref(false)
 const player = usePlayerStore()
 const queue = playQueueStore()
 const userStore = useUserStore()
-const fx = useFxStore()
 
 const isLiked = ref(false)
 const likeLoading = ref(false)

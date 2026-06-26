@@ -433,10 +433,10 @@ export async function handleNeteaseRoute(req, res, url) {
         json(res, { error: 'Missing playlist id' }, 400)
         return null
       }
-      const params: any = { id, cookie, timestamp: Date.now() }
+      const params = { id, cookie, timestamp: Date.now() }
       if (name !== undefined) params.name = name
       if (desc !== undefined) params.desc = desc
-      let r: any = { body: { code: 200 } }
+      let r = { body: { code: 200 } }
       let code = 200
       if (name !== undefined || desc !== undefined) {
         try {

@@ -19,6 +19,9 @@ import HintToast from '@/components/common/HintToast.vue'
 import CentralHint from '@/components/common/CentralHint.vue'
 import CustomBgVideo from '@/components/visual/CustomBgVideo.vue'
 import VisualGuide from '@/components/guide/VisualGuide.vue'
+import BottomHandle from '@/components/player/BottomHandle.vue'
+import ImmersivePlayer from '@/components/player/ImmersivePlayer.vue'
+import ContextMenu from '@/components/common/ContextMenu.vue'
 
 const SearchPanel = defineAsyncComponent(() => import('@/components/search/SearchPanel.vue'))
 const PlaylistShelf = defineAsyncComponent(() => import('@/components/playlist/PlaylistShelf.vue'))
