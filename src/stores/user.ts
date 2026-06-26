@@ -5,7 +5,7 @@ import { providerManager } from '@/modules/providers'
 
 const STORAGE_KEY = 'mineradio-user-state'
 
-function loadFromStorage(): { netease: UserAccount; qqmusic: UserAccount } {
+function loadFromStorage(): { netease: UserAccount; qqmusic: UserAccount; kugou: UserAccount } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
@@ -13,12 +13,14 @@ function loadFromStorage(): { netease: UserAccount; qqmusic: UserAccount } {
       return {
         netease: parsed.netease || createEmptyAccount('netease'),
         qqmusic: parsed.qqmusic || createEmptyAccount('qqmusic'),
+        kugou: parsed.kugou || createEmptyAccount('kugou'),
       }
     }
   } catch (_) {}
   return {
     netease: createEmptyAccount('netease'),
     qqmusic: createEmptyAccount('qqmusic'),
+    kugou: createEmptyAccount('kugou'),
   }
 }
 
@@ -30,11 +32,12 @@ function createEmptyAccount(source: MusicSource): UserAccount {
   }
 }
 
-function saveToStorage(accounts: { netease: UserAccount; qqmusic: UserAccount }) {
+function saveToStorage(accounts: { netease: UserAccount; qqmusic: UserAccount; kugou: UserAccount }) {
   try {
     const toSave = {
       netease: { ...accounts.netease, cookie: undefined },
       qqmusic: { ...accounts.qqmusic, cookie: undefined },
+      kugou: { ...accounts.kugou, cookie: undefined },
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave))
   } catch (_) {}
@@ -45,37 +48,61 @@ export const useUserStore = defineStore('user', () => {
 
   const neteaseAccount = ref<UserAccount>(initial.netease)
   const qqmusicAccount = ref<UserAccount>(initial.qqmusic)
+  const kugouAccount = ref<UserAccount>(initial.kugou)
   const userPlaylists = ref<UserPlaylist[]>([])
   const likedSongs = ref<Song[]>([])
   const recentPlayed = ref<Song[]>([])
   const loadingProfile = ref(false)
   const loadingPlaylists = ref(false)
 
-  const isLoggedIn = computed(() => neteaseAccount.value.loggedIn || qqmusicAccount.value.loggedIn)
+  const isLoggedIn = computed(() => neteaseAccount.value.loggedIn || qqmusicAccount.value.loggedIn || kugouAccount.value.loggedIn)
 
-  const hasMultipleAccounts = computed(() => neteaseAccount.value.loggedIn && qqmusicAccount.value.loggedIn)
+  const hasMultipleAccounts = computed(() => {
+    let count = 0
+    if (neteaseAccount.value.loggedIn) count++
+    if (qqmusicAccount.value.loggedIn) count++
+    if (kugouAccount.value.loggedIn) count++
+    return count >= 2
+  })
 
   const primaryAccount = computed<UserAccount | null>(() => {
     if (neteaseAccount.value.loggedIn) return neteaseAccount.value
     if (qqmusicAccount.value.loggedIn) return qqmusicAccount.value
+    if (kugouAccount.value.loggedIn) return kugouAccount.value
     return null
   })
 
   const primaryProfile = computed<UserProfile | null>(() => primaryAccount.value?.profile || null)
 
   function getAccount(source: MusicSource): UserAccount {
-    return source === 'netease' ? neteaseAccount.value : qqmusicAccount.value
+    switch (source) {
+      case 'netease':
+        return neteaseAccount.value
+      case 'qqmusic':
+        return qqmusicAccount.value
+      case 'kugou':
+        return kugouAccount.value
+      default:
+        return neteaseAccount.value
+    }
   }
 
   function setAccount(source: MusicSource, account: Partial<UserAccount>) {
-    if (source === 'netease') {
-      neteaseAccount.value = { ...neteaseAccount.value, ...account }
-    } else {
-      qqmusicAccount.value = { ...qqmusicAccount.value, ...account }
+    switch (source) {
+      case 'netease':
+        neteaseAccount.value = { ...neteaseAccount.value, ...account }
+        break
+      case 'qqmusic':
+        qqmusicAccount.value = { ...qqmusicAccount.value, ...account }
+        break
+      case 'kugou':
+        kugouAccount.value = { ...kugouAccount.value, ...account }
+        break
     }
     saveToStorage({
       netease: neteaseAccount.value,
       qqmusic: qqmusicAccount.value,
+      kugou: kugouAccount.value,
     })
   }
 
@@ -93,16 +120,13 @@ export const useUserStore = defineStore('user', () => {
       profile: null,
       cookie: undefined,
     })
-    if (source === 'netease') {
-      userPlaylists.value = userPlaylists.value.filter(p => p.source !== 'netease')
-    } else {
-      userPlaylists.value = userPlaylists.value.filter(p => p.source !== 'qqmusic')
-    }
+    userPlaylists.value = userPlaylists.value.filter(p => p.source !== source)
   }
 
   function logoutAll() {
     logout('netease')
     logout('qqmusic')
+    logout('kugou')
     userPlaylists.value = []
     likedSongs.value = []
     recentPlayed.value = []
@@ -166,6 +190,10 @@ export const useUserStore = defineStore('user', () => {
     }
     if (qqmusicAccount.value.loggedIn) {
       const list = await fetchUserPlaylists('qqmusic')
+      results.push(...list)
+    }
+    if (kugouAccount.value.loggedIn) {
+      const list = await fetchUserPlaylists('kugou')
       results.push(...list)
     }
     return results
@@ -239,11 +267,15 @@ export const useUserStore = defineStore('user', () => {
     if (qqmusicAccount.value.loggedIn) {
       fetchUserProfile('qqmusic').catch(() => {})
     }
+    if (kugouAccount.value.loggedIn) {
+      fetchUserProfile('kugou').catch(() => {})
+    }
   }
 
   return {
     neteaseAccount,
     qqmusicAccount,
+    kugouAccount,
     userPlaylists,
     likedSongs,
     recentPlayed,

@@ -4,6 +4,7 @@ import { useFxStore } from '@/stores/fx'
 import { useLyricsStore } from '@/stores/lyrics'
 import { usePerformanceStore } from '@/stores/performance'
 import { usePlayerStore } from '@/stores/player'
+import { useHotkeysStore } from '@/stores/hotkeys'
 import type { VisualPreset, PerformanceQuality, PerformanceBackgroundMode } from '@/types'
 import type {
   DesktopLyricsPosition,
@@ -11,6 +12,8 @@ import type {
   DesktopLyricsStylePreset,
   DesktopLyricsSettings,
 } from '@/modules/lyrics'
+import EqualizerPanel from '@/components/player/EqualizerPanel.vue'
+import HotkeySettings from '@/components/settings/HotkeySettings.vue'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -20,8 +23,11 @@ const fx = useFxStore()
 const lyrics = useLyricsStore()
 const performance = usePerformanceStore()
 const player = usePlayerStore()
+const hotkeys = useHotkeysStore()
 
-const activeTab = ref<'visual' | 'desktopLyrics' | 'about'>('visual')
+type SettingsTab = 'general' | 'playback' | 'lyrics' | 'visual' | 'equalizer' | 'hotkeys' | 'about'
+
+const activeTab = ref<SettingsTab>('visual')
 
 const desktopLyricsSettings = ref<DesktopLyricsSettings>({
   enabled: false,
@@ -47,6 +53,16 @@ const desktopLyricsSettings = ref<DesktopLyricsSettings>({
   smoothScroll: true,
   animationEnabled: true,
 })
+
+const tabs = [
+  { id: 'general', name: '通用', icon: '⚙️' },
+  { id: 'playback', name: '播放', icon: '🎵' },
+  { id: 'lyrics', name: '歌词', icon: '🎤' },
+  { id: 'visual', name: '视觉', icon: '🎨' },
+  { id: 'equalizer', name: '均衡器', icon: '🎚️' },
+  { id: 'hotkeys', name: '快捷键', icon: '⌨️' },
+  { id: 'about', name: '关于', icon: 'ℹ️' },
+]
 
 const presets: { id: VisualPreset; name: string; icon: string }[] = [
   { id: 'emily', name: 'Emily', icon: '🌸' },
@@ -89,7 +105,20 @@ const stylePresetOptions: { id: DesktopLyricsStylePreset; name: string; preview:
   { id: 'stroke', name: '描边', preview: '粗体描边' },
 ]
 
+const musicSources = [
+  { id: 'netease', name: '网易云音乐' },
+  { id: 'qqmusic', name: 'QQ 音乐' },
+  { id: 'local', name: '本地音乐' },
+]
+
+const closeBehaviors = [
+  { id: 'minimize', name: '最小化到托盘' },
+  { id: 'quit', name: '直接退出' },
+]
+
 const electronAPI = (window as any).electronAPI
+
+const appVersion = ref('2.0.0-alpha.1')
 
 function setPreset(preset: VisualPreset) {
   fx.update('preset', preset)
@@ -204,6 +233,18 @@ function updateDesktopLyricsSetting<K extends keyof DesktopLyricsSettings>(
   syncDesktopLyricsSettings()
 }
 
+function setDefaultVolume(volume: number) {
+  player.setVolume(volume)
+}
+
+function setFadeEnabled(enabled: boolean) {
+  player.setFadeEnabled(enabled)
+}
+
+function setReplayGainEnabled(enabled: boolean) {
+  player.setReplayGainEnabled(enabled)
+}
+
 watch(
   () => fx.settings.lyricGlow,
   (val) => {
@@ -227,104 +268,61 @@ function closePanel() {
 
       <div class="settings-tabs">
         <button
+          v-for="tab in tabs"
+          :key="tab.id"
           class="tab-btn"
-          :class="{ active: activeTab === 'visual' }"
-          @click="activeTab = 'visual'"
+          :class="{ active: activeTab === tab.id }"
+          @click="activeTab = tab.id as SettingsTab"
+          :title="tab.name"
         >
-          视觉
-        </button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'desktopLyrics' }"
-          @click="activeTab = 'desktopLyrics'"
-        >
-          桌面歌词
-        </button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'about' }"
-          @click="activeTab = 'about'"
-        >
-          关于
+          <span class="tab-icon">{{ tab.icon }}</span>
         </button>
       </div>
 
       <div class="settings-content">
-        <div v-show="activeTab === 'visual'" class="settings-tab-content">
+        <div v-show="activeTab === 'general'" class="settings-tab-content">
           <div class="settings-section">
-            <div class="section-title">视觉预设</div>
-            <div class="preset-grid">
+            <div class="section-title">通用设置</div>
+            <div class="setting-row">
+              <label>默认音乐源</label>
+              <div class="segmented">
+                <button
+                  v-for="src in musicSources"
+                  :key="src.id"
+                  class="seg-btn"
+                  :class="{ active: true }"
+                >
+                  {{ src.name }}
+                </button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="true"
+                />
+                <span>启动时自动播放</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">关闭行为</div>
+            <div class="segmented">
               <button
-                v-for="p in presets"
-                :key="p.id"
-                class="preset-item"
-                :class="{ active: fx.settings.preset === p.id }"
-                @click="setPreset(p.id)"
+                v-for="behavior in closeBehaviors"
+                :key="behavior.id"
+                class="seg-btn"
+                :class="{ active: behavior.id === 'minimize' }"
               >
-                <span class="preset-icon">{{ p.icon }}</span>
-                <span class="preset-name">{{ p.name }}</span>
+                {{ behavior.name }}
               </button>
             </div>
           </div>
 
           <div class="settings-section">
-            <div class="section-title">性能设置</div>
-            <div class="setting-row">
-              <label>性能等级</label>
-              <div class="segmented">
-                <button
-                  v-for="q in qualityLevels"
-                  :key="q.id"
-                  class="seg-btn"
-                  :class="{ active: fx.settings.performanceQuality === q.id }"
-                  @click="setPerformanceQuality(q.id as PerformanceQuality)"
-                >
-                  {{ q.name }}
-                </button>
-              </div>
-            </div>
-            <div class="setting-row">
-              <label>粒子密度: {{ Math.round(fx.settings.particleResolution * 100) }}%</label>
-              <input
-                type="range"
-                min="0.2"
-                max="2"
-                step="0.1"
-                :value="fx.settings.particleResolution"
-                @input="fx.update('particleResolution', parseFloat(($event.target as HTMLInputElement).value))"
-              />
-              <div class="setting-hint">{{ fx.particleCountLabel }} 粒子网格</div>
-            </div>
-            <div class="setting-row">
-              <label>动感强度: {{ Math.round(fx.settings.cinemaIntensity * 100) }}%</label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                :value="fx.settings.cinemaIntensity"
-                @input="fx.update('cinemaIntensity', parseFloat(($event.target as HTMLInputElement).value))"
-              />
-            </div>
-          </div>
-
-          <div class="settings-section">
-            <div class="section-title">歌词设置</div>
-            <div class="setting-row">
-              <label>歌词发光强度: {{ Math.round(fx.settings.lyricGlow * 100) }}%</label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                :value="fx.settings.lyricGlow"
-                @input="fx.update('lyricGlow', parseFloat(($event.target as HTMLInputElement).value))"
-              />
-            </div>
-          </div>
-
-          <div class="settings-section">
-            <div class="section-title">颜色</div>
+            <div class="section-title">界面</div>
             <div class="setting-row">
               <label>主题色</label>
               <input
@@ -333,43 +331,72 @@ function closePanel() {
                 @input="fx.update('accentColor', ($event.target as HTMLInputElement).value)"
               />
             </div>
+          </div>
+        </div>
+
+        <div v-show="activeTab === 'playback'" class="settings-tab-content">
+          <div class="settings-section">
+            <div class="section-title">播放设置</div>
             <div class="setting-row">
-              <label>辉光色</label>
+              <label>默认音量: {{ Math.round(player.volume * 100) }}%</label>
               <input
-                type="color"
-                :value="fx.settings.glowColor"
-                @input="fx.update('glowColor', ($event.target as HTMLInputElement).value)"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                :value="player.volume"
+                @input="setDefaultVolume(parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="player.fadeEnabled"
+                  @change="setFadeEnabled(($event.target as HTMLInputElement).checked)"
+                />
+                <span>启用淡入淡出</span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="player.replayGainEnabled"
+                  @change="setReplayGainEnabled(($event.target as HTMLInputElement).checked)"
+                />
+                <span>音量归一化 (ReplayGain)</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">播放速度</div>
+            <div class="setting-row">
+              <label>速度: {{ player.speed.toFixed(2) }}x</label>
+              <input
+                type="range"
+                min="0.5"
+                max="2"
+                step="0.05"
+                :value="player.speed"
+                @input="player.setSpeed(parseFloat(($event.target as HTMLInputElement).value))"
               />
             </div>
           </div>
 
           <div class="settings-section">
-            <div class="section-title">后台模式</div>
-            <div class="segmented">
-              <button
-                v-for="b in bgModes"
-                :key="b.id"
-                class="seg-btn"
-                :class="{ active: fx.settings.performanceBackground === b.id }"
-                @click="setBackgroundMode(b.id as PerformanceBackgroundMode)"
-              >
-                {{ b.name }}
-              </button>
-            </div>
-            <div class="setting-row" style="margin-top: 10px;">
-              <label class="checkbox-label">
-                <input
-                  type="checkbox"
-                  :checked="fx.settings.liveBackgroundKeep"
-                  @change="fx.update('liveBackgroundKeep', ($event.target as HTMLInputElement).checked)"
-                />
-                <span>后台保持活动背景</span>
-              </label>
+            <div class="section-title">输出设备</div>
+            <div class="setting-row">
+              <div class="device-selector">
+                <span class="device-name">默认输出设备</span>
+                <span class="device-hint">系统默认</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <div v-show="activeTab === 'desktopLyrics'" class="settings-tab-content">
+        <div v-show="activeTab === 'lyrics'" class="settings-tab-content">
           <div class="settings-section">
             <div class="section-title">桌面歌词</div>
             <div class="setting-row">
@@ -587,6 +614,138 @@ function closePanel() {
               </label>
             </div>
           </div>
+
+          <div class="settings-section">
+            <div class="section-title">舞台歌词</div>
+            <div class="setting-row">
+              <label>歌词发光强度: {{ Math.round(fx.settings.lyricGlow * 100) }}%</label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                :value="fx.settings.lyricGlow"
+                @input="fx.update('lyricGlow', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">翻译设置</div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="true"
+                />
+                <span>显示翻译歌词</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div v-show="activeTab === 'visual'" class="settings-tab-content">
+          <div class="settings-section">
+            <div class="section-title">视觉预设</div>
+            <div class="preset-grid">
+              <button
+                v-for="p in presets"
+                :key="p.id"
+                class="preset-item"
+                :class="{ active: fx.settings.preset === p.id }"
+                @click="setPreset(p.id)"
+              >
+                <span class="preset-icon">{{ p.icon }}</span>
+                <span class="preset-name">{{ p.name }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">性能设置</div>
+            <div class="setting-row">
+              <label>性能等级</label>
+              <div class="segmented">
+                <button
+                  v-for="q in qualityLevels"
+                  :key="q.id"
+                  class="seg-btn"
+                  :class="{ active: fx.settings.performanceQuality === q.id }"
+                  @click="setPerformanceQuality(q.id as PerformanceQuality)"
+                >
+                  {{ q.name }}
+                </button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <label>粒子密度: {{ Math.round(fx.settings.particleResolution * 100) }}%</label>
+              <input
+                type="range"
+                min="0.2"
+                max="2"
+                step="0.1"
+                :value="fx.settings.particleResolution"
+                @input="fx.update('particleResolution', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+              <div class="setting-hint">{{ fx.particleCountLabel }} 粒子网格</div>
+            </div>
+            <div class="setting-row">
+              <label>动感强度: {{ Math.round(fx.settings.cinemaIntensity * 100) }}%</label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                :value="fx.settings.cinemaIntensity"
+                @input="fx.update('cinemaIntensity', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">颜色</div>
+            <div class="setting-row">
+              <label>辉光色</label>
+              <input
+                type="color"
+                :value="fx.settings.glowColor"
+                @input="fx.update('glowColor', ($event.target as HTMLInputElement).value)"
+              />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">后台模式</div>
+            <div class="segmented">
+              <button
+                v-for="b in bgModes"
+                :key="b.id"
+                class="seg-btn"
+                :class="{ active: fx.settings.performanceBackground === b.id }"
+                @click="setBackgroundMode(b.id as PerformanceBackgroundMode)"
+              >
+                {{ b.name }}
+              </button>
+            </div>
+            <div class="setting-row" style="margin-top: 10px;">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="fx.settings.liveBackgroundKeep"
+                  @change="fx.update('liveBackgroundKeep', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>后台保持活动背景</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div v-show="activeTab === 'equalizer'" class="settings-tab-content">
+          <EqualizerPanel />
+        </div>
+
+        <div v-show="activeTab === 'hotkeys'" class="settings-tab-content">
+          <HotkeySettings />
         </div>
 
         <div v-show="activeTab === 'about'" class="settings-tab-content">
@@ -594,8 +753,49 @@ function closePanel() {
             <div class="about-section">
               <div class="about-logo">🎵</div>
               <div class="about-name">Mineradio</div>
-              <div class="about-version">v2.0.0-alpha.1</div>
+              <div class="about-version">v{{ appVersion }}</div>
               <div class="about-desc">沉浸式音乐播放器</div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">更新</div>
+            <div class="setting-row">
+              <button class="action-btn">
+                检查更新
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">开源协议</div>
+            <div class="license-info">
+              <p>GPL-3.0 License</p>
+              <p class="license-desc">
+                Mineradio 是一款开源的沉浸式音乐播放器，采用 GPL-3.0 协议发布。
+              </p>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">致谢</div>
+            <div class="credits-list">
+              <div class="credit-item">
+                <span class="credit-name">Vue 3</span>
+                <span class="credit-desc">渐进式 JavaScript 框架</span>
+              </div>
+              <div class="credit-item">
+                <span class="credit-name">Three.js</span>
+                <span class="credit-desc">3D 图形库</span>
+              </div>
+              <div class="credit-item">
+                <span class="credit-name">Pinia</span>
+                <span class="credit-desc">状态管理</span>
+              </div>
+              <div class="credit-item">
+                <span class="credit-name">Electron</span>
+                <span class="credit-desc">跨平台桌面应用</span>
+              </div>
             </div>
           </div>
         </div>
@@ -620,7 +820,7 @@ function closePanel() {
   position: absolute;
   top: 56px;
   right: 0;
-  width: 360px;
+  width: 380px;
   max-height: 75vh;
   overflow: hidden;
   display: flex;
@@ -666,18 +866,19 @@ function closePanel() {
 .settings-tabs {
   display: flex;
   padding: 8px;
-  gap: 4px;
+  gap: 2px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   flex-shrink: 0;
+  justify-content: space-around;
 }
 
 .tab-btn {
   flex: 1;
-  padding: 8px 12px;
+  padding: 8px 4px;
   border: none;
   background: transparent;
   color: rgba(255, 255, 255, 0.5);
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 500;
   cursor: pointer;
   border-radius: 6px;
@@ -692,6 +893,10 @@ function closePanel() {
 .tab-btn.active {
   color: #fff;
   background: rgba(217, 91, 103, 0.2);
+}
+
+.tab-icon {
+  display: inline-block;
 }
 
 .settings-content {
@@ -912,5 +1117,76 @@ function closePanel() {
 .reset-btn:hover {
   background: rgba(255, 255, 255, 0.05);
   color: #fff;
+}
+
+.device-selector {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.device-name {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.device-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 2px;
+}
+
+.action-btn {
+  padding: 10px 20px;
+  border: 1px solid rgba(217, 91, 103, 0.4);
+  border-radius: 20px;
+  background: rgba(217, 91, 103, 0.1);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  background: rgba(217, 91, 103, 0.2);
+  border-color: rgba(217, 91, 103, 0.6);
+}
+
+.license-info {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.6;
+}
+
+.license-desc {
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 8px;
+}
+
+.credits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.credit-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+}
+
+.credit-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.credit-desc {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
 }
 </style>

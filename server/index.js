@@ -2,6 +2,7 @@ import http from 'node:http'
 import { URL } from 'node:url'
 import { handleNeteaseRoute } from './routes/netease.js'
 import { handleQQMusicRoute } from './routes/qqmusic.js'
+import { handleKugouRoute } from './routes/kugou.js'
 import { handleUpdateRoute } from './routes/update.js'
 import { handleProxyRoute } from './routes/proxy.js'
 import { handleLocalRoute, setLocalMusicDir } from './routes/local.js'
@@ -44,6 +45,11 @@ function createServer() {
 
       if (path.startsWith('/api/qq')) {
         const handled = await handleQQMusicRoute(req, res, url)
+        if (handled) return
+      }
+
+      if (path.startsWith('/api/kugou')) {
+        const handled = await handleKugouRoute(req, res, url)
         if (handled) return
       }
 

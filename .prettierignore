@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-ssr
+release
+out
+coverage
+*.min.*
+pnpm-lock.yaml
+package-lock.json
+electron
+server
+build

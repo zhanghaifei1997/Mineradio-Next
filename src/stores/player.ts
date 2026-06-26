@@ -10,6 +10,8 @@ import {
   BeatDetector,
   analyzePodcastDjStream,
   AudioEnhancer,
+  Equalizer,
+  AudioEffects,
 } from '@/modules/audio'
 import type {
   BeatMap,
@@ -20,6 +22,8 @@ import type {
   DjModeState,
   BufferProgress,
   AudioError,
+  EqPreset,
+  AudioEffectsSettings,
 } from '@/modules/audio'
 import { djModeEngine } from '@/modules/dj'
 import type { DjProgram, DjRadio } from '@/modules/dj'
@@ -56,6 +60,15 @@ export const usePlayerStore = defineStore('player', () => {
   const lastError = ref<AudioError | null>(null)
   const fadeEnabled = ref(true)
   const replayGainEnabled = ref(false)
+
+  const equalizer = ref<Equalizer | null>(null)
+  const equalizerEnabled = ref(false)
+  const equalizerPreset = ref<EqPreset>('flat')
+  const equalizerGains = ref<number[]>(new Array(10).fill(0))
+
+  const audioEffects = ref<AudioEffects | null>(null)
+  const audioEffectsEnabled = ref(false)
+  const audioEffectsSettings = ref<AudioEffectsSettings | null>(null)
 
   let animationFrameId: number | null = null
   let lastFrameTime = 0
@@ -132,8 +145,126 @@ export const usePlayerStore = defineStore('player', () => {
       beatDetector.value = new BeatDetector()
       beatState.value = analyzer.beatState
       cinemaDynamics.value = analyzer.cinemaDynamics
+
+      initEqualizer()
+      initAudioEffects()
+      setupEffectChain()
     }
   }
+
+  function initEqualizer(): void {
+    if (!audioAnalyzer.value?.audioContext || !audioAnalyzer.value.source) return
+    const eq = new Equalizer()
+    const success = eq.init(audioAnalyzer.value.audioContext, audioAnalyzer.value.source)
+    if (success) {
+      equalizer.value = eq
+    }
+  }
+
+  function initAudioEffects(): void {
+    if (!audioAnalyzer.value?.audioContext) return
+    const effects = new AudioEffects()
+    const success = effects.init(audioAnalyzer.value.audioContext)
+    if (success) {
+      audioEffects.value = effects
+      audioEffectsSettings.value = effects.getSettings()
+    }
+  }
+
+  function setupEffectChain(): void {
+    if (!audioAnalyzer.value) return
+
+    const hasEq = equalizer.value && equalizerEnabled.value
+    const hasEffects = audioEffects.value && audioEffectsEnabled.value
+
+    if (!hasEq && !hasEffects) {
+      audioAnalyzer.value.setPreEffectChain(null, null)
+      return
+    }
+
+    let inputNode: AudioNode | null = null
+    let outputNode: AudioNode | null = null
+
+    if (hasEq && hasEffects && equalizer.value && audioEffects.value) {
+      const eqInput = equalizer.value.getInputNode()
+      const eqOutput = equalizer.value.getOutputNode()
+      const effectsInput = audioEffects.value.inputNode
+      const effectsOutput = audioEffects.value.outputNode
+      if (eqInput && eqOutput && effectsInput && effectsOutput) {
+        eqOutput.connect(effectsInput)
+        inputNode = eqInput
+        outputNode = effectsOutput
+      }
+    } else if (hasEq && equalizer.value) {
+      const eqInput = equalizer.value.getInputNode()
+      const eqOutput = equalizer.value.getOutputNode()
+      if (eqInput && eqOutput) {
+        inputNode = eqInput
+        outputNode = eqOutput
+      }
+    } else if (hasEffects && audioEffects.value) {
+      inputNode = audioEffects.value.inputNode
+      outputNode = audioEffects.value.outputNode
+    }
+
+    if (inputNode && outputNode) {
+      audioAnalyzer.value.setPreEffectChain(inputNode, outputNode)
+    } else if (outputNode) {
+      audioAnalyzer.value.setPreEffectChain(outputNode, outputNode)
+    }
+  }
+
+  function setEqualizerEnabled(enabled: boolean): void {
+    equalizerEnabled.value = enabled
+    if (equalizer.value) {
+      equalizer.value.setEnabled(enabled)
+    }
+    setupEffectChain()
+  }
+
+  function setEqualizerGain(bandIndex: number, gain: number): void {
+    if (equalizer.value) {
+      equalizer.value.setGain(bandIndex, gain)
+      equalizerGains.value = equalizer.value.gains
+      equalizerPreset.value = equalizer.value.preset
+    }
+  }
+
+  function setEqualizerPreset(preset: EqPreset): void {
+    if (equalizer.value) {
+      equalizer.value.applyPreset(preset)
+      equalizerGains.value = equalizer.value.gains
+      equalizerPreset.value = preset
+    }
+  }
+
+  function resetEqualizer(): void {
+    if (equalizer.value) {
+      equalizer.value.reset()
+      equalizerGains.value = equalizer.value.gains
+      equalizerPreset.value = equalizer.value.preset
+    }
+  }
+
+  function setAudioEffectsEnabled(enabled: boolean): void {
+    audioEffectsEnabled.value = enabled
+    setupEffectChain()
+  }
+
+  function updateAudioEffects(settings: Partial<AudioEffectsSettings>): void {
+    if (audioEffects.value) {
+      audioEffects.value.setSettings(settings)
+      audioEffectsSettings.value = audioEffects.value.getSettings()
+    }
+  }
+
+  function resetAudioEffects(): void {
+    if (audioEffects.value) {
+      audioEffects.value.reset()
+      audioEffectsSettings.value = audioEffects.value.getSettings()
+    }
+  }
+
 
   function startAnalysisLoop(): void {
     if (animationFrameId !== null || !audioAnalyzer.value) return
@@ -513,6 +644,13 @@ export const usePlayerStore = defineStore('player', () => {
     lastError,
     fadeEnabled,
     replayGainEnabled,
+    equalizer,
+    equalizerEnabled,
+    equalizerPreset,
+    equalizerGains,
+    audioEffects,
+    audioEffectsEnabled,
+    audioEffectsSettings,
     initAudio,
     play,
     togglePlay,
@@ -541,5 +679,12 @@ export const usePlayerStore = defineStore('player', () => {
     setReplayGainEnabled,
     getBufferProgress,
     retryPlay,
+    setEqualizerEnabled,
+    setEqualizerGain,
+    setEqualizerPreset,
+    resetEqualizer,
+    setAudioEffectsEnabled,
+    updateAudioEffects,
+    resetAudioEffects,
   }
 })

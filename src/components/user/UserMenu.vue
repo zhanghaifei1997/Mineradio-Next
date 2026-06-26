@@ -10,6 +10,7 @@ const menuRef = ref<HTMLElement | null>(null)
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'openLogin'): void
+  (e: 'openRecent'): void
 }>()
 
 function handleClickOutside(e: MouseEvent) {
@@ -20,6 +21,9 @@ function handleClickOutside(e: MouseEvent) {
 
 function handleMenuItem(action: string) {
   switch (action) {
+    case 'recent':
+      emit('openRecent')
+      break
     case 'playlists':
       user.fetchAllUserPlaylists()
       break
@@ -130,6 +134,11 @@ onUnmounted(() => {
     <div class="user-menu__divider"></div>
 
     <div class="user-menu__section">
+      <button class="user-menu__item" @click="handleMenuItem('recent')">
+        <span class="user-menu__item-icon">⏰</span>
+        <span class="user-menu__item-text">最近播放</span>
+      </button>
+
       <button
         class="user-menu__item user-menu__item--secondary"
         @click="handleMenuItem('addAccount')"

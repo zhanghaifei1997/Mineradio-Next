@@ -60,7 +60,7 @@ export interface UserProfile {
   isSvip?: boolean
 }
 
-export type MusicSource = 'netease' | 'qqmusic' | 'local'
+export type MusicSource = 'netease' | 'qqmusic' | 'kugou' | 'local'
 
 export interface LocalMusicConfig {
   directories: string[]

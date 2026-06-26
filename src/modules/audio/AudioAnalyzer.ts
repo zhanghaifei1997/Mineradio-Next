@@ -18,6 +18,7 @@ export class AudioAnalyzer {
   private _energyAnalyzer: EnergyAnalyzer
   private _options: Required<AudioAnalyzerOptions>
   private _initialized = false
+  private _preEffectNode: AudioNode | null = null
 
   private _beatState: RealtimeBeatState = {
     bass: 0,
@@ -88,6 +89,14 @@ export class AudioAnalyzer {
     return this._energyAnalyzer
   }
 
+  get source(): MediaElementAudioSourceNode | null {
+    return this._source
+  }
+
+  get destinationInput(): GainNode | null {
+    return this._gainNode
+  }
+
   init(audioElement: HTMLAudioElement): boolean {
     if (this._initialized) return true
 
@@ -125,6 +134,32 @@ export class AudioAnalyzer {
     }
   }
 
+  setPreEffectChain(inputNode: AudioNode | null, outputNode: AudioNode | null): void {
+    if (!this._initialized || !this._source || !this._analyser || !this._beatAnalyser) return
+
+    try {
+      this._source.disconnect()
+      this._analyser.disconnect()
+      this._beatAnalyser.disconnect()
+    } catch (e) {
+      // ignore
+    }
+
+    if (inputNode && outputNode) {
+      this._source.connect(inputNode)
+      outputNode.connect(this._analyser)
+      outputNode.connect(this._beatAnalyser)
+      this._preEffectNode = outputNode
+    } else {
+      this._source.connect(this._analyser)
+      this._source.connect(this._beatAnalyser)
+      this._preEffectNode = null
+    }
+
+    this._analyser.connect(this._gainNode)
+    this._beatAnalyser.connect(this._gainNode)
+  }
+
   async resume(): Promise<void> {
     if (this._audioContext && this._audioContext.state === 'suspended') {
       try {
@@ -137,25 +172,25 @@ export class AudioAnalyzer {
 
   getFrequencyData(): Uint8Array | null {
     if (!this._analyser || !this._frequencyData) return null
-    this._analyser.getByteFrequencyData(this._frequencyData as Uint8Array<ArrayBuffer>)
+    this._analyser.getByteFrequencyData(this._frequencyData)
     return this._frequencyData
   }
 
   getBeatFrequencyData(): Uint8Array | null {
     if (!this._beatAnalyser || !this._beatFrequencyData) return null
-    this._beatAnalyser.getByteFrequencyData(this._beatFrequencyData as Uint8Array<ArrayBuffer>)
+    this._beatAnalyser.getByteFrequencyData(this._beatFrequencyData)
     return this._beatFrequencyData
   }
 
   getTimeDomainData(): Uint8Array | null {
     if (!this._beatAnalyser || !this._beatTimeDomainData) return null
-    this._beatAnalyser.getByteTimeDomainData(this._beatTimeDomainData as Uint8Array<ArrayBuffer>)
+    this._beatAnalyser.getByteTimeDomainData(this._beatTimeDomainData)
     return this._beatTimeDomainData
   }
 
   analyzeEnergy(): EnergyBands | null {
     if (!this._analyser || !this._frequencyData || !this._audioContext) return null
-    this._analyser.getByteFrequencyData(this._frequencyData as Uint8Array<ArrayBuffer>)
+    this._analyser.getByteFrequencyData(this._frequencyData)
     return this._energyAnalyzer.analyze(
       this._frequencyData,
       this._audioContext.sampleRate,
@@ -173,7 +208,7 @@ export class AudioAnalyzer {
     const sr = this._audioContext.sampleRate || 44100
     const fftSize = this._options.beatFftSize
 
-    this._beatAnalyser.getByteFrequencyData(this._beatFrequencyData as Uint8Array<ArrayBuffer>)
+    this._beatAnalyser.getByteFrequencyData(this._beatFrequencyData)
 
     const bass = bandRms(this._beatFrequencyData, sr, fftSize, 52, 165) / 255
     const mid = bandRms(this._beatFrequencyData, sr, fftSize, 165, 420) / 255

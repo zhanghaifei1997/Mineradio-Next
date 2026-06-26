@@ -1,20 +1,23 @@
 <script setup lang="ts">
-import { onMounted, ref, watch, onUnmounted, computed } from 'vue'
+import { onMounted, ref, watch, onUnmounted, computed, defineAsyncComponent, Suspense } from 'vue'
 import VisualCanvas from '@/components/visual/VisualCanvas.vue'
 import PlayerBar from '@/components/player/PlayerBar.vue'
-import SearchPanel from '@/components/search/SearchPanel.vue'
-import PlaylistShelf from '@/components/playlist/PlaylistShelf.vue'
-import SettingsPanel from '@/components/settings/SettingsPanel.vue'
-import PlaylistQueue from '@/components/playlist/PlaylistQueue.vue'
-import LocalMusicPanel from '@/components/local/LocalMusicPanel.vue'
 import StageLyrics from '@/components/lyrics/StageLyrics.vue'
 import UserCapsule from '@/components/user/UserCapsule.vue'
 import DjModeIndicator from '@/components/dj/DjModeIndicator.vue'
 import MiniPlayer from '@/components/player/MiniPlayer.vue'
+
+const SearchPanel = defineAsyncComponent(() => import('@/components/search/SearchPanel.vue'))
+const PlaylistShelf = defineAsyncComponent(() => import('@/components/playlist/PlaylistShelf.vue'))
+const SettingsPanel = defineAsyncComponent(() => import('@/components/settings/SettingsPanel.vue'))
+const PlaylistQueue = defineAsyncComponent(() => import('@/components/playlist/PlaylistQueue.vue'))
+const LocalMusicPanel = defineAsyncComponent(() => import('@/components/local/LocalMusicPanel.vue'))
+const RecentPanel = defineAsyncComponent(() => import('@/components/history/RecentPanel.vue'))
 import { usePlayerStore } from '@/stores/player'
 import { useFxStore } from '@/stores/fx'
 import { useLyricsStore } from '@/stores/lyrics'
 import { useUserStore } from '@/stores/user'
+import { useHistoryStore } from '@/stores/history'
 import { providerManager } from '@/modules/providers'
 import type { LyricLine } from '@/modules/lyrics'
 
@@ -22,9 +25,11 @@ const player = usePlayerStore()
 const fx = useFxStore()
 const lyrics = useLyricsStore()
 const user = useUserStore()
+const history = useHistoryStore()
 
 const showQueuePanel = ref(false)
 const showLocalPanel = ref(false)
+const showRecentPanel = ref(false)
 const showSettings = ref(false)
 const showLogin = ref(false)
 const isMiniMode = ref(false)
@@ -55,6 +60,7 @@ function toggleQueuePanel() {
   showQueuePanel.value = !showQueuePanel.value
   if (showQueuePanel.value) {
     showLocalPanel.value = false
+    showRecentPanel.value = false
   }
 }
 
@@ -62,6 +68,15 @@ function toggleLocalPanel() {
   showLocalPanel.value = !showLocalPanel.value
   if (showLocalPanel.value) {
     showQueuePanel.value = false
+    showRecentPanel.value = false
+  }
+}
+
+function toggleRecentPanel() {
+  showRecentPanel.value = !showRecentPanel.value
+  if (showRecentPanel.value) {
+    showQueuePanel.value = false
+    showLocalPanel.value = false
   }
 }
 
@@ -188,12 +203,13 @@ watch(
   (song) => {
     if (song) {
       loadLyricsForSong(song.id, song.source)
+      history.addToHistory(song)
+      user.addToRecentPlayed(song)
     } else {
       lyrics.clear()
     }
     updateMediaSession()
-  },
-  { immediate: true }
+  }
 )
 
 watch(
@@ -253,6 +269,9 @@ onUnmounted(() => {
             <DjModeIndicator />
           </div>
           <div class="top-toolbar__right">
+            <button class="icon-btn" @click="toggleRecentPanel" title="最近播放">
+              🕐
+            </button>
             <button class="icon-btn" @click="toggleLyrics" :title="lyrics.stageEnabled ? '隐藏歌词' : '显示歌词'">
               {{ lyrics.stageEnabled ? '🎵' : '🎤' }}
             </button>
@@ -262,7 +281,7 @@ onUnmounted(() => {
             <button class="icon-btn" @click="toggleSettings" title="设置">
               ⚙️
             </button>
-            <UserCapsule @open-login="openLogin" />
+            <UserCapsule @open-login="openLogin" @open-recent="toggleRecentPanel" />
           </div>
         </div>
 
@@ -283,6 +302,13 @@ onUnmounted(() => {
             <div v-if="showLocalPanel" class="side-panel local-panel">
               <div class="panel-close" @click="showLocalPanel = false">✕</div>
               <LocalMusicPanel />
+            </div>
+          </Transition>
+
+          <Transition name="slide-right">
+            <div v-if="showRecentPanel" class="side-panel recent-panel-container">
+              <div class="panel-close" @click="showRecentPanel = false">✕</div>
+              <RecentPanel @close="showRecentPanel = false" />
             </div>
           </Transition>
         </div>

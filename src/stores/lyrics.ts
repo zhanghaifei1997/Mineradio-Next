@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import {
   type LyricLine,
   type LyricData,
@@ -15,8 +15,36 @@ import {
   getLyricLineProgress,
   cloneLyricLines,
   effectiveLyricPalette,
+  lyricTranslator,
+  type TranslationSettings,
+  type TranslationDisplayMode,
 } from '@/modules/lyrics'
 import { usePlayerStore } from './player'
+
+const TRANSLATION_SETTINGS_KEY = 'mineradio-lyric-translation'
+
+function loadTranslationSettings(): TranslationSettings {
+  try {
+    const raw = localStorage.getItem(TRANSLATION_SETTINGS_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      lyricTranslator.updateSettings(parsed)
+      return parsed
+    }
+  } catch (_) {}
+  return {
+    enabled: false,
+    provider: 'youdao',
+    targetLanguage: 'zh-CN',
+    displayMode: 'both',
+  }
+}
+
+function saveTranslationSettings(settings: TranslationSettings): void {
+  try {
+    localStorage.setItem(TRANSLATION_SETTINGS_KEY, JSON.stringify(settings))
+  } catch (_) {}
+}
 
 export const useLyricsStore = defineStore('lyrics', () => {
   const lines = ref<LyricLine[]>([])
@@ -74,6 +102,25 @@ export const useLyricsStore = defineStore('lyrics', () => {
 
   const customLyricsMap = ref<Record<string, { text: string }>>({})
   const lyricSourceMode = ref<'original' | 'custom'>('original')
+
+  const translationSettings = ref<TranslationSettings>(loadTranslationSettings())
+  const translatedLines = ref<LyricLine[]>([])
+  const isTranslating = ref(false)
+
+  const displayLines = computed(() => {
+    if (translationSettings.value.displayMode === 'translation' && translatedLines.value.length > 0) {
+      return translatedLines.value.map(l => ({ ...l, text: l.translation || l.text }))
+    }
+    if (translationSettings.value.displayMode === 'both' && translatedLines.value.length > 0) {
+      return lines.value.map((line, idx) => ({
+        ...line,
+        text: translatedLines.value[idx]?.translation
+          ? `${line.text}\n${translatedLines.value[idx].translation}`
+          : line.text,
+      }))
+    }
+    return lines.value
+  })
 
   const currentLine = computed(() => {
     if (currentIndex.value >= 0 && currentIndex.value < lines.value.length) {
@@ -274,6 +321,53 @@ export const useLyricsStore = defineStore('lyrics', () => {
     }
   }
 
+  function updateTranslationSettings(settings: Partial<TranslationSettings>): void {
+    translationSettings.value = { ...translationSettings.value, ...settings }
+    lyricTranslator.updateSettings(translationSettings.value)
+    saveTranslationSettings(translationSettings.value)
+
+    if (translationSettings.value.enabled && lines.value.length > 0) {
+      translateCurrentLyrics()
+    } else {
+      translatedLines.value = []
+    }
+  }
+
+  function setTranslationDisplayMode(mode: TranslationDisplayMode): void {
+    updateTranslationSettings({ displayMode: mode })
+  }
+
+  async function translateCurrentLyrics(): Promise<void> {
+    if (!translationSettings.value.enabled || lines.value.length === 0) {
+      translatedLines.value = []
+      return
+    }
+
+    isTranslating.value = true
+    try {
+      const result = await lyricTranslator.translateLines(lines.value)
+      translatedLines.value = result
+    } catch (e) {
+      console.error('Translate lyrics failed:', e)
+      translatedLines.value = []
+    } finally {
+      isTranslating.value = false
+    }
+  }
+
+  function clearTranslation(): void {
+    translatedLines.value = []
+  }
+
+  watch(
+    () => lines.value,
+    () => {
+      if (translationSettings.value.enabled) {
+        translateCurrentLyrics()
+      }
+    }
+  )
+
   return {
     lines,
     hasNativeKaraoke,
@@ -293,6 +387,10 @@ export const useLyricsStore = defineStore('lyrics', () => {
     currentTranslation,
     desktopState,
     lyricSourceMode,
+    translationSettings,
+    translatedLines,
+    displayLines,
+    isTranslating,
     setLyrics,
     setOriginalLyrics,
     parseLrc,
@@ -311,5 +409,9 @@ export const useLyricsStore = defineStore('lyrics', () => {
     setCustomLyric,
     getCustomLyric,
     setLyricSourceMode,
+    updateTranslationSettings,
+    setTranslationDisplayMode,
+    translateCurrentLyrics,
+    clearTranslation,
   }
 })

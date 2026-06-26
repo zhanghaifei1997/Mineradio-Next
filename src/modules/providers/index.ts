@@ -1,6 +1,7 @@
 import { MusicProvider } from './MusicProvider'
 import { neteaseProvider } from './NeteaseProvider'
 import { qqMusicProvider } from './QQMusicProvider'
+import { kugouProvider } from './KugouProvider'
 
 class ProviderManager {
   private providers: Map<string, MusicProvider> = new Map()
@@ -9,6 +10,7 @@ class ProviderManager {
   constructor() {
     this.register(neteaseProvider)
     this.register(qqMusicProvider)
+    this.register(kugouProvider)
   }
 
   register(provider: MusicProvider): void {

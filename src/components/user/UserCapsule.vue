@@ -39,6 +39,7 @@ function closeMenu() {
 
 const emit = defineEmits<{
   (e: 'openLogin'): void
+  (e: 'openRecent'): void
 }>()
 </script>
 
@@ -94,7 +95,7 @@ const emit = defineEmits<{
       </template>
     </button>
 
-    <UserMenu v-if="showMenu && user.isLoggedIn" @close="closeMenu" @openLogin="emit('openLogin')" />
+    <UserMenu v-if="showMenu && user.isLoggedIn" @close="closeMenu" @openLogin="emit('openLogin')" @openRecent="emit('openRecent')" />
   </div>
 </template>
 
