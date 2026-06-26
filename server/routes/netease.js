@@ -412,8 +412,19 @@ export async function handleNeteaseRoute(req, res, url) {
     },
 
     '/recommend/resource': async () => {
-      const r = await api.recommend_resource({ cookie, timestamp: Date.now() })
-      return r.body
+      if (!cookie) {
+        return { recommend: [] }
+      }
+      try {
+        const r = await api.recommend_resource({ cookie, timestamp: Date.now() })
+        return r.body
+      } catch (err) {
+        const code = err.status || (err.body && err.body.code) || 0
+        if (code === 301 || code === 401) {
+          return { recommend: [] }
+        }
+        throw err
+      }
     },
 
     '/personal/fm': async () => {
@@ -705,8 +716,10 @@ export async function handleNeteaseRoute(req, res, url) {
         json(res, data)
       }
     } catch (err) {
-      logger.error('Netease API error:', err)
-      json(res, { error: err.message || 'API Error', code: 500 }, 500)
+      const apiCode = err.status || (err.body && err.body.code) || 500
+      const apiMsg = err.message || (err.body && err.body.msg) || 'API Error'
+      logger.error('Netease API error:', apiCode, apiMsg)
+      json(res, { error: apiMsg, code: apiCode }, apiCode >= 100 && apiCode < 600 ? apiCode : 500)
     }
     return true
   }
