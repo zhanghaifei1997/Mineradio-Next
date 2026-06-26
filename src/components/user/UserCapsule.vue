@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { useFxStore } from '@/stores/fx'
 import UserMenu from './UserMenu.vue'
 import { ref } from 'vue'
 
 const user = useUserStore()
+const fx = useFxStore()
 const showMenu = ref(false)
 
 const hasVip = computed(() => {
@@ -37,6 +39,11 @@ function closeMenu() {
   showMenu.value = false
 }
 
+function toggleAutoHide(e: MouseEvent) {
+  e.stopPropagation()
+  fx.userCapsuleAutoHide = !fx.userCapsuleAutoHide
+}
+
 const emit = defineEmits<{
   (e: 'openLogin'): void
   (e: 'openRecent'): void
@@ -45,6 +52,13 @@ const emit = defineEmits<{
 
 <template>
   <div class="user-capsule-wrapper">
+    <button
+      class="user-capsule__hide-btn"
+      @click="toggleAutoHide"
+      :title="fx.userCapsuleAutoHide ? '取消自动隐藏' : '自动隐藏'"
+    >
+      {{ fx.userCapsuleAutoHide ? '›' : '‹' }}
+    </button>
     <button
       class="user-capsule"
       :class="{
@@ -102,6 +116,44 @@ const emit = defineEmits<{
 <style scoped>
 .user-capsule-wrapper {
   position: relative;
+  display: flex;
+  align-items: center;
+  transition: transform 0.3s ease;
+}
+
+.user-capsule__hide-btn {
+  position: absolute;
+  left: -24px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0);
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  padding: 0;
+  z-index: 1;
+}
+
+.user-capsule-wrapper:hover .user-capsule__hide-btn {
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.user-capsule__hide-btn:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+
+:global(body.user-capsule-auto-hide:not(.user-capsule-peek)) .user-capsule-wrapper {
+  transform: translateX(calc(100% + 40px));
 }
 
 .user-capsule {

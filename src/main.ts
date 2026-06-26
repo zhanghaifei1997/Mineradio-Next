@@ -4,6 +4,9 @@ import App from './App.vue'
 import './styles/main.css'
 import { useThemeStore } from './stores/theme'
 import { useHotkeysStore } from './stores/hotkeys'
+import { initGlassFilter } from './utils'
+
+initGlassFilter()
 
 const app = createApp(App)
 const pinia = createPinia()

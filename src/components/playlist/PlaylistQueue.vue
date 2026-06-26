@@ -2,11 +2,13 @@
 import { ref, computed } from 'vue'
 import { playQueueStore } from '@/stores/playQueue'
 import { usePlayerStore } from '@/stores/player'
+import { useFxStore } from '@/stores/fx'
 import { formatTime } from '@/utils/time'
 import type { Song } from '@/types'
 
 const queue = playQueueStore()
 const player = usePlayerStore()
+const fx = useFxStore()
 
 const dragIndex = ref<number | null>(null)
 const dragOverIndex = ref<number | null>(null)
@@ -56,6 +58,10 @@ function cyclePlayMode() {
   }
 }
 
+function togglePin() {
+  fx.queuePinned = !fx.queuePinned
+}
+
 function getArtistNames(song: Song): string {
   return song.artists.map((a) => a.name).join(' / ')
 }
@@ -101,8 +107,20 @@ function onDragEnd() {
       <div class="queue-info">
         <h3 class="queue-title">播放队列</h3>
         <span class="queue-count">{{ queue.total }} 首</span>
+        <span class="play-mode-chip" @click="cyclePlayMode" :title="playModeLabel">
+          <span class="chip-icon">{{ playModeIcon }}</span>
+          <span class="chip-text">{{ playModeLabel }}</span>
+        </span>
       </div>
       <div class="queue-actions">
+        <button
+          class="pin-btn"
+          @click="togglePin"
+          :class="{ 'pin-btn--pinned': fx.queuePinned }"
+          :title="fx.queuePinned ? '取消固定' : '固定面板'"
+        >
+          {{ fx.queuePinned ? '📌' : '📍' }}
+        </button>
         <button
           class="mode-btn"
           @click="cyclePlayMode"
@@ -229,6 +247,61 @@ function onDragEnd() {
   background: rgba(255, 255, 255, 0.05);
   padding: 2px 8px;
   border-radius: 10px;
+}
+
+.play-mode-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background: rgba(217, 91, 103, 0.15);
+  border: 1px solid rgba(217, 91, 103, 0.3);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.play-mode-chip:hover {
+  background: rgba(217, 91, 103, 0.25);
+  border-color: rgba(217, 91, 103, 0.5);
+}
+
+.chip-icon {
+  font-size: 12px;
+}
+
+.pin-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pin-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.pin-btn--pinned {
+  color: #f4d28a;
+  border-color: rgba(244, 210, 138, 0.3);
+  background: rgba(244, 210, 138, 0.1);
+}
+
+.pin-btn--pinned:hover {
+  background: rgba(244, 210, 138, 0.2);
+  color: #f4d28a;
 }
 
 .queue-actions {

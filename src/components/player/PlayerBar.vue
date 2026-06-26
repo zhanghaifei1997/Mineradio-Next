@@ -6,15 +6,19 @@ import { useUserStore } from '@/stores/user'
 import { formatTime } from '@/utils/time'
 import QualitySelector from './QualitySelector.vue'
 import SleepTimer from './SleepTimer.vue'
+import CollectModal from '../playlist/CollectModal.vue'
 
 const emit = defineEmits<{
   showQueue: []
   showLocal: []
 }>()
 
+const showCollectModal = ref(false)
+
 const player = usePlayerStore()
 const queue = playQueueStore()
 const userStore = useUserStore()
+const fx = useFxStore()
 
 const isLiked = ref(false)
 const likeLoading = ref(false)
@@ -89,6 +93,12 @@ function handleQueueClick() {
 function handleLocalClick() {
   emit('showLocal')
 }
+
+function handleOpenCollect() {
+  if (player.currentSong) {
+    showCollectModal.value = true
+  }
+}
 </script>
 
 <template>
@@ -114,6 +124,13 @@ function handleLocalClick() {
           :title="isLiked ? '取消喜欢' : '喜欢'"
         >
           {{ isLiked ? '❤️' : '🤍' }}
+        </button>
+        <button
+          class="song-collect-btn"
+          @click="handleOpenCollect"
+          title="收藏到歌单"
+        >
+          📁
         </button>
       </div>
       <div class="song-info song-info--placeholder" v-else>
@@ -173,6 +190,12 @@ function handleLocalClick() {
       </div>
     </div>
   </div>
+
+  <CollectModal
+    :visible="showCollectModal"
+    :song="player.currentSong"
+    @close="showCollectModal = false"
+  />
 </template>
 
 <style scoped>
@@ -190,6 +213,19 @@ function handleLocalClick() {
   align-items: center;
   padding: 0 24px;
   z-index: 100;
+  transition: opacity 0.3s ease, transform 0.3s ease, background 0.3s ease,
+    backdrop-filter 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+:global(body.controls-auto-hide:not(.controls-visible)) .player-bar {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(36px);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-top-color: transparent;
+  box-shadow: none;
 }
 
 .player-bar__left {
@@ -280,6 +316,27 @@ function handleLocalClick() {
 @keyframes like-bounce {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.2); }
+}
+
+.song-collect-btn {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+}
+
+.song-collect-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.1);
+  opacity: 1;
 }
 
 .song-info__artist {

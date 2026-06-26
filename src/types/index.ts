@@ -270,6 +270,11 @@ export interface FxSettings {
   layoutMode: LayoutMode
   homeWallpaperEnabled?: boolean
   homeWallpaperPreset?: VisualPreset
+  controlsAutoHide: boolean
+  controlsHideDelay: number
+  userCapsuleAutoHide: boolean
+  fxFabAutoHide: boolean
+  queuePinned: boolean
 }
 
 export interface BeatAnalysisResult {

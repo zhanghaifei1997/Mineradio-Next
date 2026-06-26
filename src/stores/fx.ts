@@ -57,6 +57,11 @@ const defaultSettings: FxSettings = {
   homeWallpaperEnabled: true,
   homeWallpaperPreset: 'wallpaper' as VisualPreset,
   layoutMode: 'diy' as LayoutMode,
+  controlsAutoHide: true,
+  controlsHideDelay: 2000,
+  userCapsuleAutoHide: false,
+  fxFabAutoHide: false,
+  queuePinned: false,
 }
 
 export const useFxStore = defineStore('fx', () => {
@@ -199,6 +204,46 @@ export const useFxStore = defineStore('fx', () => {
     },
   })
 
+  const controlsAutoHide = computed({
+    get: () => settings.value.controlsAutoHide,
+    set: (v: boolean) => {
+      settings.value.controlsAutoHide = v
+      save()
+    },
+  })
+
+  const controlsHideDelay = computed({
+    get: () => settings.value.controlsHideDelay,
+    set: (v: number) => {
+      settings.value.controlsHideDelay = v
+      save()
+    },
+  })
+
+  const userCapsuleAutoHide = computed({
+    get: () => settings.value.userCapsuleAutoHide,
+    set: (v: boolean) => {
+      settings.value.userCapsuleAutoHide = v
+      save()
+    },
+  })
+
+  const fxFabAutoHide = computed({
+    get: () => settings.value.fxFabAutoHide,
+    set: (v: boolean) => {
+      settings.value.fxFabAutoHide = v
+      save()
+    },
+  })
+
+  const queuePinned = computed({
+    get: () => settings.value.queuePinned,
+    set: (v: boolean) => {
+      settings.value.queuePinned = v
+      save()
+    },
+  })
+
   const homeWallpaperEnabled = computed({
     get: () => settings.value.homeWallpaperEnabled ?? true,
     set: (v: boolean) => {
@@ -319,6 +364,11 @@ export const useFxStore = defineStore('fx', () => {
     performanceBackground,
     liveBackgroundKeep,
     layoutMode,
+    controlsAutoHide,
+    controlsHideDelay,
+    userCapsuleAutoHide,
+    fxFabAutoHide,
+    queuePinned,
     homeWallpaperEnabled,
     homeWallpaperPreset,
     particleGridSize,

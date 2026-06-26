@@ -421,6 +421,47 @@ onMounted(() => {
                 @input="fx.update('accentColor', ($event.target as HTMLInputElement).value)"
               />
             </div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="fx.controlsAutoHide"
+                  @change="fx.controlsAutoHide = ($event.target as HTMLInputElement).checked"
+                />
+                <span>控制栏自动隐藏</span>
+              </label>
+            </div>
+            <div class="setting-row" v-if="fx.controlsAutoHide">
+              <label>隐藏延迟: {{ fx.controlsHideDelay }}ms</label>
+              <input
+                type="range"
+                min="500"
+                max="5000"
+                step="100"
+                :value="fx.controlsHideDelay"
+                @input="fx.controlsHideDelay = parseInt(($event.target as HTMLInputElement).value)"
+              />
+            </div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="fx.userCapsuleAutoHide"
+                  @change="fx.userCapsuleAutoHide = ($event.target as HTMLInputElement).checked"
+                />
+                <span>用户胶囊自动隐藏</span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="fx.fxFabAutoHide"
+                  @change="fx.fxFabAutoHide = ($event.target as HTMLInputElement).checked"
+                />
+                <span>视觉控制台自动隐藏</span>
+              </label>
+            </div>
           </div>
 
           <div class="settings-section">

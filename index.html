@@ -6,6 +6,19 @@
   <title>Mineradio</title>
 </head>
 <body>
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+    <defs>
+      <filter id="mineradio-control-glass-filter" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="12" edgeMode="duplicate" />
+        <feColorMatrix type="saturate" values="1.8" />
+        <feComponentTransfer>
+          <feFuncR type="linear" slope="1.16" />
+          <feFuncG type="linear" slope="1.16" />
+          <feFuncB type="linear" slope="1.16" />
+        </feComponentTransfer>
+      </filter>
+    </defs>
+  </svg>
   <div id="app"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>

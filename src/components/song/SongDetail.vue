@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { SongDetail, Artist, Album } from '@/types'
+import type { SongDetail, Artist, Album, Song } from '@/types'
 import { usePlayerStore } from '@/stores/player'
 import { useUserStore } from '@/stores/user'
 import { formatTime } from '@/utils/time'
 import { providerManager } from '@/modules/providers'
+import CollectModal from '../playlist/CollectModal.vue'
 
 const props = defineProps<{
   songId: string | null
@@ -26,6 +27,7 @@ const loading = ref(false)
 const songDetail = ref<SongDetail | null>(null)
 const isLiked = ref(false)
 const likeLoading = ref(false)
+const showCollectModal = ref(false)
 
 function getProvider() {
   return providerManager.get(props.source) || providerManager.default
@@ -88,6 +90,12 @@ function handleOpenAlbum() {
 
 function handleOpenComments() {
   emit('open-comments')
+}
+
+function handleOpenCollect() {
+  if (songDetail.value) {
+    showCollectModal.value = true
+  }
 }
 
 function getArtistsText(): string {
@@ -200,6 +208,9 @@ watch(
                 <button class="action-btn action-btn--icon" @click="handleOpenComments" title="评论">
                   💬 评论
                 </button>
+                <button class="action-btn action-btn--icon" @click="handleOpenCollect" title="收藏到歌单">
+                  📁 收藏
+                </button>
                 <button class="action-btn action-btn--icon" title="分享">
                   ↗ 分享
                 </button>
@@ -258,6 +269,12 @@ watch(
       </div>
     </div>
   </Transition>
+
+  <CollectModal
+    :visible="showCollectModal"
+    :song="songDetail"
+    @close="showCollectModal = false"
+  />
 </template>
 
 <style scoped>

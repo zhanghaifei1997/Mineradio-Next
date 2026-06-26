@@ -12,6 +12,7 @@ import StatusChips from '@/components/status/StatusChips.vue'
 import IdleGuide from '@/components/guide/IdleGuide.vue'
 import SourceFallbackNotice from '@/components/player/SourceFallbackNotice.vue'
 import BannerNotice from '@/components/common/BannerNotice.vue'
+import SplashScreen from '@/components/common/SplashScreen.vue'
 
 const SearchPanel = defineAsyncComponent(() => import('@/components/search/SearchPanel.vue'))
 const PlaylistShelf = defineAsyncComponent(() => import('@/components/playlist/PlaylistShelf.vue'))
@@ -54,6 +55,7 @@ const immersive = useImmersiveStore()
 const { isDragging } = useDragDrop()
 useTaskbar()
 
+const showSplash = ref(true)
 const showQueuePanel = ref(false)
 const showLocalPanel = ref(false)
 const showRecentPanel = ref(false)
@@ -83,6 +85,125 @@ const currentSongDetailSource = ref('netease')
 let rafId: number | null = null
 
 const electronAPI = (window as any).electronAPI
+
+let hideControlsTimer: ReturnType<typeof setTimeout> | null = null
+const BOTTOM_HOTZONE_HEIGHT = 28
+
+function showControls() {
+  if (hideControlsTimer) {
+    clearTimeout(hideControlsTimer)
+    hideControlsTimer = null
+  }
+  document.body.classList.add('controls-visible')
+}
+
+function hideControlsDelayed() {
+  if (hideControlsTimer) {
+    clearTimeout(hideControlsTimer)
+  }
+  hideControlsTimer = setTimeout(() => {
+    document.body.classList.remove('controls-visible')
+    hideControlsTimer = null
+  }, fx.controlsHideDelay)
+}
+
+function handleMouseMoveForControls(e: MouseEvent) {
+  if (!fx.controlsAutoHide) return
+
+  const windowHeight = window.innerHeight
+  const mouseY = e.clientY
+
+  const playerBar = document.querySelector('.player-bar')
+  if (playerBar) {
+    const rect = playerBar.getBoundingClientRect()
+    if (
+      mouseY >= rect.top - 10 &&
+      mouseY <= rect.bottom + 10 &&
+      e.clientX >= rect.left &&
+      e.clientX <= rect.right
+    ) {
+      showControls()
+      return
+    }
+  }
+
+  if (mouseY >= windowHeight - BOTTOM_HOTZONE_HEIGHT) {
+    showControls()
+  } else {
+    hideControlsDelayed()
+  }
+}
+
+function handleBottomHandleClick() {
+  showControls()
+}
+
+function updateControlsAutoHideClass() {
+  if (fx.controlsAutoHide) {
+    document.body.classList.add('controls-auto-hide')
+    document.body.classList.remove('controls-visible')
+  } else {
+    document.body.classList.remove('controls-auto-hide')
+    document.body.classList.add('controls-visible')
+  }
+}
+
+let userCapsulePeekTimer: ReturnType<typeof setTimeout> | null = null
+const TOP_RIGHT_HOTZONE_SIZE = 80
+
+function handleMouseMoveForUserCapsule(e: MouseEvent) {
+  if (!fx.userCapsuleAutoHide) return
+
+  const mouseX = e.clientX
+  const mouseY = e.clientY
+  const windowWidth = window.innerWidth
+
+  if (
+    mouseX >= windowWidth - TOP_RIGHT_HOTZONE_SIZE &&
+    mouseY <= TOP_RIGHT_HOTZONE_SIZE
+  ) {
+    document.body.classList.add('user-capsule-peek')
+  } else {
+    const userCapsule = document.querySelector('.user-capsule-wrapper')
+    if (userCapsule) {
+      const rect = userCapsule.getBoundingClientRect()
+      const extendedLeft = rect.left - 80
+      if (
+        mouseX >= extendedLeft &&
+        mouseX <= rect.right + 10 &&
+        mouseY >= rect.top - 10 &&
+        mouseY <= rect.bottom + 10
+      ) {
+        document.body.classList.add('user-capsule-peek')
+        return
+      }
+    }
+    document.body.classList.remove('user-capsule-peek')
+  }
+}
+
+function updateUserCapsuleAutoHideClass() {
+  if (fx.userCapsuleAutoHide) {
+    document.body.classList.add('user-capsule-auto-hide')
+    document.body.classList.remove('user-capsule-peek')
+  } else {
+    document.body.classList.remove('user-capsule-auto-hide')
+    document.body.classList.remove('user-capsule-peek')
+  }
+}
+
+function updateFxFabAutoHideClass() {
+  if (fx.fxFabAutoHide) {
+    document.body.classList.add('fx-fab-auto-hide')
+  } else {
+    document.body.classList.remove('fx-fab-auto-hide')
+  }
+}
+
+function handleGlobalMouseMove(e: MouseEvent) {
+  handleMouseMoveForControls(e)
+  handleMouseMoveForUserCapsule(e)
+}
 
 const currentLyricText = computed(() => {
   if (lyrics.lines.length === 0) return 'Mineradio'
@@ -235,6 +356,10 @@ function toggleMiniMode() {
   }
 }
 
+function handleSplashEnter() {
+  showSplash.value = false
+}
+
 function syncDesktopLyrics() {
   if (!electronAPI?.desktopLyrics) return
   
@@ -368,6 +493,30 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => fx.controlsAutoHide,
+  () => {
+    updateControlsAutoHideClass()
+  },
+  { immediate: true }
+)
+
+watch(
+  () => fx.userCapsuleAutoHide,
+  () => {
+    updateUserCapsuleAutoHideClass()
+  },
+  { immediate: true }
+)
+
+watch(
+  () => fx.fxFabAutoHide,
+  () => {
+    updateFxFabAutoHideClass()
+  },
+  { immediate: true }
+)
+
 function updateLayoutModeClass(mode: string) {
   if (typeof document === 'undefined' || !document.body) return
   document.body.classList.toggle('simple-mode', mode === 'simple')
@@ -379,6 +528,7 @@ onMounted(() => {
   updateLyricsProgress()
   setupMediaSession()
   immersive.setupListeners()
+  document.addEventListener('mousemove', handleGlobalMouseMove)
 })
 
 onUnmounted(() => {
@@ -386,11 +536,23 @@ onUnmounted(() => {
     cancelAnimationFrame(rafId)
   }
   immersive.cleanupListeners()
+  document.removeEventListener('mousemove', handleGlobalMouseMove)
+  if (hideControlsTimer) {
+    clearTimeout(hideControlsTimer)
+  }
 })
 </script>
 
 <template>
   <div class="app-container" :class="{ 'fx-eco': fx.settings.performanceQuality === 'eco', 'mini-mode': isMiniMode, 'drag-over': isDragging }">
+    <Transition name="splash-fade">
+      <SplashScreen 
+        v-if="showSplash" 
+        :show-dont-show-again="true"
+        @enter="handleSplashEnter"
+      />
+    </Transition>
+
     <BannerNotice
       id="welcome-trial"
       type="trial"
@@ -530,8 +692,8 @@ onUnmounted(() => {
 
         <div class="side-panels">
           <Transition name="slide-right">
-            <div v-if="showQueuePanel" class="side-panel queue-panel">
-              <div class="panel-close" @click="showQueuePanel = false">✕</div>
+            <div v-if="showQueuePanel || fx.queuePinned" class="side-panel queue-panel" :class="{ 'queue-panel--pinned': fx.queuePinned }">
+              <div class="panel-close" @click="showQueuePanel = false" v-if="!fx.queuePinned">✕</div>
               <PlaylistQueue />
             </div>
           </Transition>
@@ -599,6 +761,7 @@ onUnmounted(() => {
       </div>
 
       <PlayerBar @show-queue="toggleQueuePanel" @show-local="toggleLocalPanel" />
+      <BottomHandle v-if="fx.controlsAutoHide" @click="handleBottomHandleClick" />
       <ImmersivePlayer />
       <ContextMenu @open-settings="toggleSettings" @open-about="toggleSettings" />
       <IdleGuide />
@@ -826,5 +989,15 @@ onUnmounted(() => {
   50% {
     transform: translateY(-10px);
   }
+}
+
+.splash-fade-enter-active,
+.splash-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.splash-fade-enter-from,
+.splash-fade-leave-to {
+  opacity: 0;
 }
 </style>

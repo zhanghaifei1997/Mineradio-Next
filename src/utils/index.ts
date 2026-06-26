@@ -62,3 +62,37 @@ export function easeInOutCubic(t: number): number {
 export function randomBetween(min: number, max: number): number {
   return Math.random() * (max - min) + min
 }
+
+export function checkSvgBackdropFilter(): boolean {
+  if (typeof document === 'undefined' || typeof CSS === 'undefined') return false
+  
+  try {
+    const testEl = document.createElement('div')
+    testEl.style.position = 'fixed'
+    testEl.style.top = '-9999px'
+    testEl.style.left = '-9999px'
+    testEl.style.width = '1px'
+    testEl.style.height = '1px'
+    testEl.style.backdropFilter = 'url(#mineradio-control-glass-filter)'
+    testEl.style.webkitBackdropFilter = 'url(#mineradio-control-glass-filter)'
+    document.body.appendChild(testEl)
+    
+    const computedStyle = window.getComputedStyle(testEl)
+    const backdropFilter = computedStyle.backdropFilter || computedStyle.webkitBackdropFilter
+    
+    document.body.removeChild(testEl)
+    
+    return !!backdropFilter && backdropFilter !== 'none' && backdropFilter.includes('url')
+  } catch {
+    return false
+  }
+}
+
+export function initGlassFilter(): void {
+  if (typeof document === 'undefined') return
+  
+  const supported = checkSvgBackdropFilter()
+  if (supported) {
+    document.documentElement.classList.add('control-glass-svg-ok')
+  }
+}

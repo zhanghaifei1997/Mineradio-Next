@@ -2,6 +2,13 @@
   <Transition name="console-fade">
     <div v-if="visible" class="visual-console" :style="consoleStyle" @mousedown.stop="startDrag">
       <div class="console-header">
+        <button
+          class="auto-hide-btn"
+          @click.stop="toggleAutoHide"
+          :title="fx.fxFabAutoHide ? '取消自动隐藏' : '自动隐藏'"
+        >
+          {{ fx.fxFabAutoHide ? '›' : '‹' }}
+        </button>
         <div class="console-title">
           <span class="title-icon">🎨</span>
           <span class="title-text">视觉控制台</span>
@@ -388,6 +395,10 @@ const position = ref({ x: 20, y: 80 })
 const isDragging = ref(false)
 const dragOffset = ref({ x: 0, y: 0 })
 
+function toggleAutoHide() {
+  fx.fxFabAutoHide = !fx.fxFabAutoHide
+}
+
 const tabs = [
   { id: 'preset' as const, name: '预设', icon: '✨' },
   { id: 'appearance' as const, name: '外观', icon: '🎨' },
@@ -575,6 +586,38 @@ onUnmounted(() => {
   overflow: hidden;
   user-select: none;
   color: var(--color-text);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.auto-hide-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+  margin-right: 8px;
+}
+
+.auto-hide-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text);
+}
+
+:global(body.fx-fab-auto-hide) .visual-console {
+  transform: translateX(-20px);
+  opacity: 0.7;
+}
+
+:global(body.fx-fab-auto-hide) .visual-console:hover {
+  transform: translateX(0);
+  opacity: 1;
 }
 
 .console-fade-enter-active,

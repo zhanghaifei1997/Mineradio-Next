@@ -22,8 +22,13 @@
   --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
 
   --blur-surface: blur(20px);
+  --glass-filter: blur(12px) saturate(1.8) brightness(1.16);
 
   --transition-theme: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.control-glass-svg-ok {
+  --glass-filter: url(#mineradio-control-glass-filter) saturate(1);
 }
 
 [data-theme='light'] {
@@ -108,8 +113,8 @@ img {
 
 .glass-panel {
   background: var(--color-surface);
-  backdrop-filter: var(--blur-surface);
-  -webkit-backdrop-filter: var(--blur-surface);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
 }
