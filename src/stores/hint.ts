@@ -12,12 +12,25 @@ export interface HintItem {
   glass?: boolean
 }
 
+export interface ToastState {
+  show: boolean
+  message: string
+  duration: number
+}
+
 export const useHintStore = defineStore('hint', () => {
   const queue = ref<HintItem[]>([])
   const current = ref<HintItem | null>(null)
   const isVisible = ref(false)
 
+  const toast = ref<ToastState>({
+    show: false,
+    message: '',
+    duration: 2000,
+  })
+
   let hideTimer: ReturnType<typeof setTimeout> | null = null
+  let toastTimer: ReturnType<typeof setTimeout> | null = null
 
   const isActive = computed(() => isVisible.value || queue.value.length > 0)
 
@@ -123,17 +136,45 @@ export const useHintStore = defineStore('hint', () => {
     hideCurrent()
   }
 
+  function showToast(message: string, duration: number = 2000): void {
+    if (toastTimer) {
+      clearTimeout(toastTimer)
+      toastTimer = null
+    }
+
+    toast.value = {
+      show: true,
+      message,
+      duration,
+    }
+
+    toastTimer = setTimeout(() => {
+      hideToast()
+    }, duration)
+  }
+
+  function hideToast(): void {
+    if (toastTimer) {
+      clearTimeout(toastTimer)
+      toastTimer = null
+    }
+    toast.value.show = false
+  }
+
   return {
     queue,
     current,
     isVisible,
     isActive,
+    toast,
     showHint,
     showSongHint,
     showPresetHint,
     showVolumeHint,
     showModeHint,
     showGeneralHint,
+    showToast,
+    hideToast,
     clearQueue,
     dismiss,
   }

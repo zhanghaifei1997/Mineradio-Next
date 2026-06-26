@@ -22,6 +22,8 @@ import VisualGuide from '@/components/guide/VisualGuide.vue'
 import BottomHandle from '@/components/player/BottomHandle.vue'
 import ImmersivePlayer from '@/components/player/ImmersivePlayer.vue'
 import ContextMenu from '@/components/common/ContextMenu.vue'
+import Toast from '@/components/common/Toast.vue'
+import DropOverlay from '@/components/common/DropOverlay.vue'
 
 const SearchPanel = defineAsyncComponent(() => import('@/components/search/SearchPanel.vue'))
 const PlaylistShelf = defineAsyncComponent(() => import('@/components/playlist/PlaylistShelf.vue'))
@@ -50,6 +52,7 @@ import { useHintStore } from '@/stores/hint'
 import { useCustomBgStore } from '@/stores/customBg'
 import { useDragDrop } from '@/composables/useDragDrop'
 import { useTaskbar } from '@/composables/useTaskbar'
+import { useAppStartup } from '@/composables/useAppStartup'
 import { providerManager } from '@/modules/providers'
 import type { LyricLine } from '@/modules/lyrics'
 import type { Artist, Album } from '@/types'
@@ -67,6 +70,7 @@ const hint = useHintStore()
 const customBg = useCustomBgStore()
 const { isDragging } = useDragDrop()
 useTaskbar()
+const appStartup = useAppStartup()
 
 const showSplash = ref(true)
 const showQueuePanel = ref(false)
@@ -374,6 +378,7 @@ function toggleMiniMode() {
 
 function handleSplashEnter() {
   showSplash.value = false
+  appStartup.handleSplashEnter()
 }
 
 function syncDesktopLyrics() {
@@ -563,6 +568,10 @@ onMounted(() => {
   setupMediaSession()
   immersive.setupListeners()
   document.addEventListener('mousemove', handleGlobalMouseMove)
+
+  setTimeout(() => {
+    appStartup.startInitialization()
+  }, 100)
 })
 
 onUnmounted(() => {
@@ -581,6 +590,13 @@ onUnmounted(() => {
   <div class="app-container" :class="{ 'fx-eco': fx.settings.performanceQuality === 'eco', 'mini-mode': isMiniMode, 'drag-over': isDragging }">
     <CustomBgVideo v-if="!isMiniMode" />
     <CentralHint v-if="!isMiniMode" />
+    <Toast
+      v-if="!isMiniMode"
+      :visible="hint.toast.show"
+      :message="hint.toast.message"
+      :duration="hint.toast.duration"
+      @close="hint.hideToast"
+    />
 
     <DesktopTitlebar 
       @open-settings="showSettings = true" 
@@ -605,13 +621,7 @@ onUnmounted(() => {
       link-url="https://github.com/XxHuberrr/Mineradio"
     />
 
-    <div v-if="isDragging" class="drag-drop-overlay">
-      <div class="drag-drop-content">
-        <div class="drag-drop-icon">🎵</div>
-        <div class="drag-drop-text">释放以播放</div>
-        <div class="drag-drop-hint">支持 MP3, FLAC, WAV, M4A, OGG, AAC, Opus</div>
-      </div>
-    </div>
+    <DropOverlay :visible="isDragging" />
     <template v-if="!isMiniMode">
       <VisualCanvas />
 
@@ -981,84 +991,8 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-.drag-drop-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  animation: dragFadeIn 0.2s ease;
-}
-
-[data-theme='light'] .drag-drop-overlay {
-  background: rgba(255, 255, 255, 0.7);
-}
-
-.drag-drop-content {
-  text-align: center;
-  padding: 48px 64px;
-  border: 3px dashed var(--color-primary);
-  border-radius: var(--radius-xl);
-  background: var(--color-surface);
-  backdrop-filter: var(--blur-surface);
-  -webkit-backdrop-filter: var(--blur-surface);
-  animation: dragPulse 1.5s ease-in-out infinite;
-}
-
-.drag-drop-icon {
-  font-size: 64px;
-  margin-bottom: 16px;
-  animation: dragBounce 1s ease-in-out infinite;
-}
-
-.drag-drop-text {
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--color-text);
-  margin-bottom: 8px;
-}
-
-.drag-drop-hint {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-}
-
 .drag-over .app-content {
   opacity: 0.3;
-}
-
-@keyframes dragFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes dragPulse {
-  0%, 100% {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 0 rgba(var(--color-primary-rgb), 0.4);
-  }
-  50% {
-    border-color: var(--color-accent);
-    box-shadow: 0 0 30px 10px rgba(var(--color-primary-rgb), 0.2);
-  }
-}
-
-@keyframes dragBounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
 }
 
 .splash-fade-enter-active,

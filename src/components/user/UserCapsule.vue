@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useFxStore } from '@/stores/fx'
 import UserMenu from './UserMenu.vue'
-import { ref } from 'vue'
+import LoginParticles from './LoginParticles.vue'
 
 const user = useUserStore()
 const fx = useFxStore()
 const showMenu = ref(false)
+const showParticles = ref(false)
+const particlesRef = ref<InstanceType<typeof LoginParticles> | null>(null)
 
 const hasVip = computed(() => {
   const profile = user.primaryProfile
@@ -31,7 +33,7 @@ function handleClick() {
   if (user.isLoggedIn) {
     showMenu.value = !showMenu.value
   } else {
-    emit('openLogin')
+    runLoginGuideParticles()
   }
 }
 
@@ -44,10 +46,26 @@ function toggleAutoHide(e: MouseEvent) {
   fx.userCapsuleAutoHide = !fx.userCapsuleAutoHide
 }
 
+function runLoginGuideParticles() {
+  showParticles.value = true
+  if (particlesRef.value) {
+    particlesRef.value.startAnimation()
+  }
+}
+
+function handleParticlesComplete() {
+  showParticles.value = false
+  emit('openLogin')
+}
+
 const emit = defineEmits<{
   (e: 'openLogin'): void
   (e: 'openRecent'): void
 }>()
+
+defineExpose({
+  runLoginGuideParticles,
+})
 </script>
 
 <template>
@@ -68,6 +86,11 @@ const emit = defineEmits<{
       }"
       @click="handleClick"
     >
+      <LoginParticles
+        ref="particlesRef"
+        :active="showParticles"
+        @complete="handleParticlesComplete"
+      />
       <template v-if="!user.isLoggedIn">
         <span class="user-capsule__login-text">登录</span>
       </template>
@@ -157,6 +180,7 @@ const emit = defineEmits<{
 }
 
 .user-capsule {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -172,6 +196,7 @@ const emit = defineEmits<{
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: inherit;
+  overflow: visible;
 }
 
 .user-capsule:hover {

@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { providerManager } from '@/modules/providers'
 import type { Playlist } from '@/types'
 import { playQueueStore } from '@/stores/playQueue'
 import { usePlayerStore } from '@/stores/player'
+import { useUserStore } from '@/stores/user'
 import PlaylistShelf3D from './PlaylistShelf3D.vue'
 import PlaylistDetail from './PlaylistDetail.vue'
 import { formatPlayCount } from '@/utils'
 
 const player = usePlayerStore()
 const queue = playQueueStore()
+const user = useUserStore()
 
 const playlists = ref<Playlist[]>([])
 const loading = ref(false)
@@ -17,8 +19,18 @@ const viewMode = ref<'2d' | '3d'>('3d')
 const selectedPlaylist = ref<Playlist | null>(null)
 const showDetail = ref(false)
 const detailLoading = ref(false)
+const shelfMode = ref<'recommend' | 'user'>('recommend')
 
-async function loadPlaylists() {
+const headerTitle = computed(() => {
+  if (shelfMode.value === 'user') {
+    return '我的歌单'
+  }
+  return '推荐歌单'
+})
+
+const canShowUserPlaylists = computed(() => user.isLoggedIn && user.userPlaylists.length > 0)
+
+async function loadRecommendPlaylists() {
   loading.value = true
   try {
     const provider = providerManager.default
@@ -28,6 +40,63 @@ async function loadPlaylists() {
     console.error('Load playlists error:', e)
   } finally {
     loading.value = false
+  }
+}
+
+async function loadUserPlaylists() {
+  if (!user.isLoggedIn) {
+    shelfMode.value = 'recommend'
+    await loadRecommendPlaylists()
+    return
+  }
+
+  loading.value = true
+  try {
+    if (user.userPlaylists.length === 0) {
+      await user.fetchAllUserPlaylists()
+    }
+
+    if (user.userPlaylists.length > 0) {
+      const userPls: Playlist[] = user.userPlaylists.map(up => ({
+        id: up.id,
+        name: up.name,
+        coverUrl: up.coverUrl,
+        description: '',
+        tracks: [],
+        trackCount: up.trackCount,
+        playCount: up.playCount,
+        creator: undefined,
+        source: up.source,
+      }))
+      playlists.value = userPls
+    } else {
+      shelfMode.value = 'recommend'
+      await loadRecommendPlaylists()
+    }
+  } catch (e) {
+    console.error('Load user playlists error:', e)
+    shelfMode.value = 'recommend'
+    await loadRecommendPlaylists()
+  } finally {
+    loading.value = false
+  }
+}
+
+async function loadPlaylists() {
+  if (shelfMode.value === 'user' && user.isLoggedIn) {
+    await loadUserPlaylists()
+  } else {
+    await loadRecommendPlaylists()
+  }
+}
+
+function toggleShelfMode() {
+  if (shelfMode.value === 'recommend' && canShowUserPlaylists.value) {
+    shelfMode.value = 'user'
+    loadUserPlaylists()
+  } else {
+    shelfMode.value = 'recommend'
+    loadRecommendPlaylists()
   }
 }
 
@@ -60,16 +129,43 @@ function toggleViewMode() {
   viewMode.value = viewMode.value === '2d' ? '3d' : '2d'
 }
 
+watch(
+  () => user.isLoggedIn,
+  (loggedIn) => {
+    if (loggedIn && user.userPlaylists.length > 0) {
+      shelfMode.value = 'user'
+      loadUserPlaylists()
+    } else if (!loggedIn && shelfMode.value === 'user') {
+      shelfMode.value = 'recommend'
+      loadRecommendPlaylists()
+    }
+  }
+)
+
 onMounted(() => {
-  loadPlaylists()
+  if (user.isLoggedIn && user.userPlaylists.length > 0) {
+    shelfMode.value = 'user'
+    loadUserPlaylists()
+  } else {
+    loadRecommendPlaylists()
+  }
 })
 </script>
 
 <template>
   <div class="playlist-shelf" :class="{ 'mode-3d': viewMode === '3d' }">
     <div class="shelf-header">
-      <h3>推荐歌单</h3>
+      <h3>{{ headerTitle }}</h3>
       <div class="header-actions">
+        <button
+          v-if="canShowUserPlaylists"
+          class="mode-toggle"
+          @click="toggleShelfMode"
+          :title="shelfMode === 'user' ? '切换到推荐歌单' : '切换到我的歌单'"
+        >
+          <span v-if="shelfMode === 'user'">👤 我的</span>
+          <span v-else>✨ 推荐</span>
+        </button>
         <button class="view-toggle" @click="toggleViewMode" :title="viewMode === '3d' ? '切换到 2D 视图' : '切换到 3D 视图'">
           <svg v-if="viewMode === '3d'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -171,6 +267,27 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-color: rgba(244, 210, 138, 0.3);
 }
 
 .view-toggle {

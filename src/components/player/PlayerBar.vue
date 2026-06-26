@@ -5,6 +5,7 @@ import { playQueueStore } from '@/stores/playQueue'
 import { useUserStore } from '@/stores/user'
 import { formatTime } from '@/utils/time'
 import QualitySelector from './QualitySelector.vue'
+import VolumePopover from './VolumePopover.vue'
 import SleepTimer from './SleepTimer.vue'
 import CollectModal from '../playlist/CollectModal.vue'
 
@@ -14,6 +15,7 @@ const emit = defineEmits<{
 }>()
 
 const showCollectModal = ref(false)
+const isDragging = ref(false)
 
 const player = usePlayerStore()
 const queue = playQueueStore()
@@ -66,6 +68,29 @@ function onProgressClick(e: MouseEvent) {
   const rect = target.getBoundingClientRect()
   const percent = (e.clientX - rect.left) / rect.width
   player.seek(percent * player.duration)
+}
+
+function onProgressMouseDown(e: MouseEvent) {
+  isDragging.value = true
+  const target = e.currentTarget as HTMLElement
+  const rect = target.getBoundingClientRect()
+  const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+  player.seek(percent * player.duration)
+
+  function onMouseMove(e: MouseEvent) {
+    const rect = target.getBoundingClientRect()
+    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    player.seek(percent * player.duration)
+  }
+
+  function onMouseUp() {
+    isDragging.value = false
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+  }
+
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
 }
 
 function onVolumeClick(e: MouseEvent) {
@@ -162,12 +187,12 @@ function handleOpenCollect() {
         </button>
       </div>
 
-      <div class="progress-wrap" @click="onProgressClick">
+      <div class="progress-wrap" :class="{ 'is-dragging': isDragging }" @mousedown="onProgressMouseDown">
         <span class="progress-time">{{ currentTimeStr }}</span>
         <div class="progress-bar">
           <div class="progress-bar__buffer" :style="{ width: bufferPercent + '%' }"></div>
           <div class="progress-bar__fill" :style="{ width: progressPercent + '%' }"></div>
-          <div class="progress-bar__thumb" :style="{ left: progressPercent + '%' }"></div>
+          <div id="progress-thumb" class="progress-bar__thumb" :style="{ left: progressPercent + '%' }"></div>
         </div>
         <span class="progress-time">{{ durationStr }}</span>
       </div>
@@ -179,14 +204,7 @@ function handleOpenCollect() {
       <button class="ctrl-btn ctrl-btn--local" @click="handleLocalClick" title="本地音乐">
         💾
       </button>
-      <div class="volume-wrap" @click="onVolumeClick">
-        <span class="volume-icon" @click.stop="player.toggleMute()">
-          {{ player.muted ? '🔇' : '🔊' }}
-        </span>
-        <div class="volume-bar">
-          <div class="volume-bar__fill" :style="{ width: (player.muted ? 0 : player.volume * 100) + '%' }"></div>
-        </div>
-      </div>
+      <VolumePopover />
     </div>
   </div>
 
@@ -510,5 +528,72 @@ function handleOpenCollect() {
   height: 100%;
   background: rgba(255, 255, 255, 0.6);
   border-radius: 2px;
+}
+
+.progress-wrap.is-dragging {
+  cursor: grabbing;
+}
+
+.progress-wrap.is-dragging .progress-bar__thumb {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.3);
+}
+
+.progress-wrap.is-dragging #progress-thumb::before,
+.progress-wrap.is-dragging #progress-thumb::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.progress-wrap.is-dragging #progress-thumb::before {
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(217, 91, 103, 0.6) 0%, transparent 70%);
+  animation: thumb-particle-a 0.62s ease-out infinite;
+}
+
+.progress-wrap.is-dragging #progress-thumb::after {
+  width: 50px;
+  height: 50px;
+  transform: translate(-50%, -50%);
+  background: 
+    radial-gradient(circle at 30% 30%, #ffffff 1px, transparent 2px),
+    radial-gradient(circle at 70% 20%, #f4d28a 1.5px, transparent 3px),
+    radial-gradient(circle at 20% 70%, #d95b67 1px, transparent 2px),
+    radial-gradient(circle at 80% 60%, #ffffff 1px, transparent 2px),
+    radial-gradient(circle at 50% 80%, #f0a0a0 1.5px, transparent 3px),
+    radial-gradient(circle at 40% 50%, #ffffff 0.8px, transparent 1.5px),
+    radial-gradient(circle at 65% 75%, #d95b67 1px, transparent 2px);
+  animation: thumb-particle-b 0.72s ease-out infinite;
+}
+
+@keyframes thumb-particle-a {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.8);
+    opacity: 0;
+  }
+}
+
+@keyframes thumb-particle-b {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.2);
+    opacity: 0;
+  }
 }
 </style>

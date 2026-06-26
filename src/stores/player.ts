@@ -13,6 +13,7 @@ import {
   AudioEnhancer,
   Equalizer,
   AudioEffects,
+  MockBeatGenerator,
 } from '@/modules/audio'
 import type {
   BeatMap,
@@ -107,9 +108,13 @@ export const usePlayerStore = defineStore('player', () => {
   const audioDevices = ref<MediaDeviceInfo[]>([])
   const currentOutputDeviceId = ref<string>(loadOutputDevice())
 
+  const startupVisualPreviewActive = ref(false)
+  const mockBeatGenerator = ref<MockBeatGenerator | null>(null)
+
   let animationFrameId: number | null = null
   let lastFrameTime = 0
   let isSwitchingSong = false
+  let mockAnimationFrameId: number | null = null
 
   const isPlaying = computed(() => status.value === 'playing')
   const progress = computed(() => duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0)
@@ -348,6 +353,84 @@ export const usePlayerStore = defineStore('player', () => {
     if (animationFrameId !== null) {
       cancelAnimationFrame(animationFrameId)
       animationFrameId = null
+    }
+  }
+
+  function startStartupVisualPreview(): void {
+    if (startupVisualPreviewActive.value) return
+    if (status.value === 'playing') return
+
+    if (!mockBeatGenerator.value) {
+      mockBeatGenerator.value = new MockBeatGenerator({
+        bpm: 100,
+        minEnergy: 0.3,
+        maxEnergy: 0.55,
+        bassBias: 1.25,
+        randomVariation: 0.12,
+      })
+    }
+
+    mockBeatGenerator.value.start()
+    startupVisualPreviewActive.value = true
+
+    const initialBeat = mockBeatGenerator.value.beatState
+    const initialCinema = mockBeatGenerator.value.cinemaDynamics
+    const initialEnergy = mockBeatGenerator.value.energyBands
+
+    beatState.value = { ...initialBeat }
+    cinemaDynamics.value = { ...initialCinema }
+    energyBands.value = { ...initialEnergy }
+
+    startMockBeatLoop()
+  }
+
+  function stopStartupVisualPreview(): void {
+    if (!startupVisualPreviewActive.value) return
+
+    startupVisualPreviewActive.value = false
+    stopMockBeatLoop()
+
+    if (mockBeatGenerator.value) {
+      mockBeatGenerator.value.stop()
+    }
+  }
+
+  function startMockBeatLoop(): void {
+    if (mockAnimationFrameId !== null) return
+
+    let mockLastFrameTime = performance.now()
+
+    function mockLoop() {
+      const now = performance.now()
+      const dt = (now - mockLastFrameTime) / 1000
+      mockLastFrameTime = now
+
+      if (mockBeatGenerator.value && startupVisualPreviewActive.value) {
+        mockBeatGenerator.value.update(dt)
+        beatState.value = { ...mockBeatGenerator.value.beatState }
+        cinemaDynamics.value = { ...mockBeatGenerator.value.cinemaDynamics }
+        energyBands.value = { ...mockBeatGenerator.value.energyBands }
+      }
+
+      mockAnimationFrameId = requestAnimationFrame(mockLoop)
+    }
+
+    mockAnimationFrameId = requestAnimationFrame(mockLoop)
+  }
+
+  function stopMockBeatLoop(): void {
+    if (mockAnimationFrameId !== null) {
+      cancelAnimationFrame(mockAnimationFrameId)
+      mockAnimationFrameId = null
+    }
+  }
+
+  function toggleStartupVisualPreview(force?: boolean): void {
+    const shouldActivate = force !== undefined ? force : !startupVisualPreviewActive.value
+    if (shouldActivate) {
+      startStartupVisualPreview()
+    } else {
+      stopStartupVisualPreview()
     }
   }
 
@@ -612,6 +695,8 @@ export const usePlayerStore = defineStore('player', () => {
 
     if (isSwitchingSong) return
     isSwitchingSong = true
+
+    stopStartupVisualPreview()
 
     if (audioEnhancer.value && fadeEnabled.value && !audio.value.paused && currentSong.value) {
       await audioEnhancer.value.fadeOut(300)
@@ -931,6 +1016,8 @@ export const usePlayerStore = defineStore('player', () => {
     continueListening,
     audioDevices,
     currentOutputDeviceId,
+    startupVisualPreviewActive,
+    mockBeatGenerator,
     initAudio,
     play,
     togglePlay,
@@ -978,5 +1065,8 @@ export const usePlayerStore = defineStore('player', () => {
     continueFromLast,
     hasContinueData,
     clearContinueListening,
+    startStartupVisualPreview,
+    stopStartupVisualPreview,
+    toggleStartupVisualPreview,
   }
 })

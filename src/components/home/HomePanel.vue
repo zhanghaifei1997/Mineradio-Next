@@ -24,6 +24,7 @@ const queue = playQueueStore()
 const fx = useFxStore()
 
 const isHovering = ref<string | null>(null)
+const isLoading = ref(true)
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
@@ -95,6 +96,9 @@ const cardDelays = [0, 0.2, 0.4, 0.6, 0.8, 1.0]
 onMounted(() => {
   weatherStore.fetchWeather()
   updateEmptyHomeClass()
+  setTimeout(() => {
+    isLoading.value = false
+  }, 800)
 })
 
 onUnmounted(() => {
@@ -106,6 +110,27 @@ onUnmounted(() => {
   <div class="home-panel" :class="{ 'empty-home': isEmptyHome }">
     <div class="home-scroll">
       <div class="home-content">
+        <template v-if="isLoading">
+          <div class="home-skeleton">
+            <div class="skeleton-hero">
+              <div class="skeleton-greeting"></div>
+              <div class="skeleton-sub"></div>
+              <div class="skeleton-btns">
+                <div class="skeleton-btn"></div>
+                <div class="skeleton-btn"></div>
+              </div>
+            </div>
+            <div class="skeleton-cards">
+              <div class="skeleton-card large"></div>
+              <div class="skeleton-card"></div>
+              <div class="skeleton-card"></div>
+              <div class="skeleton-card"></div>
+              <div class="skeleton-card"></div>
+              <div class="skeleton-card"></div>
+            </div>
+          </div>
+        </template>
+        <template v-else>
         <div class="hero-section">
           <div class="hero-left">
             <h1 class="greeting">{{ greeting }}，{{ userName }}</h1>
@@ -122,11 +147,15 @@ onUnmounted(() => {
             </div>
           </div>
           <div class="hero-right">
-            <div class="visual-preview">
-              <div class="visual-circle c1"></div>
-              <div class="visual-circle c2"></div>
-              <div class="visual-circle c3"></div>
-              <div class="visual-note">🎵</div>
+            <div class="home-disc" :class="{ 'is-spinning': player.isPlaying }">
+              <div class="disc-ring"></div>
+              <div class="disc-center"></div>
+              <div class="disc-cover" v-if="player.currentSong?.coverUrl">
+                <img :src="player.currentSong.coverUrl" alt="" />
+              </div>
+              <div class="disc-cover placeholder" v-else>
+                <span>🎵</span>
+              </div>
             </div>
           </div>
         </div>
@@ -205,6 +234,15 @@ onUnmounted(() => {
               </div>
               <div class="card-title">遇见好歌</div>
               <div class="card-subtitle">个性化推荐</div>
+              <div class="home-eq" :class="{ 'is-active': player.isPlaying }">
+                <div class="eq-bar" :style="{ '--eq-delay': '0s' }"></div>
+                <div class="eq-bar" :style="{ '--eq-delay': '0.15s' }"></div>
+                <div class="eq-bar" :style="{ '--eq-delay': '0.3s' }"></div>
+                <div class="eq-bar" :style="{ '--eq-delay': '0.45s' }"></div>
+                <div class="eq-bar" :style="{ '--eq-delay': '0.6s' }"></div>
+                <div class="eq-bar" :style="{ '--eq-delay': '0.35s' }"></div>
+                <div class="eq-bar" :style="{ '--eq-delay': '0.2s' }"></div>
+              </div>
             </div>
             <div class="card-cover-mini">
               <span>🎙️</span>
@@ -329,6 +367,7 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+        </template>
       </div>
     </div>
   </div>
@@ -918,5 +957,285 @@ onUnmounted(() => {
   .home-content {
     padding: 16px;
   }
+
+  .home-disc {
+    width: 140px !important;
+    height: 140px !important;
+  }
+}
+
+.home-skeleton {
+  width: 100%;
+}
+
+.skeleton-hero {
+  margin-bottom: 32px;
+}
+
+.skeleton-greeting {
+  width: 280px;
+  height: 42px;
+  border-radius: 8px;
+  background: var(--color-surface);
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-sub {
+  width: 180px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--color-surface);
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-btns {
+  display: flex;
+  gap: 12px;
+}
+
+.skeleton-btn {
+  width: 120px;
+  height: 40px;
+  border-radius: 20px;
+  background: var(--color-surface);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-cards {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.skeleton-card {
+  min-height: 140px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.skeleton-card.large {
+  grid-row: span 2;
+  min-height: 300px;
+}
+
+.skeleton-greeting::before,
+.skeleton-sub::before,
+.skeleton-btn::before,
+.skeleton-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.08),
+    transparent
+  );
+  animation: home-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes home-shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+.home-disc {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  animation: home-disc-turn 18s linear infinite;
+  animation-play-state: paused;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    inset 0 0 30px rgba(0, 0, 0, 0.3);
+  background:
+    repeating-radial-gradient(
+      circle at center,
+      #1a1a1a 0px,
+      #1a1a1a 2px,
+      #252525 2px,
+      #252525 4px
+    ),
+    conic-gradient(
+      from 0deg,
+      #d95b67,
+      #f4d28a,
+      #64b5f6,
+      #ba68c8,
+      #d95b67
+    );
+}
+
+.home-disc.is-spinning {
+  animation-play-state: running;
+}
+
+.home-disc::before {
+  content: '';
+  position: absolute;
+  inset: 15px;
+  border-radius: 50%;
+  background: repeating-radial-gradient(
+    circle at center,
+    #1a1a1a 0px,
+    #1a1a1a 3px,
+    #2a2a2a 3px,
+    #2a2a2a 6px
+  );
+}
+
+.disc-ring {
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  border: 2px solid rgba(217, 91, 103, 0.3);
+  z-index: 1;
+}
+
+.disc-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #0a0a0f;
+  z-index: 3;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.disc-center::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #333;
+}
+
+.disc-cover {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  overflow: hidden;
+  z-index: 2;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.disc-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.disc-cover.placeholder {
+  background: linear-gradient(135deg, rgba(217, 91, 103, 0.5), rgba(100, 50, 150, 0.5));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+}
+
+@keyframes home-disc-turn {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.home-eq {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  height: 36px;
+  margin-top: auto;
+  padding-top: 12px;
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}
+
+.home-eq.is-active {
+  opacity: 1;
+}
+
+.eq-bar {
+  width: 4px;
+  height: 8px;
+  border-radius: 2px;
+  background: linear-gradient(to top, #d95b67, #ffffff);
+  animation: home-eq-rise 1.8s ease-in-out infinite;
+  animation-delay: var(--eq-delay, 0s);
+  box-shadow: 0 0 6px rgba(217, 91, 103, 0.5);
+}
+
+.home-eq:not(.is-active) .eq-bar {
+  animation-play-state: paused;
+  height: 8px !important;
+}
+
+@keyframes home-eq-rise {
+  0%, 100% {
+    height: 8px;
+  }
+  25% {
+    height: 28px;
+  }
+  50% {
+    height: 16px;
+  }
+  75% {
+    height: 32px;
+  }
+}
+
+@keyframes home-card-float {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+  }
+  25% {
+    transform: translateY(-6px) translateX(2px);
+  }
+  50% {
+    transform: translateY(-10px) translateX(-2px);
+  }
+  75% {
+    transform: translateY(-4px) translateX(1px);
+  }
+}
+
+.home-card {
+  animation-name: home-card-float;
+  animation-duration: 7.4s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
 }
 </style>

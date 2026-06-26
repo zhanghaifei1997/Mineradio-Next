@@ -86,6 +86,8 @@ export const useUserStore = defineStore('user', () => {
   const loadingProfile = ref(false)
   const loadingPlaylists = ref(false)
   const loadingLiked = ref(false)
+  const isRefreshingLogin = ref(false)
+  const lastLoginRefreshTime = ref(0)
 
   const isLoggedIn = computed(() => neteaseAccount.value.loggedIn || qqmusicAccount.value.loggedIn || kugouAccount.value.loggedIn)
 
@@ -463,6 +465,80 @@ export const useUserStore = defineStore('user', () => {
     } catch (_) {}
   }
 
+  async function refreshLoginStatus(timeoutMs: number = 5000): Promise<{
+    netease: boolean
+    qqmusic: boolean
+    kugou: boolean
+    newlyLoggedIn: MusicSource[]
+  }> {
+    if (isRefreshingLogin.value) {
+      return {
+        netease: neteaseAccount.value.loggedIn,
+        qqmusic: qqmusicAccount.value.loggedIn,
+        kugou: kugouAccount.value.loggedIn,
+        newlyLoggedIn: [],
+      }
+    }
+
+    isRefreshingLogin.value = true
+
+    const wasLoggedIn = {
+      netease: neteaseAccount.value.loggedIn,
+      qqmusic: qqmusicAccount.value.loggedIn,
+      kugou: kugouAccount.value.loggedIn,
+    }
+
+    const newlyLoggedIn: MusicSource[] = []
+
+    try {
+      const sources: MusicSource[] = ['netease', 'qqmusic', 'kugou']
+
+      const refreshPromises = sources.map(async (source) => {
+        try {
+          const provider = providerManager.get(source)
+          if (!provider) return { source, success: false }
+
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+          try {
+            const profile = await provider.getCurrentUser()
+            clearTimeout(timeoutId)
+
+            if (profile) {
+              const wasLogged = wasLoggedIn[source as keyof typeof wasLoggedIn]
+              if (!wasLogged) {
+                newlyLoggedIn.push(source)
+              }
+              setProfile(source, profile)
+              return { source, success: true }
+            } else {
+              return { source, success: false }
+            }
+          } catch {
+            clearTimeout(timeoutId)
+            return { source, success: false }
+          }
+        } catch {
+          return { source, success: false }
+        }
+      })
+
+      await Promise.all(refreshPromises)
+
+      lastLoginRefreshTime.value = Date.now()
+
+      return {
+        netease: neteaseAccount.value.loggedIn,
+        qqmusic: qqmusicAccount.value.loggedIn,
+        kugou: kugouAccount.value.loggedIn,
+        newlyLoggedIn,
+      }
+    } finally {
+      isRefreshingLogin.value = false
+    }
+  }
+
   async function init() {
     loadRecentPlayed()
     if (neteaseAccount.value.loggedIn) {
@@ -488,6 +564,8 @@ export const useUserStore = defineStore('user', () => {
     loadingProfile,
     loadingPlaylists,
     loadingLiked,
+    isRefreshingLogin,
+    lastLoginRefreshTime,
     isLoggedIn,
     hasMultipleAccounts,
     primaryAccount,
@@ -517,6 +595,7 @@ export const useUserStore = defineStore('user', () => {
     removeFromPlaylist,
     addToRecentPlayed,
     loadRecentPlayed,
+    refreshLoginStatus,
     init,
   }
 })

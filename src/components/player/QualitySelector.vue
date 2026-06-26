@@ -126,12 +126,25 @@ onUnmounted(() => {
   right: 0;
   width: 240px;
   background: rgba(15, 15, 20, 0.95);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
   overflow: hidden;
   z-index: 200;
+  animation: qualityPopIn 0.2s ease-out;
+}
+
+@keyframes qualityPopIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .popup-header {
