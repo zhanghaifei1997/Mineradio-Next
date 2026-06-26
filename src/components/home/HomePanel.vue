@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useWeatherStore } from '@/stores/weather'
 import { usePlayerStore } from '@/stores/player'
 import { useStatsStore } from '@/stores/stats'
 import { useUserStore } from '@/stores/user'
 import { playQueueStore } from '@/stores/playQueue'
+import { useFxStore } from '@/stores/fx'
 import { formatDuration } from '@/utils'
 
 const emit = defineEmits<{
@@ -20,6 +21,9 @@ const player = usePlayerStore()
 const stats = useStatsStore()
 const userStore = useUserStore()
 const queue = playQueueStore()
+const fx = useFxStore()
+
+const isHovering = ref<string | null>(null)
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
@@ -63,6 +67,10 @@ const totalMinutes = computed(() => {
   return Math.floor(stats.data.totalPlayDuration / 60)
 })
 
+const isEmptyHome = computed(() => {
+  return !player.currentSong && !player.isPlaying
+})
+
 async function handleContinueListen() {
   await player.continueFromLast()
 }
@@ -74,188 +82,240 @@ function handlePlayQueueFromPlaylist(songs: any[], name?: string, cover?: string
   player.saveContinueListening(name, cover)
 }
 
+function updateEmptyHomeClass() {
+  if (isEmptyHome.value) {
+    document.body.classList.add('empty-home-active')
+  } else {
+    document.body.classList.remove('empty-home-active')
+  }
+}
+
+const cardDelays = [0, 0.2, 0.4, 0.6, 0.8, 1.0]
+
 onMounted(() => {
   weatherStore.fetchWeather()
+  updateEmptyHomeClass()
+})
+
+onUnmounted(() => {
+  document.body.classList.remove('empty-home-active')
 })
 </script>
 
 <template>
-  <div class="home-panel">
+  <div class="home-panel" :class="{ 'empty-home': isEmptyHome }">
     <div class="home-scroll">
       <div class="home-content">
-        <div class="home-header">
-          <div class="greeting-section">
+        <div class="hero-section">
+          <div class="hero-left">
             <h1 class="greeting">{{ greeting }}，{{ userName }}</h1>
             <p class="greeting-sub">今天想听点什么呢？</p>
+            <div class="quick-entry">
+              <button class="entry-btn primary" @click="emit('open-daily-recommend')">
+                <span class="entry-icon">✨</span>
+                <span>发现音乐</span>
+              </button>
+              <button class="entry-btn" @click="emit('open-fm')">
+                <span class="entry-icon">📻</span>
+                <span>私人FM</span>
+              </button>
+            </div>
           </div>
-          
-          <div 
-            class="weather-card" 
-            :style="{ background: weatherStore.moodGradient }"
+          <div class="hero-right">
+            <div class="visual-preview">
+              <div class="visual-circle c1"></div>
+              <div class="visual-circle c2"></div>
+              <div class="visual-circle c3"></div>
+              <div class="visual-note">🎵</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cards-grid">
+          <div
+            class="home-card card-weather"
+            :style="{ '--delay': cardDelays[0] + 's' }"
+            :class="{ 'hover-stop': isHovering === 'weather' }"
+            @mouseenter="isHovering = 'weather'"
+            @mouseleave="isHovering = null"
             @click="emit('open-weather-radio')"
           >
-            <div class="weather-info">
-              <div class="weather-emoji">{{ weatherStore.moodEmoji }}</div>
-              <div class="weather-text">
-                <div class="weather-temp" v-if="weatherStore.weather">
-                  {{ weatherStore.weather.temperature }}°C
-                </div>
-                <div class="weather-city" v-if="weatherStore.weather">
-                  {{ weatherStore.weather.city }}
+            <div class="card-bg" :style="{ background: weatherStore.moodGradient }"></div>
+            <div class="card-content">
+              <div class="card-header">
+                <span class="card-icon">🌤️</span>
+                <span class="card-label">天气电台</span>
+              </div>
+              <div class="weather-display">
+                <div class="weather-emoji-big">{{ weatherStore.moodEmoji }}</div>
+                <div class="weather-info">
+                  <div class="weather-temp" v-if="weatherStore.weather">
+                    {{ weatherStore.weather.temperature }}°
+                  </div>
+                  <div class="weather-city" v-if="weatherStore.weather">
+                    {{ weatherStore.weather.city }}
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="weather-hint">
-              <span class="hint-text">{{ weatherStore.moodDescription }}</span>
-              <span class="hint-arrow">→</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="quick-actions">
-          <button class="quick-action-btn" @click="emit('open-daily-recommend')">
-            <div class="action-icon">📅</div>
-            <div class="action-text">每日推荐</div>
-          </button>
-          <button class="quick-action-btn" @click="emit('open-fm')">
-            <div class="action-icon">📻</div>
-            <div class="action-text">私人FM</div>
-          </button>
-          <button class="quick-action-btn" @click="emit('open-toplist')">
-            <div class="action-icon">🏆</div>
-            <div class="action-text">排行榜</div>
-          </button>
-          <button class="quick-action-btn" @click="emit('open-playlist', null)">
-            <div class="action-icon">📁</div>
-            <div class="action-text">我的歌单</div>
-          </button>
-        </div>
-
-        <div v-if="player.hasContinueData()" class="section continue-section">
-          <div class="section-header">
-            <h3>继续听</h3>
-            <span class="section-sub">{{ lastPlayedText }}</span>
-          </div>
-          <div class="continue-card" @click="handleContinueListen">
-            <div class="continue-cover">
-              <img v-if="continueSong?.coverUrl" :src="continueSong.coverUrl" alt="" />
-              <div v-else class="cover-placeholder">🎵</div>
-              <div class="continue-play-btn">▶</div>
-            </div>
-            <div class="continue-info">
-              <div class="continue-song">{{ continueSong?.name || '继续播放' }}</div>
-              <div class="continue-artist">
-                {{ continueSong?.artists?.map((a: any) => a.name).join(' / ') || '' }}
+              <div class="card-hint">
+                <span>{{ weatherStore.moodDescription }}</span>
+                <span class="hint-arrow">→</span>
               </div>
-              <div class="continue-progress">
-                <div class="progress-bar">
-                  <div class="progress-fill" :style="{ width: continueProgress + '%' }"></div>
+            </div>
+            <div class="card-cover-mini">
+              <span>🌧️</span>
+            </div>
+          </div>
+
+          <div
+            class="home-card card-daily"
+            :style="{ '--delay': cardDelays[1] + 's' }"
+            :class="{ 'hover-stop': isHovering === 'daily' }"
+            @mouseenter="isHovering = 'daily'"
+            @mouseleave="isHovering = null"
+            @click="emit('open-daily-recommend')"
+          >
+            <div class="card-bg"></div>
+            <div class="card-content">
+              <div class="card-header">
+                <span class="card-icon">📅</span>
+                <span class="card-label">每日推荐</span>
+              </div>
+              <div class="card-title">根据你的口味</div>
+              <div class="card-subtitle">每日更新 30 首</div>
+            </div>
+            <div class="card-cover-mini">
+              <span>🎶</span>
+            </div>
+          </div>
+
+          <div
+            class="home-card card-fm"
+            :style="{ '--delay': cardDelays[2] + 's' }"
+            :class="{ 'hover-stop': isHovering === 'fm' }"
+            @mouseenter="isHovering = 'fm'"
+            @mouseleave="isHovering = null"
+            @click="emit('open-fm')"
+          >
+            <div class="card-bg"></div>
+            <div class="card-content">
+              <div class="card-header">
+                <span class="card-icon">📻</span>
+                <span class="card-label">私人电台</span>
+              </div>
+              <div class="card-title">遇见好歌</div>
+              <div class="card-subtitle">个性化推荐</div>
+            </div>
+            <div class="card-cover-mini">
+              <span>🎙️</span>
+            </div>
+          </div>
+
+          <div
+            class="home-card card-continue"
+            :style="{ '--delay': cardDelays[3] + 's' }"
+            :class="{ 'hover-stop': isHovering === 'continue' }"
+            @mouseenter="isHovering = 'continue'"
+            @mouseleave="isHovering = null"
+            @click="player.hasContinueData() && handleContinueListen()"
+          >
+            <div class="card-bg"></div>
+            <div class="card-content">
+              <div class="card-header">
+                <span class="card-icon">▶️</span>
+                <span class="card-label">继续听</span>
+              </div>
+              <template v-if="continueSong">
+                <div class="card-title text-truncate">{{ continueSong.name }}</div>
+                <div class="card-subtitle text-truncate">
+                  {{ continueSong.artists?.map((a: any) => a.name).join(' / ') || '' }}
                 </div>
-                <span class="progress-text">
-                  听到 {{ formatDuration(player.continueListening?.currentTime || 0) }}
+                <div class="mini-progress">
+                  <div class="mini-progress-bar">
+                    <div class="mini-progress-fill" :style="{ width: continueProgress + '%' }"></div>
+                  </div>
+                </div>
+              </template>
+              <template v-else>
+                <div class="card-title">暂无记录</div>
+                <div class="card-subtitle">开始播放吧</div>
+              </template>
+            </div>
+            <div class="card-cover-mini" v-if="continueSong?.coverUrl">
+              <img :src="continueSong.coverUrl" alt="" />
+            </div>
+            <div class="card-cover-mini placeholder" v-else>
+              <span>🎵</span>
+            </div>
+          </div>
+
+          <div
+            class="home-card card-profile"
+            :style="{ '--delay': cardDelays[4] + 's' }"
+            :class="{ 'hover-stop': isHovering === 'profile' }"
+            @mouseenter="isHovering = 'profile'"
+            @mouseleave="isHovering = null"
+          >
+            <div class="card-bg"></div>
+            <div class="card-content">
+              <div class="card-header">
+                <span class="card-icon">🎭</span>
+                <span class="card-label">听歌画像</span>
+              </div>
+              <div class="card-title">{{ stats.personality }}</div>
+              <div class="card-stats-mini">
+                <span>{{ stats.data.totalPlayCount }} 首</span>
+                <span>·</span>
+                <span>{{ totalMinutes }} 分钟</span>
+              </div>
+            </div>
+            <div class="card-cover-mini">
+              <span>🎨</span>
+            </div>
+          </div>
+
+          <div
+            class="home-card card-artists"
+            :style="{ '--delay': cardDelays[5] + 's' }"
+            :class="{ 'hover-stop': isHovering === 'artists' }"
+            @mouseenter="isHovering = 'artists'"
+            @mouseleave="isHovering = null"
+          >
+            <div class="card-bg"></div>
+            <div class="card-content">
+              <div class="card-header">
+                <span class="card-icon">👤</span>
+                <span class="card-label">常听歌手</span>
+              </div>
+              <div class="top-artists-mini" v-if="stats.topArtists.length > 0">
+                <span v-for="(artist, idx) in stats.topArtists.slice(0, 3)" :key="artist.id" class="artist-chip">
+                  {{ artist.name }}
                 </span>
               </div>
+              <div v-else class="card-subtitle">暂无数据</div>
             </div>
-          </div>
-        </div>
-
-        <div class="section profile-section">
-          <div class="section-header">
-            <h3>听歌画像</h3>
-            <span class="section-tag">{{ stats.personality }}</span>
-          </div>
-          
-          <div class="profile-card">
-            <div class="profile-stats">
-              <div class="stat-item">
-                <div class="stat-value">{{ stats.data.totalPlayCount }}</div>
-                <div class="stat-label">总播放</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-value">{{ totalMinutes }}</div>
-                <div class="stat-label">分钟</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-value">{{ stats.timePreference.preferredPeriod }}</div>
-                <div class="stat-label">最爱时段</div>
-              </div>
-            </div>
-
-            <div class="profile-tags">
-              <span 
-                v-for="(tag, idx) in stats.tasteTags" 
-                :key="idx" 
-                class="taste-tag"
-              >
-                {{ tag }}
-              </span>
-            </div>
-
-            <div class="profile-top-artists" v-if="stats.topArtists.length > 0">
-              <div class="top-title">常听歌手 TOP 5</div>
-              <div class="artist-list">
-                <div 
-                  v-for="(artist, idx) in stats.topArtists.slice(0, 5)" 
-                  :key="artist.id"
-                  class="artist-item"
-                >
-                  <span class="artist-rank">{{ idx + 1 }}</span>
-                  <span class="artist-name text-truncate">{{ artist.name }}</span>
-                  <span class="artist-count">{{ artist.playCount }} 次</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="time-chart">
-              <div class="chart-title">听歌时段分布</div>
-              <div class="chart-bars">
-                <div class="bar-item">
-                  <div class="bar-label">早</div>
-                  <div class="bar-track">
-                    <div class="bar-fill" :style="{ height: stats.timePreference.morning + '%' }"></div>
-                  </div>
-                  <div class="bar-value">{{ stats.timePreference.morning }}%</div>
-                </div>
-                <div class="bar-item">
-                  <div class="bar-label">午</div>
-                  <div class="bar-track">
-                    <div class="bar-fill" :style="{ height: stats.timePreference.afternoon + '%' }"></div>
-                  </div>
-                  <div class="bar-value">{{ stats.timePreference.afternoon }}%</div>
-                </div>
-                <div class="bar-item">
-                  <div class="bar-label">晚</div>
-                  <div class="bar-track">
-                    <div class="bar-fill" :style="{ height: stats.timePreference.evening + '%' }"></div>
-                  </div>
-                  <div class="bar-value">{{ stats.timePreference.evening }}%</div>
-                </div>
-                <div class="bar-item">
-                  <div class="bar-label">夜</div>
-                  <div class="bar-track">
-                    <div class="bar-fill" :style="{ height: stats.timePreference.night + '%' }"></div>
-                  </div>
-                  <div class="bar-value">{{ stats.timePreference.night }}%</div>
-                </div>
-              </div>
+            <div class="card-cover-mini">
+              <span>🎤</span>
             </div>
           </div>
         </div>
 
         <div class="section playlists-section">
           <div class="section-header">
-            <h3>我的歌单</h3>
-            <span class="section-sub">{{ userStore.ownedPlaylists.length }} 个歌单</span>
+            <h3>为你推荐</h3>
+            <button class="section-more">
+              更多 <span>→</span>
+            </button>
           </div>
-          
+
           <div v-if="userStore.ownedPlaylists.length === 0" class="empty-playlists">
             <div class="empty-icon">📁</div>
             <p>还没有歌单，登录后可以同步你的歌单</p>
           </div>
 
           <div v-else class="playlist-grid">
-            <div 
-              v-for="playlist in userStore.ownedPlaylists.slice(0, 6)" 
+            <div
+              v-for="playlist in userStore.ownedPlaylists.slice(0, 6)"
               :key="playlist.id"
               class="playlist-item"
               @click="emit('open-playlist', playlist)"
@@ -294,143 +354,367 @@ onMounted(() => {
 }
 
 .home-content {
-  max-width: 960px;
+  max-width: 1080px;
   margin: 0 auto;
   padding: 24px 32px 40px;
 }
 
-.home-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 24px;
-  margin-bottom: 28px;
+.hero-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  margin-bottom: 32px;
+  min-height: 180px;
+  align-items: center;
 }
 
-.greeting-section {
-  flex: 1;
-  min-width: 0;
+.hero-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .greeting {
-  font-size: 28px;
+  font-size: 36px;
   font-weight: 700;
   color: var(--color-text);
-  margin: 0 0 6px;
+  margin: 0;
   line-height: 1.2;
+  letter-spacing: -0.5px;
 }
 
 .greeting-sub {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--color-text-secondary);
   margin: 0;
 }
 
-.weather-card {
-  flex-shrink: 0;
-  width: 280px;
-  padding: 16px 20px;
-  border-radius: 16px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.weather-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
-}
-
-.weather-info {
+.quick-entry {
   display: flex;
-  align-items: center;
   gap: 12px;
-  margin-bottom: 10px;
+  margin-top: 8px;
 }
 
-.weather-emoji {
-  font-size: 36px;
-  line-height: 1;
-}
-
-.weather-text {
-  color: #fff;
-}
-
-.weather-temp {
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1.1;
-}
-
-.weather-city {
-  font-size: 12px;
-  opacity: 0.9;
-  margin-top: 2px;
-}
-
-.weather-hint {
+.entry-btn {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: #fff;
-}
-
-.hint-text {
-  font-size: 12px;
-  opacity: 0.9;
-}
-
-.hint-arrow {
-  font-size: 14px;
-  opacity: 0.8;
-  transition: transform 0.2s;
-}
-
-.weather-card:hover .hint-arrow {
-  transform: translateX(4px);
-}
-
-.quick-actions {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 28px;
-}
-
-.quick-action-btn {
-  display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 16px 12px;
-  background: var(--color-surface);
+  padding: 10px 20px;
   border: 1px solid var(--color-border);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
+  border-radius: 24px;
+  background: var(--color-surface);
   color: var(--color-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s ease;
   backdrop-filter: var(--blur-surface);
   -webkit-backdrop-filter: var(--blur-surface);
 }
 
-.quick-action-btn:hover {
-  background: var(--color-hover);
+.entry-btn:hover {
   transform: translateY(-2px);
+  border-color: rgba(217, 91, 103, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.entry-btn.primary {
+  background: linear-gradient(135deg, #d95b67, #f4d28a);
+  border: none;
+  color: #fff;
+}
+
+.entry-btn.primary:hover {
+  box-shadow: 0 8px 24px rgba(217, 91, 103, 0.3);
+}
+
+.entry-icon {
+  font-size: 16px;
+}
+
+.hero-right {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.visual-preview {
+  position: relative;
+  width: 160px;
+  height: 160px;
+}
+
+.visual-circle {
+  position: absolute;
+  border-radius: 50%;
+  animation: float 7.4s ease-in-out infinite;
+}
+
+.visual-circle.c1 {
+  width: 120px;
+  height: 120px;
+  top: 10%;
+  left: 10%;
+  background: linear-gradient(135deg, rgba(217, 91, 103, 0.4), rgba(244, 210, 138, 0.2));
+  filter: blur(2px);
+}
+
+.visual-circle.c2 {
+  width: 80px;
+  height: 80px;
+  top: 30%;
+  right: 5%;
+  background: linear-gradient(135deg, rgba(100, 150, 255, 0.3), rgba(150, 100, 200, 0.2));
+  animation-delay: 1.5s;
+  filter: blur(1px);
+}
+
+.visual-circle.c3 {
+  width: 60px;
+  height: 60px;
+  bottom: 10%;
+  left: 30%;
+  background: linear-gradient(135deg, rgba(244, 210, 138, 0.4), rgba(217, 91, 103, 0.2));
+  animation-delay: 3s;
+  filter: blur(1px);
+}
+
+.visual-note {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 48px;
+  animation: pulse 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-15px) scale(1.05); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.8; }
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.home-card {
+  position: relative;
+  min-height: 140px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  animation: cardFloat 7.4s ease-in-out infinite;
+  animation-delay: var(--delay);
+  border: 1px solid var(--color-border);
+  backdrop-filter: var(--blur-surface);
+  -webkit-backdrop-filter: var(--blur-surface);
+}
+
+.home-card.hover-stop {
+  animation-play-state: paused;
+}
+
+.home-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
   border-color: rgba(217, 91, 103, 0.3);
 }
 
-.action-icon {
-  font-size: 28px;
+.card-weather {
+  grid-row: span 2;
+  min-height: 300px;
 }
 
-.action-text {
-  font-size: 13px;
-  font-weight: 500;
+.card-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(217, 91, 103, 0.15), rgba(100, 50, 150, 0.1));
+  transition: all 0.3s ease;
+}
+
+.card-weather .card-bg {
+  opacity: 0.8;
+}
+
+.home-card:hover .card-bg {
+  opacity: 1;
+}
+
+.card-content {
+  position: relative;
+  z-index: 2;
+  padding: 20px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.card-icon {
+  font-size: 20px;
+}
+
+.card-label {
+  font-size: 12px;
+  font-weight: 600;
   color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.card-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+
+.card-subtitle {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.card-weather .card-title {
+  font-size: 24px;
+}
+
+.weather-display {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: auto 0;
+}
+
+.weather-emoji-big {
+  font-size: 64px;
+  line-height: 1;
+}
+
+.weather-info {
+  color: var(--color-text);
+}
+
+.weather-temp {
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.weather-city {
+  font-size: 14px;
+  opacity: 0.8;
+  margin-top: 4px;
+}
+
+.card-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  margin-top: auto;
+}
+
+.hint-arrow {
+  transition: transform 0.2s;
+}
+
+.home-card:hover .hint-arrow {
+  transform: translateX(4px);
+}
+
+.card-cover-mini {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.card-cover-mini img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-cover-mini.placeholder {
+  opacity: 0.5;
+}
+
+.mini-progress {
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.mini-progress-bar {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.mini-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #d95b67, #f4d28a);
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+
+.card-stats-mini {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.top-artists-mini {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.artist-chip {
+  padding: 3px 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes cardFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
 }
 
 .section {
@@ -451,305 +735,23 @@ onMounted(() => {
   margin: 0;
 }
 
-.section-sub {
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
-
-.section-tag {
-  font-size: 12px;
-  padding: 2px 10px;
-  background: linear-gradient(135deg, rgba(217, 91, 103, 0.3), rgba(255, 183, 77, 0.3));
-  color: #ffb74d;
-  border-radius: 10px;
-  font-weight: 500;
-}
-
-.continue-card {
-  display: flex;
-  gap: 16px;
-  padding: 16px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-  backdrop-filter: var(--blur-surface);
-  -webkit-backdrop-filter: var(--blur-surface);
-}
-
-.continue-card:hover {
-  background: var(--color-hover);
-  border-color: rgba(217, 91, 103, 0.3);
-}
-
-.continue-cover {
-  position: relative;
-  width: 80px;
-  height: 80px;
-  border-radius: 10px;
-  overflow: hidden;
-  flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.continue-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.cover-placeholder {
-  width: 100%;
-  height: 100%;
+.section-more {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 32px;
-  opacity: 0.5;
-}
-
-.continue-play-btn {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.3);
-  color: #fff;
-  font-size: 24px;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.continue-card:hover .continue-play-btn {
-  opacity: 1;
-}
-
-.continue-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.continue-song {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text);
-  margin-bottom: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.continue-artist {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  margin-bottom: 10px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.continue-progress {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.progress-bar {
-  flex: 1;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #d95b67, #ffb74d);
-  border-radius: 2px;
-  transition: width 0.3s;
-}
-
-.progress-text {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-}
-
-.profile-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  padding: 20px;
-  backdrop-filter: var(--blur-surface);
-  -webkit-backdrop-filter: var(--blur-surface);
-}
-
-.profile-stats {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 18px;
-}
-
-.stat-item {
-  flex: 1;
-  text-align: center;
-  padding: 12px 8px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 10px;
-}
-
-.stat-value {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--color-text);
-  margin-bottom: 4px;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: var(--color-text-muted);
-}
-
-.profile-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 18px;
-}
-
-.taste-tag {
+  gap: 4px;
   padding: 4px 12px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
   font-size: 12px;
-  background: linear-gradient(135deg, rgba(217, 91, 103, 0.2), rgba(255, 183, 77, 0.2));
-  color: #ffb74d;
+  cursor: pointer;
   border-radius: 12px;
-  border: 1px solid rgba(255, 183, 77, 0.2);
+  transition: all 0.2s;
 }
 
-.profile-top-artists {
-  margin-bottom: 18px;
-}
-
-.top-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  margin-bottom: 10px;
-}
-
-.artist-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.artist-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  transition: background 0.15s;
-}
-
-.artist-item:hover {
+.section-more:hover {
   background: var(--color-hover);
-}
-
-.artist-rank {
-  width: 18px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  text-align: center;
-  flex-shrink: 0;
-}
-
-.artist-item:nth-child(1) .artist-rank {
-  color: #ffb74d;
-}
-
-.artist-item:nth-child(2) .artist-rank {
-  color: #90caf9;
-}
-
-.artist-item:nth-child(3) .artist-rank {
-  color: #a1887f;
-}
-
-.artist-name {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  color: var(--color-text);
-}
-
-.artist-count {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-}
-
-.time-chart {
-  padding-top: 16px;
-  border-top: 1px solid var(--color-border);
-}
-
-.chart-title {
-  font-size: 13px;
-  font-weight: 600;
   color: var(--color-text-secondary);
-  margin-bottom: 12px;
-}
-
-.chart-bars {
-  display: flex;
-  justify-content: space-around;
-  align-items: flex-end;
-  height: 100px;
-  gap: 12px;
-}
-
-.bar-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.bar-track {
-  flex: 1;
-  width: 100%;
-  max-width: 36px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-  display: flex;
-  align-items: flex-end;
-  overflow: hidden;
-}
-
-.bar-fill {
-  width: 100%;
-  background: linear-gradient(180deg, #d95b67, #ffb74d);
-  border-radius: 4px;
-  min-height: 4px;
-  transition: height 0.5s ease;
-}
-
-.bar-label {
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-
-.bar-value {
-  font-size: 10px;
-  color: var(--color-text-muted);
 }
 
 .empty-playlists {
@@ -776,7 +778,7 @@ onMounted(() => {
 
 .playlist-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 16px;
 }
 
@@ -810,6 +812,16 @@ onMounted(() => {
   object-fit: cover;
 }
 
+.cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  opacity: 0.5;
+}
+
 .playlist-name {
   font-size: 13px;
   font-weight: 500;
@@ -828,17 +840,75 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 
+.empty-home-active .home-panel {
+  animation: homeFadeIn 0.6s ease-out;
+}
+
+@keyframes homeFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 960px) {
+  .cards-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .card-weather {
+    grid-column: span 2;
+    grid-row: auto;
+    min-height: 180px;
+  }
+
+  .weather-display {
+    margin: 16px 0;
+  }
+
+  .weather-emoji-big {
+    font-size: 48px;
+  }
+
+  .weather-temp {
+    font-size: 32px;
+  }
+
+  .playlist-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
-  .home-header {
-    flex-direction: column;
+  .hero-section {
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
 
-  .weather-card {
-    width: 100%;
+  .hero-right {
+    order: -1;
   }
 
-  .quick-actions {
-    grid-template-columns: repeat(2, 1fr);
+  .visual-preview {
+    width: 120px;
+    height: 120px;
+  }
+
+  .greeting {
+    font-size: 28px;
+  }
+
+  .cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-weather {
+    grid-column: auto;
+    min-height: 160px;
   }
 
   .playlist-grid {

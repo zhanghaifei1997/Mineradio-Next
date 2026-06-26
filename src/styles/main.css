@@ -244,3 +244,15 @@ body.render-deep-sleep .visual-canvas canvas {
   opacity: 0;
   visibility: hidden;
 }
+
+body.desktop-titlebar-active .top-toolbar {
+  top: 38px !important;
+}
+
+body.desktop-titlebar-active .home-panel {
+  top: 110px !important;
+}
+
+body.desktop-titlebar-active .search-panel {
+  top: 108px !important;
+}

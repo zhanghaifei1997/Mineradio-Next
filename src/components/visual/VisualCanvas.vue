@@ -6,6 +6,10 @@ import { useDjStore } from '@/stores/dj'
 import { VisualEngine } from '@/modules/visual'
 import type { FxSettings } from '@/types'
 
+const emit = defineEmits<{
+  (e: 'freeCameraChange', active: boolean): void
+}>()
+
 const fx = useFxStore()
 const player = usePlayerStore()
 const dj = useDjStore()
@@ -27,6 +31,10 @@ function initVisualEngine() {
 
   connectToPlayerAudio()
   updateDjModeInEngine()
+
+  if (fx.freeCameraEnabled) {
+    visualEngine.getCameraSystem().toggleFreeCamera()
+  }
 }
 
 function connectToPlayerAudio() {
@@ -85,11 +93,36 @@ watch(
   { deep: true },
 )
 
+watch(
+  () => fx.freeCameraEnabled,
+  (enabled) => {
+    if (!visualEngine) return
+    const cam = visualEngine.getCameraSystem()
+    if (enabled !== cam.isFreeCameraActive()) {
+      cam.toggleFreeCamera()
+      emit('freeCameraChange', enabled)
+    }
+  },
+)
+
+function handleKeyDown(e: KeyboardEvent) {
+  if (e.code === 'KeyF' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const target = e.target as HTMLElement
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      return
+    }
+    e.preventDefault()
+    fx.toggleFreeCamera()
+  }
+}
+
 onMounted(() => {
   initVisualEngine()
+  window.addEventListener('keydown', handleKeyDown)
 })
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
   if (visualEngine) {
     visualEngine.dispose()
     visualEngine = null

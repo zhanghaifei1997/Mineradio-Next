@@ -123,27 +123,45 @@
             <div class="color-row">
               <div class="color-item">
                 <label>高亮色</label>
-                <input
-                  type="color"
-                  :value="fx.accentColor"
-                  @input="fx.update('accentColor', ($event.target as HTMLInputElement).value)"
-                />
+                <div class="color-swatch-wrapper">
+                  <div
+                    class="color-swatch"
+                    :style="{ backgroundColor: fx.accentColor }"
+                    @click="openColorLab('accent', $event)"
+                  ></div>
+                  <div class="color-actions">
+                    <button class="color-action-btn" @click="openCoverPicker('accent')" title="封面取色">🖼️</button>
+                    <button class="color-action-btn" @click="openColorLab('accent', $event)" title="颜色实验室">🎨</button>
+                  </div>
+                </div>
               </div>
               <div class="color-item">
                 <label>发光色</label>
-                <input
-                  type="color"
-                  :value="fx.glowColor"
-                  @input="fx.update('glowColor', ($event.target as HTMLInputElement).value)"
-                />
+                <div class="color-swatch-wrapper">
+                  <div
+                    class="color-swatch"
+                    :style="{ backgroundColor: fx.glowColor }"
+                    @click="openColorLab('glow', $event)"
+                  ></div>
+                  <div class="color-actions">
+                    <button class="color-action-btn" @click="openCoverPicker('glow')" title="封面取色">🖼️</button>
+                    <button class="color-action-btn" @click="openColorLab('glow', $event)" title="颜色实验室">🎨</button>
+                  </div>
+                </div>
               </div>
               <div class="color-item">
                 <label>背景色</label>
-                <input
-                  type="color"
-                  :value="fx.settings.bgColor"
-                  @input="fx.update('bgColor', ($event.target as HTMLInputElement).value)"
-                />
+                <div class="color-swatch-wrapper">
+                  <div
+                    class="color-swatch"
+                    :style="{ backgroundColor: fx.settings.bgColor }"
+                    @click="openColorLab('bg', $event)"
+                  ></div>
+                  <div class="color-actions">
+                    <button class="color-action-btn" @click="openCoverPicker('bg')" title="封面取色">🖼️</button>
+                    <button class="color-action-btn" @click="openColorLab('bg', $event)" title="颜色实验室">🎨</button>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="setting-item">
@@ -275,6 +293,14 @@
 
           <div v-show="activeTab === 'advanced'" class="content-panel">
             <div class="panel-title">高级设置</div>
+            <div class="panel-subtitle">自由相机</div>
+            <div class="setting-item">
+              <label>自由相机模式</label>
+              <div class="toggle-switch" :class="{ active: fx.freeCameraEnabled }" @click="toggleFreeCamera">
+                <div class="toggle-dot"></div>
+              </div>
+            </div>
+            <div class="setting-hint">快捷键：<kbd>F</kbd> 切换 · 右键拖拽旋转 · 滚轮缩放 · WASD 移动 · 空格重置</div>
             <div class="panel-subtitle">性能档位</div>
             <div class="select-group">
               <button
@@ -363,14 +389,33 @@
         <span class="expand-hint">点击展开</span>
       </div>
     </div>
+
+    <ColorLab
+      v-if="colorLabVisible"
+      v-model="currentColorLabColor"
+      :visible="colorLabVisible"
+      :style="{ top: colorLabPosition.top + 'px', left: colorLabPosition.left + 'px', position: 'fixed' }"
+      @update:model-value="handleColorLabUpdate"
+      @confirm="handleColorLabConfirm"
+      @cancel="handleColorLabCancel"
+    />
+
+    <CoverColorPicker
+      :visible="coverPickerVisible"
+      :target-color="coverPickerTarget"
+      @confirm="handleCoverPickerConfirm"
+      @cancel="handleCoverPickerCancel"
+    />
   </Transition>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useFxStore } from '@/stores/fx'
 import { useLyricsStore } from '@/stores/lyrics'
 import { usePerformanceStore } from '@/stores/performance'
+import ColorLab from '@/components/color/ColorLab.vue'
+import CoverColorPicker from '@/components/color/CoverColorPicker.vue'
 import type { VisualPreset, PerformanceQuality, PerformanceBackgroundMode, CinemaMode, ShelfMode } from '@/types'
 
 interface Props {
@@ -394,6 +439,21 @@ const minimized = ref(false)
 const position = ref({ x: 20, y: 80 })
 const isDragging = ref(false)
 const dragOffset = ref({ x: 0, y: 0 })
+
+const colorLabVisible = ref(false)
+const colorLabTarget = ref<'accent' | 'glow' | 'bg'>('accent')
+const colorLabPosition = ref({ top: 0, left: 0 })
+const coverPickerVisible = ref(false)
+const coverPickerTarget = ref<'accent' | 'glow' | 'bg'>('accent')
+
+const currentColorLabColor = computed(() => {
+  switch (colorLabTarget.value) {
+    case 'accent': return fx.accentColor
+    case 'glow': return fx.glowColor
+    case 'bg': return fx.settings.bgColor
+    default: return fx.accentColor
+  }
+})
 
 function toggleAutoHide() {
   fx.fxFabAutoHide = !fx.fxFabAutoHide
@@ -484,6 +544,67 @@ function toggleCameraBind() {
 
 function toggleCoverColor() {
   fx.update('coverColorEnabled', !fx.settings.coverColorEnabled)
+}
+
+function toggleFreeCamera() {
+  fx.toggleFreeCamera()
+}
+
+function openColorLab(target: 'accent' | 'glow' | 'bg', event: MouseEvent) {
+  colorLabTarget.value = target
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  colorLabPosition.value = {
+    top: rect.bottom + 8,
+    left: Math.max(8, rect.left - 100),
+  }
+  colorLabVisible.value = true
+}
+
+function handleColorLabUpdate(color: string) {
+  switch (colorLabTarget.value) {
+    case 'accent':
+      fx.update('accentColor', color)
+      break
+    case 'glow':
+      fx.update('glowColor', color)
+      break
+    case 'bg':
+      fx.update('bgColor', color)
+      break
+  }
+}
+
+function handleColorLabConfirm(color: string) {
+  handleColorLabUpdate(color)
+  colorLabVisible.value = false
+}
+
+function handleColorLabCancel() {
+  colorLabVisible.value = false
+}
+
+function openCoverPicker(target: 'accent' | 'glow' | 'bg') {
+  coverPickerTarget.value = target
+  coverPickerVisible.value = true
+}
+
+function handleCoverPickerConfirm(color: string) {
+  switch (coverPickerTarget.value) {
+    case 'accent':
+      fx.update('accentColor', color)
+      break
+    case 'glow':
+      fx.update('glowColor', color)
+      break
+    case 'bg':
+      fx.update('bgColor', color)
+      break
+  }
+  coverPickerVisible.value = false
+}
+
+function handleCoverPickerCancel() {
+  coverPickerVisible.value = false
 }
 
 function toggleMinimize() {
@@ -799,6 +920,25 @@ onUnmounted(() => {
   font-variant-numeric: tabular-nums;
 }
 
+.setting-hint {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+  margin-left: 90px;
+  line-height: 1.5;
+}
+
+.setting-hint kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+}
+
 .preset-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -860,22 +1000,49 @@ onUnmounted(() => {
   color: var(--color-text-secondary);
 }
 
-.color-item input[type="color"] {
+.color-swatch-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.color-swatch {
   width: 36px;
   height: 36px;
-  border: none;
   border-radius: 8px;
   cursor: pointer;
-  background: transparent;
-}
-
-.color-item input[type="color"]::-webkit-color-swatch-wrapper {
-  padding: 0;
-}
-
-.color-item input[type="color"]::-webkit-color-swatch {
   border: 2px solid var(--console-border);
-  border-radius: 8px;
+  transition: transform 0.15s;
+}
+
+.color-swatch:hover {
+  transform: scale(1.05);
+}
+
+.color-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.color-action-btn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  transition: all 0.15s;
+}
+
+.color-action-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: scale(1.1);
 }
 
 .select-group {

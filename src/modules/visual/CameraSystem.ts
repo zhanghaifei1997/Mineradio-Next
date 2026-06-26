@@ -31,6 +31,8 @@ export class CameraSystem {
 
   private domElement: HTMLElement
   private isPointerLocked = false
+  private freeCameraDragging = false
+  private freeCameraLastMouse = { x: 0, y: 0 }
   private freeCameraResetTween: {
     start: number
     duration: number
@@ -144,14 +146,29 @@ export class CameraSystem {
     window.addEventListener('mouseup', this.onMouseUp.bind(this))
     el.addEventListener('wheel', this.onWheel.bind(this), { passive: false })
     el.addEventListener('dblclick', this.onDoubleClick.bind(this))
+    el.addEventListener('contextmenu', this.onContextMenu.bind(this))
 
     document.addEventListener('pointerlockchange', this.onPointerLockChange.bind(this))
     window.addEventListener('keydown', this.onKeyDown.bind(this))
     window.addEventListener('keyup', this.onKeyUp.bind(this))
   }
 
+  private onContextMenu(e: MouseEvent): void {
+    if (this.freeCamera.active) {
+      e.preventDefault()
+    }
+  }
+
   private onMouseDown(e: MouseEvent): void {
-    if (this.freeCamera.active) return
+    if (this.freeCamera.active) {
+      if (e.button === 2) {
+        this.freeCameraDragging = true
+        this.freeCameraLastMouse.x = e.clientX
+        this.freeCameraLastMouse.y = e.clientY
+        e.preventDefault()
+      }
+      return
+    }
     if (e.button !== 0) return
     this.orbit.rotating = true
     this.orbit.last.x = e.clientX
@@ -160,13 +177,27 @@ export class CameraSystem {
   }
 
   private onMouseMove(e: MouseEvent): void {
-    if (this.freeCamera.active && this.isPointerLocked) {
-      const sensitivity = 0.002
-      this.freeCamera.yaw -= e.movementX * sensitivity
-      this.freeCamera.pitch -= e.movementY * sensitivity
-      this.freeCamera.pitch = clampRange(this.freeCamera.pitch, -Math.PI * 0.49, Math.PI * 0.49)
-      this.scheduleFreeCameraStateSave(720)
-      return
+    if (this.freeCamera.active) {
+      if (this.isPointerLocked) {
+        const sensitivity = 0.002
+        this.freeCamera.yaw -= e.movementX * sensitivity
+        this.freeCamera.pitch -= e.movementY * sensitivity
+        this.freeCamera.pitch = clampRange(this.freeCamera.pitch, -Math.PI * 0.49, Math.PI * 0.49)
+        this.scheduleFreeCameraStateSave(720)
+        return
+      }
+      if (this.freeCameraDragging) {
+        const sensitivity = 0.003
+        const dx = e.clientX - this.freeCameraLastMouse.x
+        const dy = e.clientY - this.freeCameraLastMouse.y
+        this.freeCameraLastMouse.x = e.clientX
+        this.freeCameraLastMouse.y = e.clientY
+        this.freeCamera.yaw -= dx * sensitivity
+        this.freeCamera.pitch -= dy * sensitivity
+        this.freeCamera.pitch = clampRange(this.freeCamera.pitch, -Math.PI * 0.49, Math.PI * 0.49)
+        this.scheduleFreeCameraStateSave(720)
+        return
+      }
     }
 
     if (!this.orbit.rotating) return
@@ -180,7 +211,11 @@ export class CameraSystem {
     this.orbit.userPhi = clampRange(this.orbit.userPhi, this.orbit.minPhi, this.orbit.maxPhi)
   }
 
-  private onMouseUp(): void {
+  private onMouseUp(e: MouseEvent): void {
+    if (this.freeCamera.active && e.button === 2) {
+      this.freeCameraDragging = false
+      return
+    }
     this.orbit.rotating = false
   }
 
@@ -205,7 +240,8 @@ export class CameraSystem {
     if (!this.freeCamera.active) return
     this.freeCamera.keys[e.code] = true
 
-    if (e.code === 'KeyK') {
+    if (e.code === 'Space') {
+      e.preventDefault()
       this.resetFreeCameraToDefault()
     }
   }
@@ -228,6 +264,7 @@ export class CameraSystem {
       this.freeCamera.active = false
       this.freeCamera.locked = true
       this.freeCamera.keys = {}
+      this.freeCameraDragging = false
       if (this.freeCamera.velocity) this.freeCamera.velocity.set(0, 0, 0)
       try { if (document.pointerLockElement === this.domElement) document.exitPointerLock() } catch (e) { /* ignore */ }
       this.saveFreeCameraState()
@@ -239,16 +276,14 @@ export class CameraSystem {
     this.freeCamera.locked = true
     this.freeCameraResetTween = null
     this.freeCamera.keys = {}
+    this.freeCameraDragging = false
     if (!this.freeCamera.velocity) this.freeCamera.velocity = new THREE.Vector3()
 
-    try {
-      const lockResult = this.domElement.requestPointerLock?.()
-      if (lockResult && (lockResult as Promise<void>).catch) {
-        (lockResult as Promise<void>).catch(() => { /* ignore */ })
-      }
-    } catch (e) { /* ignore */ }
-
     this.saveFreeCameraState()
+  }
+
+  isFreeCameraActive(): boolean {
+    return this.freeCamera.active
   }
 
   private captureFreeCameraFromCurrent(): void {
@@ -606,6 +641,7 @@ export class CameraSystem {
     window.removeEventListener('mouseup', this.onMouseUp.bind(this))
     el.removeEventListener('wheel', this.onWheel.bind(this))
     el.removeEventListener('dblclick', this.onDoubleClick.bind(this))
+    el.removeEventListener('contextmenu', this.onContextMenu.bind(this))
     document.removeEventListener('pointerlockchange', this.onPointerLockChange.bind(this))
     window.removeEventListener('keydown', this.onKeyDown.bind(this))
     window.removeEventListener('keyup', this.onKeyUp.bind(this))

@@ -275,6 +275,7 @@ export interface FxSettings {
   userCapsuleAutoHide: boolean
   fxFabAutoHide: boolean
   queuePinned: boolean
+  freeCameraEnabled: boolean
 }
 
 export interface BeatAnalysisResult {

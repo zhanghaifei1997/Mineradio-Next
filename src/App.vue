@@ -5,6 +5,7 @@ import PlayerBar from '@/components/player/PlayerBar.vue'
 import StageLyrics from '@/components/lyrics/StageLyrics.vue'
 import VisualConsole from '@/components/visual/VisualConsole.vue'
 import UserCapsule from '@/components/user/UserCapsule.vue'
+import UpdateEntryButton from '@/components/settings/UpdateEntryButton.vue'
 import DjModeIndicator from '@/components/dj/DjModeIndicator.vue'
 import MiniPlayer from '@/components/player/MiniPlayer.vue'
 import FMModeIndicator from '@/components/fm/FMModeIndicator.vue'
@@ -13,6 +14,11 @@ import IdleGuide from '@/components/guide/IdleGuide.vue'
 import SourceFallbackNotice from '@/components/player/SourceFallbackNotice.vue'
 import BannerNotice from '@/components/common/BannerNotice.vue'
 import SplashScreen from '@/components/common/SplashScreen.vue'
+import DesktopTitlebar from '@/components/common/DesktopTitlebar.vue'
+import HintToast from '@/components/common/HintToast.vue'
+import CentralHint from '@/components/common/CentralHint.vue'
+import CustomBgVideo from '@/components/visual/CustomBgVideo.vue'
+import VisualGuide from '@/components/guide/VisualGuide.vue'
 
 const SearchPanel = defineAsyncComponent(() => import('@/components/search/SearchPanel.vue'))
 const PlaylistShelf = defineAsyncComponent(() => import('@/components/playlist/PlaylistShelf.vue'))
@@ -37,6 +43,8 @@ import { useFMStore } from '@/stores/fm'
 import { useThemeStore } from '@/stores/theme'
 import { useNotificationStore } from '@/stores/notification'
 import { useImmersiveStore } from '@/stores/immersive'
+import { useHintStore } from '@/stores/hint'
+import { useCustomBgStore } from '@/stores/customBg'
 import { useDragDrop } from '@/composables/useDragDrop'
 import { useTaskbar } from '@/composables/useTaskbar'
 import { providerManager } from '@/modules/providers'
@@ -52,6 +60,8 @@ const fm = useFMStore()
 const theme = useThemeStore()
 const notification = useNotificationStore()
 const immersive = useImmersiveStore()
+const hint = useHintStore()
+const customBg = useCustomBgStore()
 const { isDragging } = useDragDrop()
 useTaskbar()
 
@@ -72,6 +82,9 @@ const showArtistDetail = ref(false)
 const showAlbumDetail = ref(false)
 const showSongComments = ref(false)
 const showSongDetail = ref(false)
+const showFreeCameraHint = ref(false)
+const showVisualGuide = ref(false)
+const visualGuideRef = ref<InstanceType<typeof VisualGuide> | null>(null)
 
 const currentArtistId = ref<string | null>(null)
 const currentArtistSource = ref('netease')
@@ -389,6 +402,13 @@ function closeLogin() {
   showLogin.value = false
 }
 
+function openVisualGuide() {
+  showVisualGuide.value = true
+  if (visualGuideRef.value) {
+    visualGuideRef.value.restart()
+  }
+}
+
 async function loadLyricsForSong(songId: string, source: string) {
   try {
     const provider = providerManager.get(source) || providerManager.default
@@ -471,6 +491,8 @@ watch(
       history.addToHistory(song)
       user.addToRecentPlayed(song)
       notification.notifyTrackChange(song)
+      const artistName = song.artists?.map((a: any) => a.name).join(' / ')
+      hint.showSongHint(song.name, artistName)
     } else {
       lyrics.clear()
     }
@@ -517,6 +539,15 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => fx.freeCameraEnabled,
+  (enabled) => {
+    if (enabled) {
+      showFreeCameraHint.value = true
+    }
+  }
+)
+
 function updateLayoutModeClass(mode: string) {
   if (typeof document === 'undefined' || !document.body) return
   document.body.classList.toggle('simple-mode', mode === 'simple')
@@ -545,6 +576,14 @@ onUnmounted(() => {
 
 <template>
   <div class="app-container" :class="{ 'fx-eco': fx.settings.performanceQuality === 'eco', 'mini-mode': isMiniMode, 'drag-over': isDragging }">
+    <CustomBgVideo v-if="!isMiniMode" />
+    <CentralHint v-if="!isMiniMode" />
+
+    <DesktopTitlebar 
+      @open-settings="showSettings = true" 
+      @toggle-guide="openVisualGuide"
+    />
+
     <Transition name="splash-fade">
       <SplashScreen 
         v-if="showSplash" 
@@ -621,8 +660,8 @@ onUnmounted(() => {
       <div class="app-content">
         <div class="top-toolbar">
           <div class="top-toolbar__left">
-            <button class="icon-btn" @click="toggleHome" :title="showHome ? '隐藏首页' : '显示首页'">
-              {{ showHome ? '🏠' : '🎵' }}
+            <button class="icon-btn home-btn" :class="{ active: showHome }" @click="toggleHome" :title="showHome ? '隐藏首页' : '显示首页'">
+              🏠
             </button>
             <DjModeIndicator />
             <FMModeIndicator @toggle="toggleFMMode" />
@@ -655,6 +694,10 @@ onUnmounted(() => {
             <button class="icon-btn" @click="toggleSettings" title="设置">
               ⚙️
             </button>
+            <button class="icon-btn help-btn" @click="openVisualGuide" title="使用引导">
+              ❓
+            </button>
+            <UpdateEntryButton @click="showSettings = true" />
             <UserCapsule @open-login="openLogin" @open-recent="toggleRecentPanel" />
           </div>
         </div>
@@ -765,11 +808,29 @@ onUnmounted(() => {
       <ImmersivePlayer />
       <ContextMenu @open-settings="toggleSettings" @open-about="toggleSettings" />
       <IdleGuide />
+
+      <HintToast
+        v-if="!isMiniMode"
+        :visible="showFreeCameraHint"
+        title="自由相机模式"
+        message="右键拖拽：旋转视角 · 滚轮：缩放 · WASD：移动 · 空格：重置视角 · F：退出"
+        icon="🎥"
+        position="bottom-left"
+        :duration="6000"
+        @close="showFreeCameraHint = false"
+      />
     </template>
 
     <template v-else>
       <MiniPlayer @close="toggleMiniMode" @expand="toggleMiniMode" />
     </template>
+
+    <VisualGuide
+      ref="visualGuideRef"
+      :visible="showVisualGuide"
+      @close="showVisualGuide = false"
+      @complete="showVisualGuide = false"
+    />
   </div>
 </template>
 
@@ -848,6 +909,12 @@ onUnmounted(() => {
   background: var(--color-hover);
   color: var(--color-text);
   transform: scale(1.05);
+}
+
+.icon-btn.home-btn.active {
+  background: linear-gradient(135deg, rgba(217, 91, 103, 0.3), rgba(244, 210, 138, 0.3));
+  border-color: rgba(217, 91, 103, 0.4);
+  box-shadow: 0 0 16px rgba(217, 91, 103, 0.2);
 }
 
 .side-panels {

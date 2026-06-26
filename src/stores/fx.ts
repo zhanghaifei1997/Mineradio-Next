@@ -62,6 +62,7 @@ const defaultSettings: FxSettings = {
   userCapsuleAutoHide: false,
   fxFabAutoHide: false,
   queuePinned: false,
+  freeCameraEnabled: false,
 }
 
 export const useFxStore = defineStore('fx', () => {
@@ -244,6 +245,14 @@ export const useFxStore = defineStore('fx', () => {
     },
   })
 
+  const freeCameraEnabled = computed({
+    get: () => settings.value.freeCameraEnabled,
+    set: (v: boolean) => {
+      settings.value.freeCameraEnabled = v
+      save()
+    },
+  })
+
   const homeWallpaperEnabled = computed({
     get: () => settings.value.homeWallpaperEnabled ?? true,
     set: (v: boolean) => {
@@ -304,6 +313,11 @@ export const useFxStore = defineStore('fx', () => {
 
   function toggleLayoutMode(): void {
     settings.value.layoutMode = settings.value.layoutMode === 'diy' ? 'simple' : 'diy'
+    save()
+  }
+
+  function toggleFreeCamera(): void {
+    settings.value.freeCameraEnabled = !settings.value.freeCameraEnabled
     save()
   }
 
@@ -369,6 +383,7 @@ export const useFxStore = defineStore('fx', () => {
     userCapsuleAutoHide,
     fxFabAutoHide,
     queuePinned,
+    freeCameraEnabled,
     homeWallpaperEnabled,
     homeWallpaperPreset,
     particleGridSize,
@@ -380,6 +395,7 @@ export const useFxStore = defineStore('fx', () => {
     setPerformanceBackgroundMode,
     toggleLiveBackgroundKeep,
     toggleLayoutMode,
+    toggleFreeCamera,
   }
 })
 

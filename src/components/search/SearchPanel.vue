@@ -3,11 +3,13 @@ import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { providerManager } from '@/modules/providers'
 import { usePlayerStore } from '@/stores/player'
 import { playQueueStore } from '@/stores/playQueue'
+import { useFxStore } from '@/stores/fx'
 import type { Song, SearchSuggestItem, HotSearchItem } from '@/types'
 import { formatDuration } from '@/utils'
 
 const player = usePlayerStore()
 const queue = playQueueStore()
+const fx = useFxStore()
 
 const keyword = ref('')
 const results = ref<Song[]>([])
@@ -20,6 +22,7 @@ const hotSearchList = ref<HotSearchItem[]>([])
 const suggestItems = ref<SearchSuggestItem[]>([])
 const selectedIndex = ref(-1)
 const activeSuggestTab = ref<'all' | 'song' | 'artist' | 'album' | 'playlist'>('all')
+const searchMode = ref<'all' | 'netease' | 'qq' | 'podcast'>('all')
 
 const HISTORY_KEY = 'mineradio-search-history'
 let suggestTimer: ReturnType<typeof setTimeout> | null = null
@@ -134,9 +137,23 @@ async function doSearch() {
   showDropdown.value = false
   saveHistory(keyword.value)
   try {
-    const provider = providerManager.get(activeProvider.value) || providerManager.default
-    const res = await provider.search(keyword.value)
-    results.value = res.songs
+    if (searchMode.value === 'all') {
+      const allResults = await providerManager.searchAll(keyword.value)
+      const combined: Song[] = []
+      for (const [, res] of allResults) {
+        combined.push(...res.songs)
+      }
+      results.value = combined
+    } else if (searchMode.value === 'podcast') {
+      const provider = providerManager.get('netease') || providerManager.default
+      const res = await provider.search(keyword.value, { type: 'song' })
+      results.value = res.songs.filter((s: Song) => s.isPodcast)
+    } else {
+      const providerId = searchMode.value === 'netease' ? 'netease' : 'qqmusic'
+      const provider = providerManager.get(providerId) || providerManager.default
+      const res = await provider.search(keyword.value)
+      results.value = res.songs
+    }
   } catch (e) {
     console.error('Search error:', e)
     results.value = []
@@ -144,6 +161,13 @@ async function doSearch() {
     loading.value = false
   }
 }
+
+const searchModeTabs = [
+  { key: 'all', label: 'All' },
+  { key: 'netease', label: 'NE' },
+  { key: 'qq', label: 'QQ' },
+  { key: 'podcast', label: 'Podcast' },
+] as const
 
 function playSong(song: Song, index: number) {
   queue.setQueue(results.value, index)
@@ -256,6 +280,18 @@ onMounted(() => {
       />
       <button class="search-btn" @click="doSearch" :disabled="loading">
         {{ loading ? '...' : '🔍' }}
+      </button>
+    </div>
+
+    <div v-if="fx.layoutMode === 'diy'" class="search-mode-tabs">
+      <button
+        v-for="tab in searchModeTabs"
+        :key="tab.key"
+        class="search-mode-tab"
+        :class="{ active: searchMode === tab.key }"
+        @click="searchMode = tab.key; if (keyword) doSearch()"
+      >
+        {{ tab.label }}
       </button>
     </div>
 
@@ -448,6 +484,41 @@ onMounted(() => {
   padding: 12px 16px;
   gap: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.search-mode-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.search-mode-tab {
+  padding: 4px 12px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  cursor: pointer;
+  border-radius: 20px;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.search-mode-tab:hover {
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.search-mode-tab.active {
+  background: linear-gradient(135deg, rgba(217, 91, 103, 0.3), rgba(244, 210, 138, 0.3));
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(217, 91, 103, 0.2);
 }
 
 .search-input {
