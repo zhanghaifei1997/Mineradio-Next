@@ -90,6 +90,34 @@ class TestProvider extends MusicProvider {
   async getLikedSongs(): Promise<Song[]> {
     return []
   }
+
+  async getTopList(): Promise<any[]> {
+    return []
+  }
+
+  async getTopListDetail(_id: string): Promise<any | null> {
+    return null
+  }
+
+  async getSearchSuggest(_keyword: string): Promise<any> {
+    return { songs: [], artists: [], albums: [], playlists: [] }
+  }
+
+  async getHotSearch(): Promise<any[]> {
+    return []
+  }
+
+  async getPersonalFM(): Promise<Song[]> {
+    return []
+  }
+
+  async likeFMSong(_id: string, _like: boolean): Promise<boolean> {
+    return false
+  }
+
+  async getDailyRecommend(): Promise<Song[]> {
+    return []
+  }
 }
 
 describe('MusicProvider 基类', () => {

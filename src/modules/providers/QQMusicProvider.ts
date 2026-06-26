@@ -9,6 +9,17 @@ import type {
   Artist,
   Album,
   LyricLine,
+  TopListItem,
+  TopListDetail,
+  SearchSuggestResult,
+  HotSearchResult,
+  FMSong,
+  DailyRecommend,
+  ArtistDetail,
+  AlbumDetail,
+  CommentList,
+  MV,
+  SongDetail,
 } from '@/types'
 
 const API_BASE = '/api/qq'
@@ -128,15 +139,55 @@ export class QQMusicProvider extends MusicProvider {
     return []
   }
 
-  async getArtistDetail(_id: string): Promise<Artist | null> {
+  async getArtistDetail(_id: string): Promise<ArtistDetail | null> {
     return null
   }
 
-  async getArtistSongs(_id: string): Promise<Song[]> {
+  async getArtistSongs(_id: string, _page: number = 1, _limit: number = 50): Promise<{ songs: Song[]; total: number; more: boolean }> {
+    return { songs: [], total: 0, more: false }
+  }
+
+  async getArtistAlbums(_id: string, _page: number = 1, _limit: number = 30): Promise<{ albums: Album[]; total: number; more: boolean }> {
+    return { albums: [], total: 0, more: false }
+  }
+
+  async getArtistMVs(_id: string, _page: number = 1, _limit: number = 30): Promise<{ mvs: MV[]; total: number; more: boolean }> {
+    return { mvs: [], total: 0, more: false }
+  }
+
+  async getSimilarArtists(_id: string): Promise<Artist[]> {
     return []
   }
 
-  async getAlbum(_id: string): Promise<Album | null> {
+  async followArtist(_id: string, _follow: boolean): Promise<boolean> {
+    return false
+  }
+
+  async getAlbum(_id: string): Promise<AlbumDetail | null> {
+    return null
+  }
+
+  async getAlbumSongs(_id: string): Promise<Song[]> {
+    return []
+  }
+
+  async subscribeAlbum(_id: string, _subscribe: boolean): Promise<boolean> {
+    return false
+  }
+
+  async getSongComments(_id: string, _page?: number, _limit?: number, _type?: 'hot' | 'new'): Promise<CommentList | null> {
+    return null
+  }
+
+  async likeComment(_id: string, _cid: string, _like: boolean): Promise<boolean> {
+    return false
+  }
+
+  async sendComment(_id: string, _content: string): Promise<boolean> {
+    return false
+  }
+
+  async getSongFullDetail(_id: string): Promise<SongDetail | null> {
     return null
   }
 
@@ -150,6 +201,62 @@ export class QQMusicProvider extends MusicProvider {
 
   async getLikedSongs(): Promise<Song[]> {
     return []
+  }
+
+  async getTopList(): Promise<TopListItem[]> {
+    return []
+  }
+
+  async getTopListDetail(_id: string): Promise<TopListDetail | null> {
+    return null
+  }
+
+  async getSearchSuggest(_keyword: string): Promise<SearchSuggestResult> {
+    return { songs: [], artists: [], albums: [], playlists: [] }
+  }
+
+  async getHotSearch(): Promise<HotSearchResult> {
+    return { hots: [], time: Date.now() }
+  }
+
+  async getPersonalFM(): Promise<FMSong[]> {
+    return []
+  }
+
+  async likeFMSong(_id: string, _like: boolean): Promise<boolean> {
+    return false
+  }
+
+  async getDailyRecommend(): Promise<DailyRecommend | null> {
+    return null
+  }
+
+  async createPlaylist(_name: string, _privacy?: 'public' | 'private'): Promise<Playlist | null> {
+    return null
+  }
+
+  async updatePlaylist(_id: string, _data: { name?: string; description?: string; coverUrl?: string; privacy?: 'public' | 'private' }): Promise<boolean> {
+    return false
+  }
+
+  async deletePlaylist(_id: string): Promise<boolean> {
+    return false
+  }
+
+  async subscribePlaylist(_id: string): Promise<boolean> {
+    return false
+  }
+
+  async unsubscribePlaylist(_id: string): Promise<boolean> {
+    return false
+  }
+
+  async addToPlaylist(_playlistId: string, _songIds: string[]): Promise<boolean> {
+    return false
+  }
+
+  async removeFromPlaylist(_playlistId: string, _songIds: string[]): Promise<boolean> {
+    return false
   }
 
   private mapSong(raw: any): Song {

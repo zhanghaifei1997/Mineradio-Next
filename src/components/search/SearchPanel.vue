@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { providerManager } from '@/modules/providers'
 import { usePlayerStore } from '@/stores/player'
 import { playQueueStore } from '@/stores/playQueue'
-import type { Song } from '@/types'
+import type { Song, SearchSuggestItem, HotSearchItem } from '@/types'
 import { formatDuration } from '@/utils'
 
 const player = usePlayerStore()
@@ -12,11 +12,17 @@ const queue = playQueueStore()
 const keyword = ref('')
 const results = ref<Song[]>([])
 const loading = ref(false)
+const suggestLoading = ref(false)
 const activeProvider = ref('netease')
 const searchHistory = ref<string[]>([])
-const showHistory = ref(false)
+const showDropdown = ref(false)
+const hotSearchList = ref<HotSearchItem[]>([])
+const suggestItems = ref<SearchSuggestItem[]>([])
+const selectedIndex = ref(-1)
+const activeSuggestTab = ref<'all' | 'song' | 'artist' | 'album' | 'playlist'>('all')
 
 const HISTORY_KEY = 'mineradio-search-history'
+let suggestTimer: ReturnType<typeof setTimeout> | null = null
 
 function loadHistory() {
   try {
@@ -30,7 +36,7 @@ function loadHistory() {
 function saveHistory(kw: string) {
   const trimmed = kw.trim()
   if (!trimmed) return
-  
+
   const exists = searchHistory.value.indexOf(trimmed)
   if (exists >= 0) {
     searchHistory.value.splice(exists, 1)
@@ -51,10 +57,72 @@ function clearHistory() {
   } catch (_) {}
 }
 
+function removeHistoryItem(index: number) {
+  searchHistory.value.splice(index, 1)
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(searchHistory.value))
+  } catch (_) {}
+}
+
 function useHistoryItem(kw: string) {
   keyword.value = kw
-  showHistory.value = false
+  showDropdown.value = false
   doSearch()
+}
+
+async function loadHotSearch() {
+  try {
+    const provider = providerManager.get(activeProvider.value) || providerManager.default
+    const result = await provider.getHotSearch()
+    hotSearchList.value = result.hots.slice(0, 10)
+  } catch (e) {
+    console.error('Load hot search error:', e)
+    hotSearchList.value = []
+  }
+}
+
+async function fetchSuggestions(kw: string) {
+  if (!kw.trim()) {
+    suggestItems.value = []
+    return
+  }
+  suggestLoading.value = true
+  try {
+    const provider = providerManager.get(activeProvider.value) || providerManager.default
+    const result = await provider.getSearchSuggest(kw)
+    const allItems: SearchSuggestItem[] = [
+      ...result.songs,
+      ...result.artists,
+      ...result.albums,
+      ...result.playlists,
+    ]
+    suggestItems.value = allItems.slice(0, 15)
+  } catch (e) {
+    console.error('Search suggest error:', e)
+    suggestItems.value = []
+  } finally {
+    suggestLoading.value = false
+  }
+}
+
+function debounceSuggest(kw: string) {
+  if (suggestTimer) {
+    clearTimeout(suggestTimer)
+  }
+  suggestTimer = setTimeout(() => {
+    fetchSuggestions(kw)
+  }, 300)
+}
+
+function onInputChange() {
+  selectedIndex.value = -1
+  if (keyword.value.trim()) {
+    debounceSuggest(keyword.value)
+    showDropdown.value = true
+  } else {
+    suggestItems.value = []
+    showDropdown.value = true
+  }
 }
 
 async function doSearch() {
@@ -63,7 +131,7 @@ async function doSearch() {
     return
   }
   loading.value = true
-  showHistory.value = false
+  showDropdown.value = false
   saveHistory(keyword.value)
   try {
     const provider = providerManager.get(activeProvider.value) || providerManager.default
@@ -87,18 +155,85 @@ function addToQueue(song: Song) {
 }
 
 function onInputFocus() {
-  if (searchHistory.value.length > 0 && !keyword.value) {
-    showHistory.value = true
+  showDropdown.value = true
+  if (hotSearchList.value.length === 0) {
+    loadHotSearch()
   }
 }
 
 function onInputBlur() {
   setTimeout(() => {
-    showHistory.value = false
+    showDropdown.value = false
+    selectedIndex.value = -1
   }, 200)
 }
 
+function handleHotSearchClick(item: HotSearchItem) {
+  keyword.value = item.keyword
+  showDropdown.value = false
+  doSearch()
+}
+
+function handleSuggestClick(item: SearchSuggestItem) {
+  keyword.value = item.keyword
+  showDropdown.value = false
+  doSearch()
+}
+
+function getSuggestTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    song: '歌曲',
+    artist: '歌手',
+    album: '专辑',
+    playlist: '歌单',
+  }
+  return labels[type] || ''
+}
+
+const filteredSuggestions = computed(() => {
+  if (activeSuggestTab.value === 'all') {
+    return suggestItems.value
+  }
+  return suggestItems.value.filter((item) => item.type === activeSuggestTab.value)
+})
+
+function handleKeydown(e: KeyboardEvent) {
+  if (!showDropdown.value) return
+
+  const items = filteredSuggestions.value
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    if (selectedIndex.value < items.length - 1) {
+      selectedIndex.value++
+    }
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    if (selectedIndex.value > 0) {
+      selectedIndex.value--
+    }
+  } else if (e.key === 'Enter') {
+    e.preventDefault()
+    if (selectedIndex.value >= 0 && selectedIndex.value < items.length) {
+      handleSuggestClick(items[selectedIndex.value])
+    } else {
+      doSearch()
+    }
+  } else if (e.key === 'Escape') {
+    showDropdown.value = false
+  }
+}
+
 const providers = providerManager.getAll()
+
+watch(activeProvider, () => {
+  hotSearchList.value = []
+  if (showDropdown.value) {
+    loadHotSearch()
+  }
+  if (keyword.value) {
+    doSearch()
+  }
+})
 
 onMounted(() => {
   loadHistory()
@@ -113,7 +248,9 @@ onMounted(() => {
         type="text"
         class="search-input"
         placeholder="搜索歌曲、歌手、专辑..."
+        @input="onInputChange"
         @keyup.enter="doSearch"
+        @keydown="handleKeydown"
         @focus="onInputFocus"
         @blur="onInputBlur"
       />
@@ -122,23 +259,114 @@ onMounted(() => {
       </button>
     </div>
 
-    <div class="search-history" v-if="showHistory && searchHistory.length > 0">
-      <div class="history-header">
-        <span class="history-title">搜索历史</span>
-        <button class="history-clear" @click="clearHistory">清空</button>
-      </div>
-      <div class="history-list">
-        <div
-          v-for="(item, idx) in searchHistory"
-          :key="idx"
-          class="history-item"
-          @mousedown="useHistoryItem(item)"
-        >
-          <span class="history-icon">🕐</span>
-          <span class="history-text">{{ item }}</span>
+    <Transition name="dropdown">
+      <div v-if="showDropdown && !loading" class="search-dropdown">
+        <template v-if="!keyword && hotSearchList.length > 0">
+          <div class="dropdown-section">
+            <div class="section-header">
+              <span class="section-title">🔥 热搜榜</span>
+            </div>
+            <div class="hot-search-list">
+              <div
+                v-for="(item, index) in hotSearchList"
+                :key="index"
+                class="hot-search-item"
+                @mousedown="handleHotSearchClick(item)"
+              >
+                <span class="hot-rank" :class="{ 'rank-top': index < 3 }">
+                  {{ item.rank }}
+                </span>
+                <span class="hot-keyword">{{ item.keyword }}</span>
+                <span v-if="item.hotValue" class="hot-value">
+                  {{ Math.floor(item.hotValue / 10000) }}万
+                </span>
+                <span v-if="item.isHot" class="hot-tag hot">热</span>
+                <span v-if="item.isNew" class="hot-tag new">新</span>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <template v-if="!keyword && searchHistory.length > 0">
+          <div class="dropdown-divider" v-if="hotSearchList.length > 0"></div>
+          <div class="dropdown-section">
+            <div class="section-header">
+              <span class="section-title">🕐 搜索历史</span>
+              <button class="section-action" @mousedown.stop="clearHistory">
+                清空
+              </button>
+            </div>
+            <div class="history-list">
+              <div
+                v-for="(item, index) in searchHistory.slice(0, 8)"
+                :key="index"
+                class="history-item"
+                @mousedown="useHistoryItem(item)"
+              >
+                <span class="history-text">{{ item }}</span>
+                <button
+                  class="history-delete"
+                  @mousedown.stop="removeHistoryItem(index)"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <template v-if="keyword && suggestItems.length > 0">
+          <div class="dropdown-section">
+            <div class="section-header">
+              <span class="section-title">💡 搜索建议</span>
+              <div class="suggest-tabs">
+                <button
+                  v-for="tab in (['all', 'song', 'artist', 'album', 'playlist'] as const)"
+                  :key="tab"
+                  class="suggest-tab"
+                  :class="{ active: activeSuggestTab === tab }"
+                  @mousedown.stop="activeSuggestTab = tab; selectedIndex = -1"
+                >
+                  {{ tab === 'all' ? '全部' : getSuggestTypeLabel(tab) }}
+                </button>
+              </div>
+            </div>
+            <div class="suggest-list" v-if="filteredSuggestions.length > 0">
+              <div
+                v-for="(item, index) in filteredSuggestions"
+                :key="index"
+                class="suggest-item"
+                :class="{ selected: selectedIndex === index }"
+                @mousedown="handleSuggestClick(item)"
+                @mouseenter="selectedIndex = index"
+              >
+                <div class="suggest-icon">
+                  <template v-if="item.type === 'song'">🎵</template>
+                  <template v-else-if="item.type === 'artist'">👤</template>
+                  <template v-else-if="item.type === 'album'">💿</template>
+                  <template v-else-if="item.type === 'playlist'">📋</template>
+                </div>
+                <div class="suggest-info">
+                  <div class="suggest-name">{{ item.name || item.keyword }}</div>
+                  <div v-if="item.artist" class="suggest-artist">
+                    {{ item.artist }}
+                  </div>
+                </div>
+                <span class="suggest-type">{{ getSuggestTypeLabel(item.type) }}</span>
+              </div>
+            </div>
+            <div v-else class="empty-suggest">
+              没有找到相关建议
+            </div>
+          </div>
+        </template>
+
+        <div v-if="suggestLoading" class="suggest-loading">
+          <div class="loading-spinner"></div>
+          <span>加载中...</span>
         </div>
       </div>
-    </div>
+    </Transition>
 
     <div class="provider-tabs" v-if="results.length > 0 || loading">
       <button
@@ -262,11 +490,17 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-.search-history {
+.search-dropdown {
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  max-height: 400px;
+  overflow-y: auto;
 }
 
-.history-header {
+.dropdown-section {
+  padding: 8px 0;
+}
+
+.section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -275,11 +509,11 @@ onMounted(() => {
   color: rgba(255, 255, 255, 0.4);
 }
 
-.history-title {
+.section-title {
   font-weight: 500;
 }
 
-.history-clear {
+.section-action {
   background: none;
   border: none;
   color: rgba(255, 255, 255, 0.4);
@@ -290,20 +524,89 @@ onMounted(() => {
   transition: all 0.2s;
 }
 
-.history-clear:hover {
+.section-action:hover {
   color: rgba(255, 255, 255, 0.7);
   background: rgba(255, 255, 255, 0.05);
 }
 
+.dropdown-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.05);
+  margin: 0 16px;
+}
+
+.hot-search-list {
+  padding: 0 8px 8px;
+}
+
+.hot-search-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.hot-search-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.hot-rank {
+  width: 20px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+.rank-top {
+  color: #d95b67;
+}
+
+.hot-keyword {
+  flex: 1;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hot-value {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+.hot-tag {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.hot-tag.hot {
+  background: rgba(255, 77, 79, 0.2);
+  color: #ff4d4f;
+}
+
+.hot-tag.new {
+  background: rgba(24, 144, 255, 0.2);
+  color: #1890ff;
+}
+
 .history-list {
-  max-height: 200px;
-  overflow-y: auto;
-  padding: 4px 8px 8px;
+  padding: 0 8px 8px;
 }
 
 .history-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   padding: 8px 12px;
   border-radius: 8px;
@@ -315,14 +618,157 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.06);
 }
 
-.history-icon {
-  font-size: 14px;
-  opacity: 0.5;
-}
-
 .history-text {
+  flex: 1;
   font-size: 13px;
   color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-delete {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  opacity: 0;
+}
+
+.history-item:hover .history-delete {
+  opacity: 1;
+}
+
+.history-delete:hover {
+  background: rgba(255, 77, 79, 0.2);
+  color: #ff4d4f;
+}
+
+.suggest-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.suggest-tab {
+  padding: 2px 8px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.suggest-tab:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.suggest-tab.active {
+  color: #d95b67;
+  background: rgba(217, 91, 103, 0.1);
+}
+
+.suggest-list {
+  padding: 0 8px 8px;
+}
+
+.suggest-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.suggest-item:hover,
+.suggest-item.selected {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.suggest-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.suggest-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.suggest-name {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.suggest-artist {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.suggest-type {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.empty-suggest {
+  padding: 20px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 13px;
+}
+
+.suggest-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+}
+
+.loading-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #d95b67;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .provider-tabs {
@@ -488,5 +934,17 @@ onMounted(() => {
   text-align: center;
   color: rgba(255, 255, 255, 0.3);
   font-size: 13px;
+}
+
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: opacity 0.2s ease, max-height 0.25s ease;
+  overflow: hidden;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  max-height: 0;
 }
 </style>

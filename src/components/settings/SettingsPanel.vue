@@ -5,7 +5,10 @@ import { useLyricsStore } from '@/stores/lyrics'
 import { usePerformanceStore } from '@/stores/performance'
 import { usePlayerStore } from '@/stores/player'
 import { useHotkeysStore } from '@/stores/hotkeys'
-import type { VisualPreset, PerformanceQuality, PerformanceBackgroundMode } from '@/types'
+import { useThemeStore } from '@/stores/theme'
+import { useI18nStore } from '@/stores/i18n'
+import { useNotificationStore } from '@/stores/notification'
+import type { VisualPreset, PerformanceQuality, PerformanceBackgroundMode, QualityLevel, ThemeMode, Language, PresetCategory, PresetInfo } from '@/types'
 import type {
   DesktopLyricsPosition,
   DesktopLyricsLineMode,
@@ -14,6 +17,8 @@ import type {
 } from '@/modules/lyrics'
 import EqualizerPanel from '@/components/player/EqualizerPanel.vue'
 import HotkeySettings from '@/components/settings/HotkeySettings.vue'
+import CacheManager from '@/components/settings/CacheManager.vue'
+import DownloadPanel from '@/components/settings/DownloadPanel.vue'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -24,8 +29,11 @@ const lyrics = useLyricsStore()
 const performance = usePerformanceStore()
 const player = usePlayerStore()
 const hotkeys = useHotkeysStore()
+const theme = useThemeStore()
+const i18n = useI18nStore()
+const notification = useNotificationStore()
 
-type SettingsTab = 'general' | 'playback' | 'lyrics' | 'visual' | 'equalizer' | 'hotkeys' | 'about'
+type SettingsTab = 'general' | 'playback' | 'cache' | 'download' | 'lyrics' | 'visual' | 'equalizer' | 'hotkeys' | 'about'
 
 const activeTab = ref<SettingsTab>('visual')
 
@@ -57,6 +65,8 @@ const desktopLyricsSettings = ref<DesktopLyricsSettings>({
 const tabs = [
   { id: 'general', name: '通用', icon: '⚙️' },
   { id: 'playback', name: '播放', icon: '🎵' },
+  { id: 'cache', name: '缓存', icon: '💾' },
+  { id: 'download', name: '下载', icon: '📥' },
   { id: 'lyrics', name: '歌词', icon: '🎤' },
   { id: 'visual', name: '视觉', icon: '🎨' },
   { id: 'equalizer', name: '均衡器', icon: '🎚️' },
@@ -64,15 +74,35 @@ const tabs = [
   { id: 'about', name: '关于', icon: 'ℹ️' },
 ]
 
-const presets: { id: VisualPreset; name: string; icon: string }[] = [
-  { id: 'emily', name: 'Emily', icon: '🌸' },
-  { id: 'skull', name: 'Skull', icon: '💀' },
-  { id: 'galaxy', name: '星河', icon: '🌌' },
-  { id: 'vinyl', name: '黑胶', icon: '💿' },
-  { id: 'planet', name: '星球', icon: '🪐' },
-  { id: 'cylinder', name: '圆柱', icon: '🏛️' },
-  { id: 'void', name: '虚空', icon: '🕳️' },
+const presets: PresetInfo[] = [
+  { id: 'emily', name: 'Emily', icon: '🌸', category: 'basic', description: '经典粒子效果' },
+  { id: 'galaxy', name: '星河', icon: '🌌', category: 'basic', description: '旋转的星系' },
+  { id: 'vinyl', name: '黑胶', icon: '💿', category: 'basic', description: '复古黑胶唱片' },
+  { id: 'planet', name: '星球', icon: '🪐', category: 'basic', description: '行星轨道' },
+  { id: 'cylinder', name: '圆柱', icon: '🏛️', category: 'basic', description: '圆柱形粒子' },
+  { id: 'void', name: '虚空', icon: '🕳️', category: 'minimal', description: '极简虚空' },
+  { id: 'skull', name: 'Skull', icon: '💀', category: 'cool', description: '骷髅头特效' },
+  { id: 'aurora', name: '极光', icon: '🌈', category: 'cool', description: '流动的彩色光带' },
+  { id: 'starry', name: '星空', icon: '⭐', category: 'cool', description: '深邃星空闪烁' },
+  { id: 'ocean', name: '海洋', icon: '🌊', category: 'cool', description: '波浪起伏海底' },
+  { id: 'flame', name: '火焰', icon: '🔥', category: 'cool', description: '燃烧的火焰' },
+  { id: 'matrix', name: '矩阵', icon: '💻', category: 'cool', description: '数字雨效果' },
+  { id: 'geometry', name: '几何', icon: '🔷', category: 'cool', description: '几何图形变换' },
+  { id: 'particleFlow', name: '粒子流', icon: '💫', category: 'cool', description: '粒子流动效果' },
 ]
+
+const presetCategories: { id: PresetCategory; name: string }[] = [
+  { id: 'basic', name: '基础' },
+  { id: 'cool', name: '炫酷' },
+  { id: 'minimal', name: '简约' },
+]
+
+const activePresetCategory = ref<PresetCategory | 'all'>('all')
+
+const filteredPresets = computed(() => {
+  if (activePresetCategory.value === 'all') return presets
+  return presets.filter(p => p.category === activePresetCategory.value)
+})
 
 const qualityLevels = [
   { id: 'eco', name: '省电' },
@@ -111,9 +141,28 @@ const musicSources = [
   { id: 'local', name: '本地音乐' },
 ]
 
+const themeOptions: { id: ThemeMode; name: string; icon: string }[] = [
+  { id: 'dark', name: '暗色', icon: '🌙' },
+  { id: 'light', name: '亮色', icon: '☀️' },
+  { id: 'system', name: '跟随系统', icon: '💻' },
+]
+
+const languageOptions: { id: Language; name: string }[] = [
+  { id: 'zh-CN', name: '简体中文' },
+  { id: 'en-US', name: 'English' },
+]
+
 const closeBehaviors = [
   { id: 'minimize', name: '最小化到托盘' },
   { id: 'quit', name: '直接退出' },
+]
+
+const qualityOptions: { id: QualityLevel; name: string }[] = [
+  { id: 'standard', name: '标准' },
+  { id: 'higher', name: '较高' },
+  { id: 'exhigh', name: '极高' },
+  { id: 'lossless', name: '无损' },
+  { id: 'hires', name: 'Hi-Res' },
 ]
 
 const electronAPI = (window as any).electronAPI
@@ -245,6 +294,14 @@ function setReplayGainEnabled(enabled: boolean) {
   player.setReplayGainEnabled(enabled)
 }
 
+async function selectOutputDevice(deviceId: string) {
+  await player.setOutputDevice(deviceId)
+}
+
+async function refreshDevices() {
+  await player.refreshAudioDevices()
+}
+
 watch(
   () => fx.settings.lyricGlow,
   (val) => {
@@ -282,6 +339,92 @@ function closePanel() {
       <div class="settings-content">
         <div v-show="activeTab === 'general'" class="settings-tab-content">
           <div class="settings-section">
+            <div class="section-title">外观</div>
+            <div class="setting-row">
+              <label>主题</label>
+              <div class="segmented">
+                <button
+                  v-for="t in themeOptions"
+                  :key="t.id"
+                  class="seg-btn"
+                  :class="{ active: theme.mode === t.id }"
+                  @click="theme.setMode(t.id)"
+                >
+                  <span class="seg-icon">{{ t.icon }}</span>
+                  {{ t.name }}
+                </button>
+              </div>
+            </div>
+            <div class="setting-row">
+              <label>主题色</label>
+              <input
+                type="color"
+                :value="fx.settings.accentColor"
+                @input="fx.update('accentColor', ($event.target as HTMLInputElement).value)"
+              />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">语言</div>
+            <div class="segmented">
+              <button
+                v-for="lang in languageOptions"
+                :key="lang.id"
+                class="seg-btn"
+                :class="{ active: i18n.locale === lang.id }"
+                @click="i18n.setLocale(lang.id)"
+              >
+                {{ lang.name }}
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">通知</div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="notification.settings.enabled"
+                  @change="notification.setEnabled(($event.target as HTMLInputElement).checked)"
+                />
+                <span>启用系统通知</span>
+              </label>
+            </div>
+            <div class="setting-row" v-if="notification.settings.enabled">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="notification.settings.trackChange"
+                  @change="notification.setTrackChangeEnabled(($event.target as HTMLInputElement).checked)"
+                />
+                <span>切歌通知</span>
+              </label>
+            </div>
+            <div class="setting-row" v-if="notification.settings.enabled">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="notification.settings.downloadComplete"
+                  @change="notification.setDownloadCompleteEnabled(($event.target as HTMLInputElement).checked)"
+                />
+                <span>下载完成通知</span>
+              </label>
+            </div>
+            <div class="setting-row" v-if="notification.settings.enabled">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="notification.settings.updateAvailable"
+                  @change="notification.setUpdateAvailableEnabled(($event.target as HTMLInputElement).checked)"
+                />
+                <span>更新通知</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-section">
             <div class="section-title">通用设置</div>
             <div class="setting-row">
               <label>默认音乐源</label>
@@ -318,18 +461,6 @@ function closePanel() {
               >
                 {{ behavior.name }}
               </button>
-            </div>
-          </div>
-
-          <div class="settings-section">
-            <div class="section-title">界面</div>
-            <div class="setting-row">
-              <label>主题色</label>
-              <input
-                type="color"
-                :value="fx.settings.accentColor"
-                @input="fx.update('accentColor', ($event.target as HTMLInputElement).value)"
-              />
             </div>
           </div>
         </div>
@@ -386,13 +517,78 @@ function closePanel() {
           </div>
 
           <div class="settings-section">
-            <div class="section-title">输出设备</div>
+            <div class="section-title">音质设置</div>
             <div class="setting-row">
-              <div class="device-selector">
-                <span class="device-name">默认输出设备</span>
-                <span class="device-hint">系统默认</span>
+              <label>默认音质 (WiFi)</label>
+              <div class="segmented">
+                <button
+                  v-for="q in qualityOptions"
+                  :key="q.id"
+                  class="seg-btn"
+                  :class="{ active: player.wifiQuality === q.id }"
+                  @click="player.setWifiQuality(q.id)"
+                >
+                  {{ q.name }}
+                </button>
               </div>
             </div>
+            <div class="setting-row">
+              <label>默认音质 (移动网络)</label>
+              <div class="segmented">
+                <button
+                  v-for="q in qualityOptions"
+                  :key="q.id"
+                  class="seg-btn"
+                  :class="{ active: player.mobileQuality === q.id }"
+                  @click="player.setMobileQuality(q.id)"
+                >
+                  {{ q.name }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">输出设备</div>
+            <div class="setting-row">
+              <div class="device-list">
+                <button
+                  v-for="device in player.audioDevices"
+                  :key="device.deviceId"
+                  class="device-item"
+                  :class="{ active: player.currentOutputDeviceId === device.deviceId }"
+                  @click="selectOutputDevice(device.deviceId)"
+                >
+                  <span class="device-icon">🔊</span>
+                  <div class="device-info">
+                    <span class="device-name">{{ device.label || '默认设备' }}</span>
+                    <span class="device-hint">{{ device.deviceId === 'default' ? '系统默认' : device.deviceId.slice(0, 8) + '...' }}</span>
+                  </div>
+                  <span v-if="player.currentOutputDeviceId === device.deviceId" class="device-check">✓</span>
+                </button>
+                <div v-if="player.audioDevices.length === 0" class="no-devices">
+                  <span class="no-devices-icon">🎧</span>
+                  <span class="no-devices-text">正在检测音频设备...</span>
+                </div>
+              </div>
+            </div>
+            <div class="setting-row">
+              <button class="action-btn" @click="refreshDevices">
+                🔄 刷新设备列表
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div v-show="activeTab === 'cache'" class="settings-tab-content">
+          <div class="settings-section" style="padding: 14px 16px;">
+            <CacheManager />
+          </div>
+        </div>
+
+        <div v-show="activeTab === 'download'" class="settings-tab-content">
+          <div class="settings-section" style="padding: 14px 16px;">
+            <DownloadPanel />
           </div>
         </div>
 
@@ -647,13 +843,32 @@ function closePanel() {
         <div v-show="activeTab === 'visual'" class="settings-tab-content">
           <div class="settings-section">
             <div class="section-title">视觉预设</div>
+            <div class="preset-category-tabs">
+              <button
+                class="preset-cat-btn"
+                :class="{ active: activePresetCategory === 'all' }"
+                @click="activePresetCategory = 'all'"
+              >
+                全部
+              </button>
+              <button
+                v-for="cat in presetCategories"
+                :key="cat.id"
+                class="preset-cat-btn"
+                :class="{ active: activePresetCategory === cat.id }"
+                @click="activePresetCategory = cat.id"
+              >
+                {{ cat.name }}
+              </button>
+            </div>
             <div class="preset-grid">
               <button
-                v-for="p in presets"
+                v-for="p in filteredPresets"
                 :key="p.id"
                 class="preset-item"
                 :class="{ active: fx.settings.preset === p.id }"
                 @click="setPreset(p.id)"
+                :title="p.description"
               >
                 <span class="preset-icon">{{ p.icon }}</span>
                 <span class="preset-name">{{ p.name }}</span>
@@ -738,6 +953,82 @@ function closePanel() {
               </label>
             </div>
           </div>
+
+          <div class="settings-section">
+            <div class="section-title">频谱可视化</div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="fx.settings.spectrumEnabled"
+                  @change="fx.update('spectrumEnabled', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>启用频谱可视化</span>
+              </label>
+            </div>
+            <div class="setting-row" v-if="fx.settings.spectrumEnabled">
+              <label>显示模式</label>
+              <div class="segmented">
+                <button
+                  class="seg-btn"
+                  :class="{ active: fx.settings.spectrumMode === 'bars' }"
+                  @click="fx.update('spectrumMode', 'bars')"
+                >
+                  频谱条
+                </button>
+                <button
+                  class="seg-btn"
+                  :class="{ active: fx.settings.spectrumMode === 'waveform' }"
+                  @click="fx.update('spectrumMode', 'waveform')"
+                >
+                  波形
+                </button>
+                <button
+                  class="seg-btn"
+                  :class="{ active: fx.settings.spectrumMode === 'circular' }"
+                  @click="fx.update('spectrumMode', 'circular')"
+                >
+                  环形
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">毛玻璃效果</div>
+            <div class="setting-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="fx.settings.glassEffect"
+                  @change="fx.update('glassEffect', ($event.target as HTMLInputElement).checked)"
+                />
+                <span>启用毛玻璃效果</span>
+              </label>
+            </div>
+            <div class="setting-row" v-if="fx.settings.glassEffect">
+              <label>不透明度: {{ Math.round(fx.settings.glassOpacity * 100) }}%</label>
+              <input
+                type="range"
+                min="0.5"
+                max="1"
+                step="0.05"
+                :value="fx.settings.glassOpacity"
+                @input="fx.update('glassOpacity', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+            <div class="setting-row" v-if="fx.settings.glassEffect">
+              <label>模糊程度: {{ fx.settings.glassBlur }}px</label>
+              <input
+                type="range"
+                min="5"
+                max="40"
+                step="1"
+                :value="fx.settings.glassBlur"
+                @input="fx.update('glassBlur', parseFloat(($event.target as HTMLInputElement).value))"
+              />
+            </div>
+          </div>
         </div>
 
         <div v-show="activeTab === 'equalizer'" class="settings-tab-content">
@@ -755,6 +1046,57 @@ function closePanel() {
               <div class="about-name">Mineradio</div>
               <div class="about-version">v{{ appVersion }}</div>
               <div class="about-desc">沉浸式音乐播放器</div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">常见问题</div>
+            <div class="faq-list">
+              <div class="faq-item">
+                <div class="faq-question">❓ 如何添加本地音乐？</div>
+                <div class="faq-answer">
+                  点击底部控制栏的「本地音乐」按钮，或在设置中配置本地音乐文件夹路径。
+                </div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-question">❓ 如何切换视觉预设？</div>
+                <div class="faq-answer">
+                  打开设置 → 视觉 → 视觉预设，点击喜欢的预设即可切换。也可以使用快捷键快速切换。
+                </div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-question">❓ DJ 模式怎么用？</div>
+                <div class="faq-answer">
+                  点击顶部 DJ 模式指示器进入 DJ 模式，可以使用双盘混音、交叉推子等专业 DJ 功能。
+                </div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-question">❓ 歌词不显示怎么办？</div>
+                <div class="faq-answer">
+                  请检查网络连接，或尝试切换音乐源。部分歌曲可能没有歌词资源。
+                </div>
+              </div>
+              <div class="faq-item">
+                <div class="faq-question">❓ 如何提升性能？</div>
+                <div class="faq-answer">
+                  在设置 → 视觉 → 性能设置中，降低性能等级或粒子密度可以提升性能。
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-title">反馈与支持</div>
+            <div class="feedback-buttons">
+              <button class="action-btn feedback-btn">
+                📧 发送反馈邮件
+              </button>
+              <button class="action-btn feedback-btn">
+                🐛 提交 Bug 报告
+              </button>
+              <button class="action-btn feedback-btn">
+                💡 功能建议
+              </button>
             </div>
           </div>
 
@@ -825,11 +1167,13 @@ function closePanel() {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: rgba(15, 15, 20, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  background: var(--color-surface);
+  backdrop-filter: var(--blur-surface);
+  -webkit-backdrop-filter: var(--blur-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  transition: var(--transition-theme);
 }
 
 .settings-header {
@@ -837,7 +1181,7 @@ function closePanel() {
   justify-content: space-between;
   align-items: center;
   padding: 14px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 
@@ -845,6 +1189,7 @@ function closePanel() {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
+  color: var(--color-text);
 }
 
 .close-btn {
@@ -852,22 +1197,22 @@ function closePanel() {
   height: 24px;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-text-muted);
   cursor: pointer;
   border-radius: 50%;
   font-size: 14px;
 }
 
 .close-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--color-hover);
+  color: var(--color-text);
 }
 
 .settings-tabs {
   display: flex;
   padding: 8px;
   gap: 2px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
   justify-content: space-around;
 }
@@ -877,7 +1222,7 @@ function closePanel() {
   padding: 8px 4px;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-text-muted);
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
@@ -886,12 +1231,12 @@ function closePanel() {
 }
 
 .tab-btn:hover {
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-secondary);
+  background: var(--color-hover);
 }
 
 .tab-btn.active {
-  color: #fff;
+  color: var(--color-text);
   background: rgba(217, 91, 103, 0.2);
 }
 
@@ -911,16 +1256,45 @@ function closePanel() {
 
 .settings-section {
   padding: 14px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .section-title {
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 10px;
+}
+
+.preset-category-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.preset-cat-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-input-bg);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.preset-cat-btn:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.preset-cat-btn.active {
+  border-color: rgba(217, 91, 103, 0.5);
+  background: rgba(217, 91, 103, 0.15);
+  color: var(--color-text);
 }
 
 .preset-grid {
@@ -935,17 +1309,17 @@ function closePanel() {
   align-items: center;
   gap: 4px;
   padding: 10px 4px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
-  color: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-input-bg);
+  color: var(--color-text);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .preset-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--color-hover);
+  border-color: var(--color-text-muted);
 }
 
 .preset-item.active {
@@ -963,12 +1337,12 @@ function closePanel() {
 
 .preset-name {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--color-text-secondary);
 }
 
 .preset-desc {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--color-text-muted);
 }
 
 .setting-row {
@@ -984,7 +1358,7 @@ function closePanel() {
 
 .setting-row label {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-text-secondary);
 }
 
 .setting-row input[type='range'] {
@@ -992,7 +1366,7 @@ function closePanel() {
   height: 4px;
   -webkit-appearance: none;
   appearance: none;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-border);
   border-radius: 2px;
   outline: none;
 }
@@ -1003,16 +1377,16 @@ function closePanel() {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #d95b67;
+  background: var(--color-accent);
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-sm);
 }
 
 .setting-row input[type='color'] {
   width: 40px;
   height: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
   background: transparent;
   cursor: pointer;
   padding: 2px;
@@ -1020,7 +1394,7 @@ function closePanel() {
 
 .setting-hint {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--color-text-muted);
 }
 
 .checkbox-label {
@@ -1028,7 +1402,7 @@ function closePanel() {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-text-secondary);
   cursor: pointer;
   user-select: none;
 }
@@ -1036,14 +1410,14 @@ function closePanel() {
 .checkbox-label input[type='checkbox'] {
   width: 16px;
   height: 16px;
-  accent-color: #d95b67;
+  accent-color: var(--color-accent);
   cursor: pointer;
 }
 
 .segmented {
   display: flex;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
+  background: var(--color-input-bg);
+  border-radius: var(--radius-md);
   padding: 2px;
 }
 
@@ -1052,20 +1426,28 @@ function closePanel() {
   padding: 6px 10px;
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--color-text-muted);
   font-size: 12px;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
 }
 
 .seg-btn:hover {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--color-text-secondary);
 }
 
 .seg-btn.active {
-  background: rgba(217, 91, 103, 0.8);
+  background: var(--color-accent);
   color: #fff;
+}
+
+.seg-icon {
+  font-size: 14px;
 }
 
 .about-section {
@@ -1119,22 +1501,86 @@ function closePanel() {
   color: #fff;
 }
 
-.device-selector {
+.device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.device-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-input-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
 }
 
-.device-name {
+.device-item:hover {
+  background: var(--color-hover);
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
+}
+
+.device-item.active {
+  background: rgba(217, 91, 103, 0.12);
+  border-color: rgba(217, 91, 103, 0.4);
+  color: var(--color-text);
+}
+
+.device-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.device-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.device-info .device-name {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.8);
+  color: inherit;
+  display: block;
 }
 
-.device-hint {
+.device-info .device-hint {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--color-text-muted);
   margin-top: 2px;
+  display: block;
+}
+
+.device-check {
+  color: var(--color-accent);
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.no-devices {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
+  text-align: center;
+}
+
+.no-devices-icon {
+  font-size: 32px;
+  opacity: 0.5;
+}
+
+.no-devices-text {
+  font-size: 12px;
+  color: var(--color-text-muted);
 }
 
 .action-btn {
@@ -1142,7 +1588,7 @@ function closePanel() {
   border: 1px solid rgba(217, 91, 103, 0.4);
   border-radius: 20px;
   background: rgba(217, 91, 103, 0.1);
-  color: #fff;
+  color: var(--color-text);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
@@ -1155,13 +1601,49 @@ function closePanel() {
 
 .license-info {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
 .license-desc {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--color-text-muted);
   margin-top: 8px;
+}
+
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.faq-item {
+  padding: 10px 12px;
+  background: var(--color-input-bg);
+  border-radius: var(--radius-sm);
+}
+
+.faq-question {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 6px;
+}
+
+.faq-answer {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.feedback-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feedback-btn {
+  width: 100%;
+  text-align: center;
 }
 
 .credits-list {
@@ -1175,18 +1657,18 @@ function closePanel() {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 6px;
+  background: var(--color-input-bg);
+  border-radius: var(--radius-sm);
 }
 
 .credit-name {
   font-size: 12px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--color-text-secondary);
 }
 
 .credit-desc {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--color-text-muted);
 }
 </style>

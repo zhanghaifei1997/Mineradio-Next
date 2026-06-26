@@ -6,6 +6,7 @@ import StageLyrics from '@/components/lyrics/StageLyrics.vue'
 import UserCapsule from '@/components/user/UserCapsule.vue'
 import DjModeIndicator from '@/components/dj/DjModeIndicator.vue'
 import MiniPlayer from '@/components/player/MiniPlayer.vue'
+import FMModeIndicator from '@/components/fm/FMModeIndicator.vue'
 
 const SearchPanel = defineAsyncComponent(() => import('@/components/search/SearchPanel.vue'))
 const PlaylistShelf = defineAsyncComponent(() => import('@/components/playlist/PlaylistShelf.vue'))
@@ -13,26 +14,59 @@ const SettingsPanel = defineAsyncComponent(() => import('@/components/settings/S
 const PlaylistQueue = defineAsyncComponent(() => import('@/components/playlist/PlaylistQueue.vue'))
 const LocalMusicPanel = defineAsyncComponent(() => import('@/components/local/LocalMusicPanel.vue'))
 const RecentPanel = defineAsyncComponent(() => import('@/components/history/RecentPanel.vue'))
+const TopListPanel = defineAsyncComponent(() => import('@/components/toplist/TopListPanel.vue'))
+const DailyRecommend = defineAsyncComponent(() => import('@/components/recommend/DailyRecommend.vue'))
+const ArtistDetail = defineAsyncComponent(() => import('@/components/artist/ArtistDetail.vue'))
+const AlbumDetail = defineAsyncComponent(() => import('@/components/album/AlbumDetail.vue'))
+const SongComments = defineAsyncComponent(() => import('@/components/comments/SongComments.vue'))
+const SongDetail = defineAsyncComponent(() => import('@/components/song/SongDetail.vue'))
 import { usePlayerStore } from '@/stores/player'
 import { useFxStore } from '@/stores/fx'
 import { useLyricsStore } from '@/stores/lyrics'
 import { useUserStore } from '@/stores/user'
 import { useHistoryStore } from '@/stores/history'
+import { useFMStore } from '@/stores/fm'
+import { useThemeStore } from '@/stores/theme'
+import { useNotificationStore } from '@/stores/notification'
+import { useDragDrop } from '@/composables/useDragDrop'
+import { useTaskbar } from '@/composables/useTaskbar'
 import { providerManager } from '@/modules/providers'
 import type { LyricLine } from '@/modules/lyrics'
+import type { Artist, Album } from '@/types'
 
 const player = usePlayerStore()
 const fx = useFxStore()
 const lyrics = useLyricsStore()
 const user = useUserStore()
 const history = useHistoryStore()
+const fm = useFMStore()
+const theme = useThemeStore()
+const notification = useNotificationStore()
+const { isDragging } = useDragDrop()
+useTaskbar()
 
 const showQueuePanel = ref(false)
 const showLocalPanel = ref(false)
 const showRecentPanel = ref(false)
 const showSettings = ref(false)
 const showLogin = ref(false)
+const showTopList = ref(false)
+const showDailyRecommend = ref(false)
 const isMiniMode = ref(false)
+
+const showArtistDetail = ref(false)
+const showAlbumDetail = ref(false)
+const showSongComments = ref(false)
+const showSongDetail = ref(false)
+
+const currentArtistId = ref<string | null>(null)
+const currentArtistSource = ref('netease')
+const currentAlbumId = ref<string | null>(null)
+const currentAlbumSource = ref('netease')
+const currentCommentSongId = ref<string | null>(null)
+const currentCommentSource = ref('netease')
+const currentSongDetailId = ref<string | null>(null)
+const currentSongDetailSource = ref('netease')
 
 let rafId: number | null = null
 
@@ -82,6 +116,88 @@ function toggleRecentPanel() {
 
 function toggleSettings() {
   showSettings.value = !showSettings.value
+}
+
+function toggleTopList() {
+  showTopList.value = !showTopList.value
+}
+
+function toggleDailyRecommend() {
+  showDailyRecommend.value = !showDailyRecommend.value
+}
+
+function openArtistDetail(artist: Artist, source?: string) {
+  currentArtistId.value = artist.id
+  currentArtistSource.value = source || 'netease'
+  showArtistDetail.value = true
+}
+
+function closeArtistDetail() {
+  showArtistDetail.value = false
+}
+
+function openAlbumDetail(album: Album, source?: string) {
+  currentAlbumId.value = album.id
+  currentAlbumSource.value = source || 'netease'
+  showAlbumDetail.value = true
+}
+
+function closeAlbumDetail() {
+  showAlbumDetail.value = false
+}
+
+function openSongComments(songId: string, source?: string) {
+  currentCommentSongId.value = songId
+  currentCommentSource.value = source || 'netease'
+  showSongComments.value = true
+}
+
+function closeSongComments() {
+  showSongComments.value = false
+}
+
+function openSongDetail(songId: string, source?: string) {
+  currentSongDetailId.value = songId
+  currentSongDetailSource.value = source || 'netease'
+  showSongDetail.value = true
+}
+
+function closeSongDetail() {
+  showSongDetail.value = false
+}
+
+function handleArtistFromAlbum(artist: Artist) {
+  closeAlbumDetail()
+  openArtistDetail(artist, currentAlbumSource.value)
+}
+
+function handleAlbumFromArtist(album: Album) {
+  closeArtistDetail()
+  openAlbumDetail(album, currentArtistSource.value)
+}
+
+function handleArtistFromSongDetail(artist: Artist) {
+  closeSongDetail()
+  openArtistDetail(artist, currentSongDetailSource.value)
+}
+
+function handleAlbumFromSongDetail(album: Album) {
+  closeSongDetail()
+  openAlbumDetail(album, currentSongDetailSource.value)
+}
+
+function handleCommentsFromSongDetail() {
+  if (currentSongDetailId.value) {
+    openSongComments(currentSongDetailId.value, currentSongDetailSource.value)
+  }
+}
+
+function toggleFMMode() {
+  if (fm.isFMMode) {
+    fm.stopFM()
+  } else {
+    fm.startFM()
+  }
 }
 
 function toggleLyrics() {
@@ -205,6 +321,7 @@ watch(
       loadLyricsForSong(song.id, song.source)
       history.addToHistory(song)
       user.addToRecentPlayed(song)
+      notification.notifyTrackChange(song)
     } else {
       lyrics.clear()
     }
@@ -233,7 +350,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="app-container" :class="{ 'fx-eco': fx.settings.performanceQuality === 'eco', 'mini-mode': isMiniMode }">
+  <div class="app-container" :class="{ 'fx-eco': fx.settings.performanceQuality === 'eco', 'mini-mode': isMiniMode, 'drag-over': isDragging }">
+    <div v-if="isDragging" class="drag-drop-overlay">
+      <div class="drag-drop-content">
+        <div class="drag-drop-icon">🎵</div>
+        <div class="drag-drop-text">释放以播放</div>
+        <div class="drag-drop-hint">支持 MP3, FLAC, WAV, M4A, OGG, AAC, Opus</div>
+      </div>
+    </div>
     <template v-if="!isMiniMode">
       <VisualCanvas />
 
@@ -267,13 +391,23 @@ onUnmounted(() => {
         <div class="top-toolbar">
           <div class="top-toolbar__left">
             <DjModeIndicator />
+            <FMModeIndicator @toggle="toggleFMMode" />
           </div>
           <div class="top-toolbar__right">
+            <button class="icon-btn" @click="toggleDailyRecommend" title="每日推荐">
+              📅
+            </button>
+            <button class="icon-btn" @click="toggleTopList" title="排行榜">
+              🏆
+            </button>
             <button class="icon-btn" @click="toggleRecentPanel" title="最近播放">
               🕐
             </button>
             <button class="icon-btn" @click="toggleLyrics" :title="lyrics.stageEnabled ? '隐藏歌词' : '显示歌词'">
               {{ lyrics.stageEnabled ? '🎵' : '🎤' }}
+            </button>
+            <button class="icon-btn" @click="theme.toggleTheme" :title="theme.mode === 'dark' ? '暗色模式' : theme.mode === 'light' ? '亮色模式' : '跟随系统'">
+              {{ theme.isDark ? '🌙' : '☀️' }}
             </button>
             <button class="icon-btn" @click="toggleMiniMode" title="迷你模式">
               📱
@@ -289,6 +423,8 @@ onUnmounted(() => {
         <SearchPanel />
 
         <SettingsPanel v-if="showSettings" @close="showSettings = false" />
+        <TopListPanel v-if="showTopList" :visible="showTopList" @close="showTopList = false" />
+        <DailyRecommend v-if="showDailyRecommend" :visible="showDailyRecommend" @close="showDailyRecommend = false" />
 
         <div class="side-panels">
           <Transition name="slide-right">
@@ -312,6 +448,52 @@ onUnmounted(() => {
             </div>
           </Transition>
         </div>
+
+        <Suspense>
+          <ArtistDetail
+            v-if="showArtistDetail"
+            :artist-id="currentArtistId"
+            :source="currentArtistSource"
+            :visible="showArtistDetail"
+            @close="closeArtistDetail"
+            @open-album="handleAlbumFromArtist"
+            @open-artist="(a) => openArtistDetail(a, currentArtistSource)"
+          />
+        </Suspense>
+
+        <Suspense>
+          <AlbumDetail
+            v-if="showAlbumDetail"
+            :album-id="currentAlbumId"
+            :source="currentAlbumSource"
+            :visible="showAlbumDetail"
+            @close="closeAlbumDetail"
+            @open-artist="handleArtistFromAlbum"
+          />
+        </Suspense>
+
+        <Suspense>
+          <SongComments
+            v-if="showSongComments"
+            :song-id="currentCommentSongId"
+            :source="currentCommentSource"
+            :visible="showSongComments"
+            @close="closeSongComments"
+          />
+        </Suspense>
+
+        <Suspense>
+          <SongDetail
+            v-if="showSongDetail"
+            :song-id="currentSongDetailId"
+            :source="currentSongDetailSource"
+            :visible="showSongDetail"
+            @close="closeSongDetail"
+            @open-artist="handleArtistFromSongDetail"
+            @open-album="handleAlbumFromSongDetail"
+            @open-comments="handleCommentsFromSongDetail"
+          />
+        </Suspense>
       </div>
 
       <PlayerBar @show-queue="toggleQueuePanel" @show-local="toggleLocalPanel" />
@@ -329,9 +511,10 @@ onUnmounted(() => {
   height: 100vh;
   overflow: hidden;
   position: relative;
-  background: #0a0a0a;
-  color: #fff;
+  background: var(--color-bg);
+  color: var(--color-text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  transition: var(--transition-theme);
 }
 
 .app-content {
@@ -373,18 +556,20 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   border: none;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.8);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   border-radius: 50%;
   cursor: pointer;
   font-size: 18px;
   transition: all 0.2s;
-  backdrop-filter: blur(10px);
+  backdrop-filter: var(--blur-surface);
+  -webkit-backdrop-filter: var(--blur-surface);
+  border: 1px solid var(--color-border);
 }
 
 .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
+  background: var(--color-hover);
+  color: var(--color-text);
   transform: scale(1.05);
 }
 
@@ -405,9 +590,13 @@ onUnmounted(() => {
   bottom: 20px;
   width: 400px;
   pointer-events: auto;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-lg);
+  background: var(--color-surface);
+  backdrop-filter: var(--blur-surface);
+  -webkit-backdrop-filter: var(--blur-surface);
+  border: 1px solid var(--color-border);
 }
 
 .panel-close {
@@ -419,10 +608,10 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-hover);
   border: none;
   border-radius: 50%;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--color-text-secondary);
   font-size: 14px;
   cursor: pointer;
   z-index: 10;
@@ -443,5 +632,85 @@ onUnmounted(() => {
 .slide-right-leave-to {
   transform: translateX(100%);
   opacity: 0;
+}
+
+.drag-drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: dragFadeIn 0.2s ease;
+}
+
+[data-theme='light'] .drag-drop-overlay {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.drag-drop-content {
+  text-align: center;
+  padding: 48px 64px;
+  border: 3px dashed var(--color-primary);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  backdrop-filter: var(--blur-surface);
+  -webkit-backdrop-filter: var(--blur-surface);
+  animation: dragPulse 1.5s ease-in-out infinite;
+}
+
+.drag-drop-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  animation: dragBounce 1s ease-in-out infinite;
+}
+
+.drag-drop-text {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 8px;
+}
+
+.drag-drop-hint {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.drag-over .app-content {
+  opacity: 0.3;
+}
+
+@keyframes dragFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dragPulse {
+  0%, 100% {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 0 rgba(var(--color-primary-rgb), 0.4);
+  }
+  50% {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 30px 10px rgba(var(--color-primary-rgb), 0.2);
+  }
+}
+
+@keyframes dragBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 </style>

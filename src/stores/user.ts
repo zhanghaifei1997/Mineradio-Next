@@ -1,9 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { UserProfile, UserAccount, MusicSource, UserPlaylist, Song } from '@/types'
+import type { UserProfile, UserAccount, MusicSource, UserPlaylist, Song, Playlist } from '@/types'
 import { providerManager } from '@/modules/providers'
 
 const STORAGE_KEY = 'mineradio-user-state'
+const LIKED_SONGS_KEY = 'mineradio-liked-songs'
+const USER_PLAYLISTS_KEY = 'mineradio-user-playlists'
 
 function loadFromStorage(): { netease: UserAccount; qqmusic: UserAccount; kugou: UserAccount } {
   try {
@@ -22,6 +24,34 @@ function loadFromStorage(): { netease: UserAccount; qqmusic: UserAccount; kugou:
     qqmusic: createEmptyAccount('qqmusic'),
     kugou: createEmptyAccount('kugou'),
   }
+}
+
+function loadLikedSongsFromStorage(): Song[] {
+  try {
+    const raw = localStorage.getItem(LIKED_SONGS_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch (_) {}
+  return []
+}
+
+function saveLikedSongsToStorage(songs: Song[]) {
+  try {
+    localStorage.setItem(LIKED_SONGS_KEY, JSON.stringify(songs))
+  } catch (_) {}
+}
+
+function loadUserPlaylistsFromStorage(): UserPlaylist[] {
+  try {
+    const raw = localStorage.getItem(USER_PLAYLISTS_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch (_) {}
+  return []
+}
+
+function saveUserPlaylistsToStorage(playlists: UserPlaylist[]) {
+  try {
+    localStorage.setItem(USER_PLAYLISTS_KEY, JSON.stringify(playlists))
+  } catch (_) {}
 }
 
 function createEmptyAccount(source: MusicSource): UserAccount {
@@ -49,11 +79,13 @@ export const useUserStore = defineStore('user', () => {
   const neteaseAccount = ref<UserAccount>(initial.netease)
   const qqmusicAccount = ref<UserAccount>(initial.qqmusic)
   const kugouAccount = ref<UserAccount>(initial.kugou)
-  const userPlaylists = ref<UserPlaylist[]>([])
-  const likedSongs = ref<Song[]>([])
+  const userPlaylists = ref<UserPlaylist[]>(loadUserPlaylistsFromStorage())
+  const likedSongs = ref<Song[]>(loadLikedSongsFromStorage())
+  const likedSongIds = ref<Set<string>>(new Set(loadLikedSongsFromStorage().map(s => `${s.source}:${s.id}`)))
   const recentPlayed = ref<Song[]>([])
   const loadingProfile = ref(false)
   const loadingPlaylists = ref(false)
+  const loadingLiked = ref(false)
 
   const isLoggedIn = computed(() => neteaseAccount.value.loggedIn || qqmusicAccount.value.loggedIn || kugouAccount.value.loggedIn)
 
@@ -73,6 +105,10 @@ export const useUserStore = defineStore('user', () => {
   })
 
   const primaryProfile = computed<UserProfile | null>(() => primaryAccount.value?.profile || null)
+
+  const ownedPlaylists = computed(() => userPlaylists.value.filter(p => p.isOwned && !p.isFavorite))
+  const subscribedPlaylists = computed(() => userPlaylists.value.filter(p => !p.isOwned && !p.isFavorite))
+  const favoritePlaylist = computed(() => userPlaylists.value.find(p => p.isFavorite))
 
   function getAccount(source: MusicSource): UserAccount {
     switch (source) {
@@ -121,6 +157,10 @@ export const useUserStore = defineStore('user', () => {
       cookie: undefined,
     })
     userPlaylists.value = userPlaylists.value.filter(p => p.source !== source)
+    saveUserPlaylistsToStorage(userPlaylists.value)
+    likedSongs.value = likedSongs.value.filter(s => s.source !== source)
+    likedSongIds.value = new Set(likedSongs.value.map(s => `${s.source}:${s.id}`))
+    saveLikedSongsToStorage(likedSongs.value)
   }
 
   function logoutAll() {
@@ -129,7 +169,10 @@ export const useUserStore = defineStore('user', () => {
     logout('kugou')
     userPlaylists.value = []
     likedSongs.value = []
+    likedSongIds.value = new Set()
     recentPlayed.value = []
+    saveUserPlaylistsToStorage([])
+    saveLikedSongsToStorage([])
   }
 
   async function fetchUserProfile(source: MusicSource): Promise<UserProfile | null> {
@@ -172,6 +215,7 @@ export const useUserStore = defineStore('user', () => {
 
       const otherSource = userPlaylists.value.filter(p => p.source !== source)
       userPlaylists.value = [...otherSource, ...mapped]
+      saveUserPlaylistsToStorage(userPlaylists.value)
 
       return mapped
     } catch (e) {
@@ -200,25 +244,43 @@ export const useUserStore = defineStore('user', () => {
   }
 
   async function fetchLikedSongs(source: MusicSource): Promise<Song[]> {
+    loadingLiked.value = true
     try {
       const provider = providerManager.get(source)
       if (!provider) return []
       const songs = await provider.getLikedSongs()
       if (source === 'netease') {
         likedSongs.value = songs
+        likedSongIds.value = new Set(songs.map(s => `${s.source}:${s.id}`))
+        saveLikedSongsToStorage(songs)
       }
       return songs
     } catch (e) {
       console.error(`[User] Failed to fetch ${source} liked songs:`, e)
       return []
+    } finally {
+      loadingLiked.value = false
     }
   }
 
-  async function likeSong(source: MusicSource, songId: string, like: boolean): Promise<boolean> {
+  async function likeSong(source: MusicSource, songId: string, like: boolean, song?: Song): Promise<boolean> {
     try {
       const provider = providerManager.get(source)
       if (!provider) return false
       const result = await provider.likeSong(songId, like)
+      if (result) {
+        const key = `${source}:${songId}`
+        if (like) {
+          likedSongIds.value.add(key)
+          if (song && !likedSongs.value.find(s => s.id === songId && s.source === source)) {
+            likedSongs.value.unshift(song)
+          }
+        } else {
+          likedSongIds.value.delete(key)
+          likedSongs.value = likedSongs.value.filter(s => !(s.id === songId && s.source === source))
+        }
+        saveLikedSongsToStorage(likedSongs.value)
+      }
       return result
     } catch (e) {
       console.error(`[User] Failed to ${like ? 'like' : 'unlike'} song:`, e)
@@ -226,12 +288,154 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  function isSongLikedSync(source: string, songId: string): boolean {
+    return likedSongIds.value.has(`${source}:${songId}`)
+  }
+
   async function isSongLiked(source: MusicSource, songId: string): Promise<boolean> {
+    if (likedSongIds.value.has(`${source}:${songId}`)) {
+      return true
+    }
     try {
       const provider = providerManager.get(source)
       if (!provider) return false
-      return await provider.isSongLiked(songId)
+      const liked = await provider.isSongLiked(songId)
+      if (liked) {
+        likedSongIds.value.add(`${source}:${songId}`)
+      }
+      return liked
     } catch (e) {
+      return false
+    }
+  }
+
+  async function createPlaylist(source: MusicSource, name: string, privacy: 'public' | 'private' = 'private'): Promise<UserPlaylist | null> {
+    try {
+      const provider = providerManager.get(source)
+      if (!provider) return null
+      const playlist = await provider.createPlaylist(name, privacy)
+      if (playlist) {
+        const newPlaylist: UserPlaylist = {
+          id: playlist.id,
+          name: playlist.name,
+          coverUrl: playlist.coverUrl,
+          trackCount: playlist.trackCount,
+          playCount: playlist.playCount,
+          source: source as MusicSource,
+          isFavorite: false,
+          isOwned: true,
+        }
+        userPlaylists.value.unshift(newPlaylist)
+        saveUserPlaylistsToStorage(userPlaylists.value)
+        return newPlaylist
+      }
+      return null
+    } catch (e) {
+      console.error('[User] Failed to create playlist:', e)
+      return null
+    }
+  }
+
+  async function deletePlaylist(source: MusicSource, playlistId: string): Promise<boolean> {
+    try {
+      const provider = providerManager.get(source)
+      if (!provider) return false
+      const result = await provider.deletePlaylist(playlistId)
+      if (result) {
+        userPlaylists.value = userPlaylists.value.filter(p => !(p.id === playlistId && p.source === source))
+        saveUserPlaylistsToStorage(userPlaylists.value)
+      }
+      return result
+    } catch (e) {
+      console.error('[User] Failed to delete playlist:', e)
+      return false
+    }
+  }
+
+  async function updatePlaylist(source: MusicSource, playlistId: string, data: { name?: string; description?: string; privacy?: 'public' | 'private' }): Promise<boolean> {
+    try {
+      const provider = providerManager.get(source)
+      if (!provider) return false
+      const result = await provider.updatePlaylist(playlistId, data)
+      if (result) {
+        const idx = userPlaylists.value.findIndex(p => p.id === playlistId && p.source === source)
+        if (idx >= 0 && data.name) {
+          userPlaylists.value[idx].name = data.name
+          saveUserPlaylistsToStorage(userPlaylists.value)
+        }
+      }
+      return result
+    } catch (e) {
+      console.error('[User] Failed to update playlist:', e)
+      return false
+    }
+  }
+
+  async function subscribePlaylist(source: MusicSource, playlistId: string): Promise<boolean> {
+    try {
+      const provider = providerManager.get(source)
+      if (!provider) return false
+      const result = await provider.subscribePlaylist(playlistId)
+      if (result) {
+        fetchUserPlaylists(source)
+      }
+      return result
+    } catch (e) {
+      console.error('[User] Failed to subscribe playlist:', e)
+      return false
+    }
+  }
+
+  async function unsubscribePlaylist(source: MusicSource, playlistId: string): Promise<boolean> {
+    try {
+      const provider = providerManager.get(source)
+      if (!provider) return false
+      const result = await provider.unsubscribePlaylist(playlistId)
+      if (result) {
+        userPlaylists.value = userPlaylists.value.filter(p => !(p.id === playlistId && p.source === source && !p.isOwned))
+        saveUserPlaylistsToStorage(userPlaylists.value)
+      }
+      return result
+    } catch (e) {
+      console.error('[User] Failed to unsubscribe playlist:', e)
+      return false
+    }
+  }
+
+  async function addToPlaylist(source: MusicSource, playlistId: string, songIds: string[]): Promise<boolean> {
+    try {
+      const provider = providerManager.get(source)
+      if (!provider) return false
+      const result = await provider.addToPlaylist(playlistId, songIds)
+      if (result) {
+        const idx = userPlaylists.value.findIndex(p => p.id === playlistId && p.source === source)
+        if (idx >= 0) {
+          userPlaylists.value[idx].trackCount += songIds.length
+          saveUserPlaylistsToStorage(userPlaylists.value)
+        }
+      }
+      return result
+    } catch (e) {
+      console.error('[User] Failed to add to playlist:', e)
+      return false
+    }
+  }
+
+  async function removeFromPlaylist(source: MusicSource, playlistId: string, songIds: string[]): Promise<boolean> {
+    try {
+      const provider = providerManager.get(source)
+      if (!provider) return false
+      const result = await provider.removeFromPlaylist(playlistId, songIds)
+      if (result) {
+        const idx = userPlaylists.value.findIndex(p => p.id === playlistId && p.source === source)
+        if (idx >= 0) {
+          userPlaylists.value[idx].trackCount = Math.max(0, userPlaylists.value[idx].trackCount - songIds.length)
+          saveUserPlaylistsToStorage(userPlaylists.value)
+        }
+      }
+      return result
+    } catch (e) {
+      console.error('[User] Failed to remove from playlist:', e)
       return false
     }
   }
@@ -263,6 +467,7 @@ export const useUserStore = defineStore('user', () => {
     loadRecentPlayed()
     if (neteaseAccount.value.loggedIn) {
       fetchUserProfile('netease').catch(() => {})
+      fetchUserPlaylists('netease').catch(() => {})
     }
     if (qqmusicAccount.value.loggedIn) {
       fetchUserProfile('qqmusic').catch(() => {})
@@ -278,13 +483,18 @@ export const useUserStore = defineStore('user', () => {
     kugouAccount,
     userPlaylists,
     likedSongs,
+    likedSongIds,
     recentPlayed,
     loadingProfile,
     loadingPlaylists,
+    loadingLiked,
     isLoggedIn,
     hasMultipleAccounts,
     primaryAccount,
     primaryProfile,
+    ownedPlaylists,
+    subscribedPlaylists,
+    favoritePlaylist,
     getAccount,
     setAccount,
     setProfile,
@@ -297,6 +507,14 @@ export const useUserStore = defineStore('user', () => {
     fetchLikedSongs,
     likeSong,
     isSongLiked,
+    isSongLikedSync,
+    createPlaylist,
+    deletePlaylist,
+    updatePlaylist,
+    subscribePlaylist,
+    unsubscribePlaylist,
+    addToPlaylist,
+    removeFromPlaylist,
     addToRecentPlayed,
     loadRecentPlayed,
     init,

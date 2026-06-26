@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
-import type { Song, PlayerStatus } from '@/types'
+import type { Song, PlayerStatus, QualityLevel } from '@/types'
 import { providerManager } from '@/modules/providers'
 import { localMusicLibrary } from '@/modules/local'
 import { playQueueStore } from './playQueue'
@@ -27,6 +27,8 @@ import type {
 } from '@/modules/audio'
 import { djModeEngine } from '@/modules/dj'
 import type { DjProgram, DjRadio } from '@/modules/dj'
+
+const QUALITY_STORAGE_KEY = 'mineradio_player_quality'
 
 const beatMapCache = new Map<string, BeatMap>()
 
@@ -69,6 +71,13 @@ export const usePlayerStore = defineStore('player', () => {
   const audioEffects = ref<AudioEffects | null>(null)
   const audioEffectsEnabled = ref(false)
   const audioEffectsSettings = ref<AudioEffectsSettings | null>(null)
+
+  const currentQuality = ref<QualityLevel>(loadQuality())
+  const wifiQuality = ref<QualityLevel>('exhigh')
+  const mobileQuality = ref<QualityLevel>('standard')
+
+  const audioDevices = ref<MediaDeviceInfo[]>([])
+  const currentOutputDeviceId = ref<string>(loadOutputDevice())
 
   let animationFrameId: number | null = null
   let lastFrameTime = 0
@@ -134,6 +143,12 @@ export const usePlayerStore = defineStore('player', () => {
     })
 
     initAudioAnalyzer()
+    refreshAudioDevices()
+
+    const savedDevice = loadOutputDevice()
+    if (savedDevice && savedDevice !== 'default') {
+      setOutputDevice(savedDevice)
+    }
   }
 
   function initAudioAnalyzer(): void {
@@ -380,14 +395,138 @@ export const usePlayerStore = defineStore('player', () => {
     beatMapReady.value = false
   }
 
-  async function getSongUrl(song: Song): Promise<string | null> {
+  async function getSongUrl(song: Song, quality?: QualityLevel): Promise<string | null> {
     if (song.source === 'local') {
       return localMusicLibrary.getSongUrl(song.id)
     }
 
     const provider = providerManager.get(song.source) || providerManager.default
-    const result = await provider.getSongUrl(song.id)
+    const result = await provider.getSongUrl(song.id, quality || currentQuality.value)
     return result?.url || null
+  }
+
+  async function getSupportedQualities(song: Song): Promise<QualityLevel[]> {
+    if (song.source === 'local') {
+      return ['standard', 'higher', 'exhigh', 'lossless']
+    }
+
+    const allQualities: QualityLevel[] = ['standard', 'higher', 'exhigh', 'lossless', 'hires']
+    const supported: QualityLevel[] = []
+
+    for (const quality of allQualities) {
+      try {
+        const provider = providerManager.get(song.source) || providerManager.default
+        const result = await provider.getSongUrl(song.id, quality)
+        if (result?.url) {
+          supported.push(quality)
+        }
+      } catch {
+        continue
+      }
+    }
+
+    return supported.length > 0 ? supported : ['exhigh']
+  }
+
+  function setQuality(quality: QualityLevel): void {
+    currentQuality.value = quality
+    saveQuality(quality)
+  }
+
+  function setWifiQuality(quality: QualityLevel): void {
+    wifiQuality.value = quality
+  }
+
+  function setMobileQuality(quality: QualityLevel): void {
+    mobileQuality.value = quality
+  }
+
+  async function switchQuality(quality: QualityLevel): Promise<void> {
+    if (!currentSong.value || !audio.value) return
+
+    const wasPlaying = !audio.value.paused
+    const currentTime = audio.value.currentTime
+
+    setQuality(quality)
+
+    try {
+      const url = await getSongUrl(currentSong.value, quality)
+      if (!url) return
+
+      audio.value.src = url
+      audio.value.currentTime = currentTime
+
+      if (wasPlaying) {
+        await audio.value.play()
+      }
+    } catch (e) {
+      console.error('Switch quality failed:', e)
+    }
+  }
+
+  function loadQuality(): QualityLevel {
+    try {
+      const saved = localStorage.getItem(QUALITY_STORAGE_KEY)
+      if (saved && ['standard', 'higher', 'exhigh', 'lossless', 'hires'].includes(saved)) {
+        return saved as QualityLevel
+      }
+    } catch (e) {
+      console.warn('Failed to load quality setting:', e)
+    }
+    return 'exhigh'
+  }
+
+  function saveQuality(quality: QualityLevel): void {
+    try {
+      localStorage.setItem(QUALITY_STORAGE_KEY, quality)
+    } catch (e) {
+      console.warn('Failed to save quality setting:', e)
+    }
+  }
+
+  async function refreshAudioDevices(): Promise<void> {
+    try {
+      if (!navigator.mediaDevices?.enumerateDevices) {
+        console.warn('MediaDevices API not available')
+        return
+      }
+
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const audioOutputDevices = devices.filter(d => d.kind === 'audiooutput')
+      audioDevices.value = audioOutputDevices
+    } catch (e) {
+      console.warn('Failed to enumerate audio devices:', e)
+    }
+  }
+
+  async function setOutputDevice(deviceId: string): Promise<void> {
+    if (!audio.value) {
+      initAudio()
+    }
+
+    if (!audio.value) return
+
+    try {
+      const audioEl = audio.value as HTMLAudioElement & { setSinkId?: (deviceId: string) => Promise<void> }
+      if (typeof audioEl.setSinkId === 'function') {
+        await audioEl.setSinkId(deviceId)
+        currentOutputDeviceId.value = deviceId
+        localStorage.setItem('mineradio_output_device', deviceId)
+      } else {
+        console.warn('setSinkId not supported')
+      }
+    } catch (e) {
+      console.error('Failed to set output device:', e)
+    }
+  }
+
+  function loadOutputDevice(): string {
+    try {
+      const saved = localStorage.getItem('mineradio_output_device')
+      return saved || 'default'
+    } catch {
+      return 'default'
+    }
   }
 
   async function play(song: Song): Promise<void> {
@@ -651,6 +790,11 @@ export const usePlayerStore = defineStore('player', () => {
     audioEffects,
     audioEffectsEnabled,
     audioEffectsSettings,
+    currentQuality,
+    wifiQuality,
+    mobileQuality,
+    audioDevices,
+    currentOutputDeviceId,
     initAudio,
     play,
     togglePlay,
@@ -686,5 +830,12 @@ export const usePlayerStore = defineStore('player', () => {
     setAudioEffectsEnabled,
     updateAudioEffects,
     resetAudioEffects,
+    setQuality,
+    setWifiQuality,
+    setMobileQuality,
+    switchQuality,
+    getSupportedQualities,
+    refreshAudioDevices,
+    setOutputDevice,
   }
 })

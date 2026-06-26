@@ -406,6 +406,65 @@ export async function handleNeteaseRoute(req, res, url) {
       return { loggedIn: true, pid, id, success: code === 200, code, body: r.body || r }
     },
 
+    '/playlist/subscribe': async () => {
+      const info = await requireLogin(res)
+      if (!info) return null
+      const id = getQueryParam(url, 'id')
+      const t = getQueryParam(url, 't', '1')
+      if (!id) {
+        json(res, { error: 'Missing playlist id' }, 400)
+        return null
+      }
+      const r = t === '1'
+        ? await api.playlist_subscribe({ id, cookie, timestamp: Date.now() })
+        : await api.playlist_unsubscribe({ id, cookie, timestamp: Date.now() })
+      const code = normalizeApiCode(r)
+      return { loggedIn: true, id, subscribed: t === '1', code, body: r.body || r }
+    },
+
+    '/playlist/update': async () => {
+      const info = await requireLogin(res)
+      if (!info) return null
+      const id = getQueryParam(url, 'id')
+      const name = getQueryParam(url, 'name')
+      const desc = getQueryParam(url, 'desc')
+      const privacy = getQueryParam(url, 'privacy')
+      if (!id) {
+        json(res, { error: 'Missing playlist id' }, 400)
+        return null
+      }
+      const params: any = { id, cookie, timestamp: Date.now() }
+      if (name !== undefined) params.name = name
+      if (desc !== undefined) params.desc = desc
+      let r: any = { body: { code: 200 } }
+      let code = 200
+      if (name !== undefined || desc !== undefined) {
+        try {
+          if (typeof api.playlist_update === 'function') {
+            r = await api.playlist_update(params)
+            code = normalizeApiCode(r)
+          } else {
+            r = await api.playlist_update_desc(params)
+            code = normalizeApiCode(r)
+          }
+        } catch (e) {
+          logger.warn('Playlist update failed:', e.message)
+        }
+      }
+      if (privacy !== undefined) {
+        try {
+          if (typeof api.playlist_update_privacy === 'function') {
+            const pr = await api.playlist_update_privacy({ id, privacy, cookie, timestamp: Date.now() })
+            const pcode = normalizeApiCode(pr)
+            if (pcode !== 200) code = pcode
+          }
+        } catch (e) {
+          logger.warn('Playlist privacy update failed:', e.message)
+        }
+      }
+      return { loggedIn: true, id, code, body: r.body || r }
+    },
+
     '/recommend/songs': async () => {
       const r = await api.recommend_songs({ cookie, timestamp: Date.now() })
       return r.body
@@ -560,14 +619,111 @@ export async function handleNeteaseRoute(req, res, url) {
 
     '/artist/songs': async () => {
       const id = getQueryParam(url, 'id', '')
-      const r = await api.artist_songs({ id, cookie, timestamp: Date.now() })
+      const limit = parseInt(getQueryParam(url, 'limit', '50')) || 50
+      const offset = parseInt(getQueryParam(url, 'offset', '0')) || 0
+      const r = await api.artist_songs({ id, limit, offset, cookie, timestamp: Date.now() })
       return r.body
+    },
+
+    '/artist/album': async () => {
+      const id = getQueryParam(url, 'id', '')
+      const limit = parseInt(getQueryParam(url, 'limit', '30')) || 30
+      const offset = parseInt(getQueryParam(url, 'offset', '0')) || 0
+      const r = await api.artist_album({ id, limit, offset, cookie, timestamp: Date.now() })
+      return r.body
+    },
+
+    '/artist/mv': async () => {
+      const id = getQueryParam(url, 'id', '')
+      const limit = parseInt(getQueryParam(url, 'limit', '30')) || 30
+      const offset = parseInt(getQueryParam(url, 'offset', '0')) || 0
+      try {
+        const r = await api.artist_mv({ id, limit, offset, cookie, timestamp: Date.now() })
+        return r.body
+      } catch (e) {
+        logger.warn('Artist mv failed:', e.message)
+        return { mvs: [], count: 0, hasMore: false }
+      }
+    },
+
+    '/artist/sub': async () => {
+      const info = await requireLogin(res)
+      if (!info) return null
+      const id = getQueryParam(url, 'id', '')
+      const t = getQueryParam(url, 't', '1')
+      if (!id) {
+        json(res, { error: 'Missing artist id' }, 400)
+        return null
+      }
+      const r = t === '1'
+        ? await api.artist_sub({ id, cookie, timestamp: Date.now() })
+        : await api.artist_unsub({ id, cookie, timestamp: Date.now() })
+      const code = normalizeApiCode(r)
+      return { code, followed: t === '1', body: r.body || r }
+    },
+
+    '/simi/artist': async () => {
+      const id = getQueryParam(url, 'id', '')
+      try {
+        const r = await api.simi_artist({ id, cookie, timestamp: Date.now() })
+        return r.body
+      } catch (e) {
+        logger.warn('Simi artist failed:', e.message)
+        return { artists: [] }
+      }
     },
 
     '/album': async () => {
       const id = getQueryParam(url, 'id', '')
       const r = await api.album({ id, cookie, timestamp: Date.now() })
       return r.body
+    },
+
+    '/album/sub': async () => {
+      const info = await requireLogin(res)
+      if (!info) return null
+      const id = getQueryParam(url, 'id', '')
+      const t = getQueryParam(url, 't', '1')
+      if (!id) {
+        json(res, { error: 'Missing album id' }, 400)
+        return null
+      }
+      const r = t === '1'
+        ? await api.album_sub({ id, cookie, timestamp: Date.now() })
+        : await api.album_unsub({ id, cookie, timestamp: Date.now() })
+      const code = normalizeApiCode(r)
+      return { code, subscribed: t === '1', body: r.body || r }
+    },
+
+    '/comment/like': async () => {
+      const info = await requireLogin(res)
+      if (!info) return null
+      const id = getQueryParam(url, 'id', '')
+      const cid = getQueryParam(url, 'cid', '')
+      const t = getQueryParam(url, 't', '1')
+      const type = parseInt(getQueryParam(url, 'type', '0')) || 0
+      if (!id || !cid) {
+        json(res, { error: 'Missing id or cid' }, 400)
+        return null
+      }
+      const r = await api.comment_like({ id, cid, t, type, cookie, timestamp: Date.now() })
+      const code = normalizeApiCode(r)
+      return { code, liked: t === '1', body: r.body || r }
+    },
+
+    '/comment/send': async () => {
+      const info = await requireLogin(res)
+      if (!info) return null
+      const body = req.method === 'POST' ? await parseBody(req) : {}
+      const id = body.id || getQueryParam(url, 'id', '')
+      const content = body.content || getQueryParam(url, 'content', '')
+      if (!id || !content) {
+        json(res, { error: 'Missing id or content' }, 400)
+        return null
+      }
+      const r = await api.comment({ id, content, cookie, timestamp: Date.now() })
+      const code = normalizeApiCode(r)
+      return { code, body: r.body || r }
     },
 
     '/dj/recommend': async () => {
@@ -704,6 +860,21 @@ export async function handleNeteaseRoute(req, res, url) {
 
     '/playlist/catlist': async () => {
       const r = await api.playlist_catlist({ timestamp: Date.now() })
+      return r.body
+    },
+
+    '/toplist': async () => {
+      const r = await api.toplist({ cookie, timestamp: Date.now() })
+      return r.body
+    },
+
+    '/top/list': async () => {
+      const idx = getQueryParam(url, 'idx', '0')
+      const id = getQueryParam(url, 'id', '')
+      const s = parseInt(getQueryParam(url, 's', '3'))
+      const limit = parseInt(getQueryParam(url, 'limit', '100'))
+      const offset = parseInt(getQueryParam(url, 'offset', '0'))
+      const r = await api.top_list({ idx, id, s, limit, offset, cookie, timestamp: Date.now() })
       return r.body
     },
   }

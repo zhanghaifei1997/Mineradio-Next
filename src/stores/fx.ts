@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { FxSettings, VisualPreset, PerformanceQuality, PerformanceBackgroundMode } from '@/types'
+import type { FxSettings, VisualPreset, PerformanceQuality, PerformanceBackgroundMode, SpectrumMode } from '@/types'
 import { normalizePerformanceQuality, normalizePerformanceBackgroundMode } from '@/modules/performance'
 
 const STORAGE_KEY = 'mineradio_fx_settings'
@@ -21,6 +21,13 @@ const defaultSettings: FxSettings = {
   workerwWallpaperMode: false,
   workerwOpacity: 1,
   workerwVisualIntensity: 1,
+  spectrumEnabled: true,
+  spectrumMode: 'bars',
+  spectrumPosition: 'playerbar',
+  glassEffect: true,
+  glassOpacity: 0.85,
+  glassBlur: 20,
+  onboardingCompleted: false,
 }
 
 export const useFxStore = defineStore('fx', () => {

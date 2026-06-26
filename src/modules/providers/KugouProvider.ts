@@ -9,6 +9,17 @@ import type {
   Artist,
   Album,
   LyricLine,
+  TopListItem,
+  TopListDetail,
+  SearchSuggestResult,
+  HotSearchResult,
+  FMSong,
+  DailyRecommend,
+  ArtistDetail,
+  AlbumDetail,
+  CommentList,
+  MV,
+  SongDetail,
 } from '@/types'
 
 const API_BASE = '/api/kugou'
@@ -156,7 +167,7 @@ export class KugouProvider extends MusicProvider {
     }
   }
 
-  async getArtistDetail(id: string): Promise<Artist | null> {
+  async getArtistDetail(id: string): Promise<ArtistDetail | null> {
     try {
       const data = await this.request<any>('/artist/detail', { id })
       const a = data?.artist || data
@@ -165,31 +176,124 @@ export class KugouProvider extends MusicProvider {
         id: String(a.id),
         name: a.name,
         avatar: a.avatar || a.imgurl,
+        briefDesc: a.briefDesc,
+        description: a.description,
+        fansCount: a.fansCount,
+        songCount: a.songCount,
+        albumCount: a.albumCount,
+        mvCount: a.mvCount,
+        followed: a.followed,
+        followedCount: a.followCount,
       }
     } catch {
       return null
     }
   }
 
-  async getArtistSongs(id: string): Promise<Song[]> {
+  async getArtistSongs(id: string, page: number = 1, limit: number = 50): Promise<{ songs: Song[]; total: number; more: boolean }> {
     try {
-      const data = await this.request<any>('/artist/songs', { id })
-      return (data?.songs || []).map((s: any) => this.mapSong(s))
+      const offset = (page - 1) * limit
+      const data = await this.request<any>('/artist/songs', { id, limit, offset })
+      const songs = (data?.songs || []).map((s: any) => this.mapSong(s))
+      return {
+        songs,
+        total: data?.total || songs.length,
+        more: data?.more ?? false,
+      }
+    } catch {
+      return { songs: [], total: 0, more: false }
+    }
+  }
+
+  async getArtistAlbums(id: string, page: number = 1, limit: number = 30): Promise<{ albums: Album[]; total: number; more: boolean }> {
+    try {
+      const offset = (page - 1) * limit
+      const data = await this.request<any>('/artist/album', { id, limit, offset })
+      const albums = (data?.albums || data?.list || []).map((a: any) => ({
+        id: String(a.id || a.albumid),
+        name: a.name || a.albumname,
+        coverUrl: a.imgurl || a.coverImgUrl,
+      }))
+      return {
+        albums,
+        total: data?.total || albums.length,
+        more: data?.more ?? false,
+      }
+    } catch {
+      return { albums: [], total: 0, more: false }
+    }
+  }
+
+  async getArtistMVs(_id: string, _page: number = 1, _limit: number = 30): Promise<{ mvs: MV[]; total: number; more: boolean }> {
+    return { mvs: [], total: 0, more: false }
+  }
+
+  async getSimilarArtists(_id: string): Promise<Artist[]> {
+    return []
+  }
+
+  async followArtist(_id: string, _follow: boolean): Promise<boolean> {
+    return false
+  }
+
+  async getAlbum(id: string): Promise<AlbumDetail | null> {
+    try {
+      const data = await this.request<any>('/album', { id })
+      const a = data?.album || data
+      if (!a) return null
+      const tracks = (data?.songs || a.tracks || []).map((s: any) => this.mapSong(s))
+      return {
+        id: String(a.id || a.albumid),
+        name: a.name || a.albumname,
+        coverUrl: a.imgurl || a.coverImgUrl,
+        artists: (a.artists || a.singer || []).map((art: any) => ({
+          id: String(art.id || art.singerid),
+          name: art.name || art.singername,
+          avatar: art.imgurl || art.avatar,
+        })),
+        publishTime: a.publishTime || a.publishtime,
+        genre: a.genre || a.type,
+        description: a.description || a.info,
+        songCount: a.trackCount || tracks.length,
+        playCount: a.playCount,
+        subscribed: a.subscribed,
+        subCount: a.subCount,
+        tracks,
+      }
+    } catch {
+      return null
+    }
+  }
+
+  async getAlbumSongs(id: string): Promise<Song[]> {
+    try {
+      const data = await this.request<any>('/album', { id })
+      return (data?.songs || data?.album?.tracks || []).map((s: any) => this.mapSong(s))
     } catch {
       return []
     }
   }
 
-  async getAlbum(id: string): Promise<Album | null> {
+  async subscribeAlbum(_id: string, _subscribe: boolean): Promise<boolean> {
+    return false
+  }
+
+  async getSongComments(_id: string, _page?: number, _limit?: number, _type?: 'hot' | 'new'): Promise<CommentList | null> {
+    return null
+  }
+
+  async likeComment(_id: string, _cid: string, _like: boolean): Promise<boolean> {
+    return false
+  }
+
+  async sendComment(_id: string, _content: string): Promise<boolean> {
+    return false
+  }
+
+  async getSongFullDetail(id: string): Promise<SongDetail | null> {
     try {
-      const data = await this.request<any>('/album', { id })
-      const a = data?.album || data
-      if (!a) return null
-      return {
-        id: String(a.id || a.albumid),
-        name: a.name || a.albumname,
-        coverUrl: a.imgurl || a.coverImgUrl,
-      }
+      const song = await this.getSongDetail(id)
+      return song as SongDetail
     } catch {
       return null
     }
@@ -205,6 +309,62 @@ export class KugouProvider extends MusicProvider {
 
   async getLikedSongs(): Promise<Song[]> {
     return []
+  }
+
+  async getTopList(): Promise<TopListItem[]> {
+    return []
+  }
+
+  async getTopListDetail(_id: string): Promise<TopListDetail | null> {
+    return null
+  }
+
+  async getSearchSuggest(_keyword: string): Promise<SearchSuggestResult> {
+    return { songs: [], artists: [], albums: [], playlists: [] }
+  }
+
+  async getHotSearch(): Promise<HotSearchResult> {
+    return { hots: [], time: Date.now() }
+  }
+
+  async getPersonalFM(): Promise<FMSong[]> {
+    return []
+  }
+
+  async likeFMSong(_id: string, _like: boolean): Promise<boolean> {
+    return false
+  }
+
+  async getDailyRecommend(): Promise<DailyRecommend | null> {
+    return null
+  }
+
+  async createPlaylist(_name: string, _privacy?: 'public' | 'private'): Promise<Playlist | null> {
+    return null
+  }
+
+  async updatePlaylist(_id: string, _data: { name?: string; description?: string; coverUrl?: string; privacy?: 'public' | 'private' }): Promise<boolean> {
+    return false
+  }
+
+  async deletePlaylist(_id: string): Promise<boolean> {
+    return false
+  }
+
+  async subscribePlaylist(_id: string): Promise<boolean> {
+    return false
+  }
+
+  async unsubscribePlaylist(_id: string): Promise<boolean> {
+    return false
+  }
+
+  async addToPlaylist(_playlistId: string, _songIds: string[]): Promise<boolean> {
+    return false
+  }
+
+  async removeFromPlaylist(_playlistId: string, _songIds: string[]): Promise<boolean> {
+    return false
   }
 
   private mapSong(raw: any): Song {

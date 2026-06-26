@@ -14,7 +14,7 @@ export class CacheManager<K extends string = string, V = unknown> {
     this.accessCount = new Map()
     this.maxSize = options.maxSize
     this.strategy = options.strategy || 'lru'
-    this.protectedKeys = new Set(options.protectedKeys || [])
+    this.protectedKeys = new Set<K>(options.protectedKeys as Set<K> || new Set<K>())
   }
 
   get size(): number {

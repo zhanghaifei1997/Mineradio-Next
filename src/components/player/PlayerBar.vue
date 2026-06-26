@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { playQueueStore } from '@/stores/playQueue'
+import { useUserStore } from '@/stores/user'
 import { formatTime } from '@/utils/time'
+import QualitySelector from './QualitySelector.vue'
+import SleepTimer from './SleepTimer.vue'
 
 const emit = defineEmits<{
   showQueue: []
@@ -11,6 +14,44 @@ const emit = defineEmits<{
 
 const player = usePlayerStore()
 const queue = playQueueStore()
+const userStore = useUserStore()
+
+const isLiked = ref(false)
+const likeLoading = ref(false)
+
+watch(() => player.currentSong, async (song) => {
+  if (song) {
+    isLiked.value = userStore.isSongLikedSync(song.source, song.id)
+    if (!isLiked.value && userStore.isLoggedIn) {
+      try {
+        const liked = await userStore.isSongLiked(song.source as any, song.id)
+        isLiked.value = liked
+      } catch (_) {}
+    }
+  } else {
+    isLiked.value = false
+  }
+}, { immediate: true })
+
+async function handleToggleLike() {
+  if (!player.currentSong || likeLoading.value || !userStore.isLoggedIn) return
+  likeLoading.value = true
+  try {
+    const result = await userStore.likeSong(
+      player.currentSong.source as any,
+      player.currentSong.id,
+      !isLiked.value,
+      player.currentSong
+    )
+    if (result) {
+      isLiked.value = !isLiked.value
+    }
+  } catch (e) {
+    console.error('Toggle like error:', e)
+  } finally {
+    likeLoading.value = false
+  }
+}
 
 const progressPercent = computed(() => player.progress)
 const currentTimeStr = computed(() => formatTime(player.currentTime))
@@ -64,6 +105,16 @@ function handleLocalClick() {
             {{ player.currentSong.artists.map(a => a.name).join(' / ') }}
           </div>
         </div>
+        <button
+          v-if="userStore.isLoggedIn"
+          class="song-like-btn"
+          :class="{ 'song-like-btn--liked': isLiked }"
+          @click="handleToggleLike"
+          :disabled="likeLoading"
+          :title="isLiked ? '取消喜欢' : '喜欢'"
+        >
+          {{ isLiked ? '❤️' : '🤍' }}
+        </button>
       </div>
       <div class="song-info song-info--placeholder" v-else>
         <div class="song-info__cover-placeholder"></div>
@@ -107,6 +158,8 @@ function handleLocalClick() {
     </div>
 
     <div class="player-bar__right">
+      <SleepTimer />
+      <QualitySelector />
       <button class="ctrl-btn ctrl-btn--local" @click="handleLocalClick" title="本地音乐">
         💾
       </button>
@@ -199,6 +252,34 @@ function handleLocalClick() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.song-like-btn {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.song-like-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.1);
+}
+
+.song-like-btn--liked {
+  animation: like-bounce 0.3s ease;
+}
+
+@keyframes like-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
 }
 
 .song-info__artist {
