@@ -74,6 +74,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     download: () => ipcRenderer.invoke('update:download'),
   },
 
+  localMusic: {
+    scanDirectory: (dirPath) => ipcRenderer.invoke('local-music:scan-directory', dirPath),
+    readMetadata: (filePath) => ipcRenderer.invoke('local-music:read-metadata', filePath),
+    selectDirectory: () => ipcRenderer.invoke('local-music:select-directory'),
+    selectFiles: () => ipcRenderer.invoke('local-music:select-files'),
+    getFileUrl: (filePath) => ipcRenderer.invoke('local-music:get-file-url', filePath),
+    getConfig: () => ipcRenderer.invoke('local-music:get-config'),
+    saveConfig: (config) => ipcRenderer.invoke('local-music:save-config', config),
+  },
+
   onTogglePlay: (callback) => {
     if (typeof callback !== 'function') return () => {}
     const listener = () => callback()

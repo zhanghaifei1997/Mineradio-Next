@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useFxStore } from '@/stores/fx'
-import type { VisualPreset } from '@/types'
+import { useLyricsStore } from '@/stores/lyrics'
+import { usePerformanceStore } from '@/stores/performance'
+import type { VisualPreset, PerformanceQuality, PerformanceBackgroundMode } from '@/types'
 
 const fx = useFxStore()
+const lyrics = useLyricsStore()
+const performance = usePerformanceStore()
 const showPanel = ref(false)
 
 const presets: { id: VisualPreset; name: string; icon: string }[] = [
@@ -28,6 +32,35 @@ const bgModes = [
   { id: 'keep', name: '保持渲染' },
   { id: 'release', name: '后台释放' },
 ]
+
+function setPreset(preset: VisualPreset) {
+  fx.update('preset', preset)
+}
+
+function setPerformanceQuality(quality: PerformanceQuality) {
+  fx.update('performanceQuality', quality)
+  performance.setQuality(quality)
+}
+
+function setBackgroundMode(mode: PerformanceBackgroundMode) {
+  fx.update('performanceBackground', mode)
+  performance.setBackgroundMode(mode, fx.settings.liveBackgroundKeep)
+}
+
+function resetSettings() {
+  fx.reset()
+  performance.setQuality(fx.settings.performanceQuality)
+  performance.setBackgroundMode(fx.settings.performanceBackground, fx.settings.liveBackgroundKeep)
+  lyrics.setGlow({ strength: fx.settings.lyricGlow })
+}
+
+watch(
+  () => fx.settings.lyricGlow,
+  (val) => {
+    lyrics.setGlow({ strength: val })
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -50,7 +83,7 @@ const bgModes = [
             :key="p.id"
             class="preset-item"
             :class="{ active: fx.settings.preset === p.id }"
-            @click="fx.update('preset', p.id)"
+            @click="setPreset(p.id)"
           >
             <span class="preset-icon">{{ p.icon }}</span>
             <span class="preset-name">{{ p.name }}</span>
@@ -68,7 +101,7 @@ const bgModes = [
               :key="q.id"
               class="seg-btn"
               :class="{ active: fx.settings.performanceQuality === q.id }"
-              @click="fx.update('performanceQuality', q.id as any)"
+              @click="setPerformanceQuality(q.id as PerformanceQuality)"
             >
               {{ q.name }}
             </button>
@@ -84,6 +117,7 @@ const bgModes = [
             :value="fx.settings.particleResolution"
             @input="fx.update('particleResolution', parseFloat(($event.target as HTMLInputElement).value))"
           />
+          <div class="setting-hint">{{ fx.particleCountLabel }} 粒子网格</div>
         </div>
         <div class="setting-row">
           <label>动感强度: {{ Math.round(fx.settings.cinemaIntensity * 100) }}%</label>
@@ -94,6 +128,21 @@ const bgModes = [
             step="0.05"
             :value="fx.settings.cinemaIntensity"
             @input="fx.update('cinemaIntensity', parseFloat(($event.target as HTMLInputElement).value))"
+          />
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="section-title">歌词设置</div>
+        <div class="setting-row">
+          <label>歌词发光强度: {{ Math.round(fx.settings.lyricGlow * 100) }}%</label>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            :value="fx.settings.lyricGlow"
+            @input="fx.update('lyricGlow', parseFloat(($event.target as HTMLInputElement).value))"
           />
         </div>
       </div>
@@ -126,15 +175,25 @@ const bgModes = [
             :key="b.id"
             class="seg-btn"
             :class="{ active: fx.settings.performanceBackground === b.id }"
-            @click="fx.update('performanceBackground', b.id as any)"
+            @click="setBackgroundMode(b.id as PerformanceBackgroundMode)"
           >
             {{ b.name }}
           </button>
         </div>
+        <div class="setting-row" style="margin-top: 10px;">
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              :checked="fx.settings.liveBackgroundKeep"
+              @change="fx.update('liveBackgroundKeep', ($event.target as HTMLInputElement).checked)"
+            />
+            <span>后台保持活动背景</span>
+          </label>
+        </div>
       </div>
 
       <div class="settings-footer">
-        <button class="reset-btn" @click="fx.reset()">恢复默认</button>
+        <button class="reset-btn" @click="resetSettings()">恢复默认</button>
       </div>
     </div>
   </div>
@@ -311,6 +370,28 @@ const bgModes = [
   background: transparent;
   cursor: pointer;
   padding: 2px;
+}
+
+.setting-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: #d95b67;
+  cursor: pointer;
 }
 
 .segmented {

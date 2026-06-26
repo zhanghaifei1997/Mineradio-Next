@@ -56,6 +56,11 @@ export class VisualEngine {
   private djCameraShakeIntensity = 0
   private djParticleBoost = 1
 
+  private transitionActive = false
+  private transitionProgress = 1
+  private transitionDuration = 0.6
+  private oldParticleSystem: ParticleSystem | null = null
+
   constructor(options: VisualEngineOptions) {
     this.canvas = options.canvas
     this.fxSettings = options.fxSettings
@@ -150,8 +155,18 @@ export class VisualEngine {
     return this.performanceManager.getRenderPixelRatio()
   }
 
-  private initPreset(presetName: VisualPreset): void {
-    if (this.particleSystem) {
+  private initPreset(presetName: VisualPreset, withTransition = false): void {
+    if (withTransition && this.particleSystem) {
+      if (this.oldParticleSystem) {
+        this.scene.remove(this.oldParticleSystem.group)
+        this.oldParticleSystem.dispose()
+        this.oldParticleSystem = null
+      }
+
+      this.oldParticleSystem = this.particleSystem
+      this.transitionActive = true
+      this.transitionProgress = 0
+    } else if (this.particleSystem) {
       this.scene.remove(this.particleSystem.group)
       this.particleSystem.dispose()
       this.particleSystem = null
@@ -165,11 +180,16 @@ export class VisualEngine {
       color: this.fxSettings.accentColor,
       glowColor: this.fxSettings.glowColor,
     })
+
+    if (withTransition && this.particleSystem) {
+      this.particleSystem.group.scale.setScalar(0.8)
+      ;(this.particleSystem.group as any).materialOpacity = 0
+    }
   }
 
   setPreset(presetName: VisualPreset): void {
     if (presetName === this.currentPreset) return
-    this.initPreset(presetName)
+    this.initPreset(presetName, true)
   }
 
   updateFxSettings(settings: Partial<FxSettings>): void {
@@ -180,18 +200,57 @@ export class VisualEngine {
 
     this.fxSettings = { ...this.fxSettings, ...settings }
 
-    if (
-      settings.performanceQuality && settings.performanceQuality !== prevQuality ||
-      settings.particleResolution !== undefined && settings.particleResolution !== prevResolution ||
-      settings.accentColor && settings.accentColor !== prevColor ||
-      settings.glowColor && settings.glowColor !== prevGlowColor
-    ) {
-      this.initPreset(this.currentPreset)
+    const needsReinit = 
+      (settings.performanceQuality !== undefined && settings.performanceQuality !== prevQuality) ||
+      (settings.particleResolution !== undefined && settings.particleResolution !== prevResolution) ||
+      (settings.accentColor !== undefined && settings.accentColor !== prevColor) ||
+      (settings.glowColor !== undefined && settings.glowColor !== prevGlowColor)
+
+    if (needsReinit) {
+      const hasPresetChange = settings.preset !== undefined
+      if (!hasPresetChange) {
+        this.initPreset(this.currentPreset, false)
+      }
     }
 
     if (settings.preset) {
       this.setPreset(settings.preset)
     }
+  }
+
+  private updateTransition(dt: number): void {
+    if (!this.transitionActive) return
+
+    this.transitionProgress = Math.min(1, this.transitionProgress + dt / this.transitionDuration)
+    const eased = this.easeOutCubic(this.transitionProgress)
+
+    if (this.particleSystem) {
+      const scale = 0.8 + eased * 0.2
+      this.particleSystem.group.scale.setScalar(scale)
+    }
+
+    if (this.oldParticleSystem) {
+      const oldScale = 1 - eased * 0.2
+      this.oldParticleSystem.group.scale.setScalar(oldScale)
+      this.oldParticleSystem.group.opacity = 1 - eased
+    }
+
+    if (this.transitionProgress >= 1) {
+      this.transitionActive = false
+      if (this.oldParticleSystem) {
+        this.scene.remove(this.oldParticleSystem.group)
+        this.oldParticleSystem.dispose()
+        this.oldParticleSystem = null
+      }
+      if (this.particleSystem) {
+        this.particleSystem.group.scale.setScalar(1)
+        this.particleSystem.group.opacity = 1
+      }
+    }
+  }
+
+  private easeOutCubic(t: number): number {
+    return 1 - Math.pow(1 - t, 3)
   }
 
   connectAudio(audioElement: HTMLAudioElement): void {
@@ -218,6 +277,27 @@ export class VisualEngine {
       this.connectedAudioElement = audioElement
     } catch (e) {
       console.warn('Failed to connect audio to visual engine:', e)
+    }
+  }
+
+  connectAnalyser(
+    audioContext: AudioContext,
+    analyser: AnalyserNode,
+    audioElement: HTMLAudioElement
+  ): void {
+    if (this.connectedAudioElement === audioElement && this.analyser === analyser) return
+
+    this.disconnectAudio()
+
+    try {
+      this.audioContext = audioContext
+      this.analyser = analyser
+      this.connectedAudioElement = audioElement
+
+      this.frequencyData = new Uint8Array(this.analyser.frequencyBinCount)
+      this.timeDomainData = new Uint8Array(this.analyser.fftSize)
+    } catch (e) {
+      console.warn('Failed to connect analyser to visual engine:', e)
     }
   }
 
@@ -374,6 +454,12 @@ export class VisualEngine {
         const shakeY = (Math.random() - 0.5) * this.djCameraShakeIntensity * 0.02
         this.camera.position.x += shakeX
         this.camera.position.y += shakeY
+      }
+
+      this.updateTransition(dt)
+
+      if (this.oldParticleSystem && this.transitionActive) {
+        this.oldParticleSystem.update(dt, audioData)
       }
 
       if (this.particleSystem) {

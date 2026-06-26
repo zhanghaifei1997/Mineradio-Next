@@ -1,13 +1,21 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { usePlayerStore } from '@/stores/player'
+import { playQueueStore } from '@/stores/playQueue'
 import { formatTime } from '@/utils/time'
 
+const emit = defineEmits<{
+  showQueue: []
+  showLocal: []
+}>()
+
 const player = usePlayerStore()
+const queue = playQueueStore()
 
 const progressPercent = computed(() => player.progress)
 const currentTimeStr = computed(() => formatTime(player.currentTime))
 const durationStr = computed(() => formatTime(player.duration))
+const bufferPercent = computed(() => player.bufferProgress?.percent || 0)
 
 function onProgressClick(e: MouseEvent) {
   const target = e.currentTarget as HTMLElement
@@ -27,6 +35,19 @@ const playModeLabel = computed(() => {
   const map = { sequence: '顺序', loop: '列表循环', single: '单曲循环', shuffle: '随机' }
   return map[player.playMode]
 })
+
+const playModeIcon = computed(() => {
+  const map = { sequence: '🔁', loop: '🔂', single: '🔄', shuffle: '🔀' }
+  return map[player.playMode]
+})
+
+function handleQueueClick() {
+  emit('showQueue')
+}
+
+function handleLocalClick() {
+  emit('showLocal')
+}
 </script>
 
 <template>
@@ -56,7 +77,8 @@ const playModeLabel = computed(() => {
     <div class="player-bar__center">
       <div class="controls">
         <button class="ctrl-btn ctrl-btn--mode" @click="player.cyclePlayMode()" :title="playModeLabel">
-          {{ playModeLabel }}
+          <span class="mode-icon">{{ playModeIcon }}</span>
+          <span class="mode-text">{{ playModeLabel }}</span>
         </button>
         <button class="ctrl-btn ctrl-btn--prev" @click="player.prev()" title="上一首">
           ⏮
@@ -67,11 +89,16 @@ const playModeLabel = computed(() => {
         <button class="ctrl-btn ctrl-btn--next" @click="player.next()" title="下一首">
           ⏭
         </button>
+        <button class="ctrl-btn ctrl-btn--queue" @click="handleQueueClick" :title="'播放队列 (' + queue.total + ')'">
+          📋
+          <span class="queue-badge" v-if="queue.total > 0">{{ queue.total }}</span>
+        </button>
       </div>
 
       <div class="progress-wrap" @click="onProgressClick">
         <span class="progress-time">{{ currentTimeStr }}</span>
         <div class="progress-bar">
+          <div class="progress-bar__buffer" :style="{ width: bufferPercent + '%' }"></div>
           <div class="progress-bar__fill" :style="{ width: progressPercent + '%' }"></div>
           <div class="progress-bar__thumb" :style="{ left: progressPercent + '%' }"></div>
         </div>
@@ -80,6 +107,9 @@ const playModeLabel = computed(() => {
     </div>
 
     <div class="player-bar__right">
+      <button class="ctrl-btn ctrl-btn--local" @click="handleLocalClick" title="本地音乐">
+        💾
+      </button>
       <div class="volume-wrap" @click="onVolumeClick">
         <span class="volume-icon" @click.stop="player.toggleMute()">
           {{ player.muted ? '🔇' : '🔊' }}
@@ -126,6 +156,8 @@ const playModeLabel = computed(() => {
   flex: 1;
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
 }
 
 .song-info {
@@ -181,7 +213,7 @@ const playModeLabel = computed(() => {
 .controls {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .ctrl-btn {
@@ -196,6 +228,7 @@ const playModeLabel = computed(() => {
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
+  position: relative;
 }
 
 .ctrl-btn:hover {
@@ -221,6 +254,36 @@ const playModeLabel = computed(() => {
   width: auto;
   padding: 4px 10px;
   border-radius: 12px;
+  gap: 4px;
+}
+
+.mode-icon {
+  font-size: 14px;
+}
+
+.ctrl-btn--queue {
+  position: relative;
+}
+
+.queue-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  background: #d95b67;
+  color: #fff;
+  font-size: 10px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  font-weight: 600;
+}
+
+.ctrl-btn--local {
+  font-size: 16px;
 }
 
 .progress-wrap {
@@ -249,11 +312,23 @@ const playModeLabel = computed(() => {
   overflow: visible;
 }
 
+.progress-bar__buffer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
 .progress-bar__fill {
+  position: relative;
   height: 100%;
   background: linear-gradient(90deg, #d95b67, #f0a0a0);
   border-radius: 2px;
   transition: width 0.1s linear;
+  z-index: 1;
 }
 
 .progress-bar__thumb {
@@ -267,6 +342,7 @@ const playModeLabel = computed(() => {
   opacity: 0;
   transition: opacity 0.2s;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 2;
 }
 
 .progress-wrap:hover .progress-bar__thumb {

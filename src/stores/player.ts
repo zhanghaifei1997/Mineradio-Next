@@ -2,12 +2,14 @@ import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import type { Song, PlayerStatus } from '@/types'
 import { providerManager } from '@/modules/providers'
+import { localMusicLibrary } from '@/modules/local'
 import { playQueueStore } from './playQueue'
 import {
   AudioAnalyzer,
   BeatMapData,
   BeatDetector,
   analyzePodcastDjStream,
+  AudioEnhancer,
 } from '@/modules/audio'
 import type {
   BeatMap,
@@ -16,6 +18,8 @@ import type {
   CinemaDynamics,
   BeatEvent,
   DjModeState,
+  BufferProgress,
+  AudioError,
 } from '@/modules/audio'
 import { djModeEngine } from '@/modules/dj'
 import type { DjProgram, DjRadio } from '@/modules/dj'
@@ -47,8 +51,15 @@ export const usePlayerStore = defineStore('player', () => {
   const beatMapReady = ref(false)
   const djMode = ref<DjModeState>(djModeEngine.getState())
 
+  const audioEnhancer = ref<AudioEnhancer | null>(null)
+  const bufferProgress = ref<BufferProgress>({ buffered: 0, duration: 0, percent: 0 })
+  const lastError = ref<AudioError | null>(null)
+  const fadeEnabled = ref(true)
+  const replayGainEnabled = ref(false)
+
   let animationFrameId: number | null = null
   let lastFrameTime = 0
+  let isSwitchingSong = false
 
   const isPlaying = computed(() => status.value === 'playing')
   const progress = computed(() => duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0)
@@ -75,6 +86,9 @@ export const usePlayerStore = defineStore('player', () => {
     audio.value.addEventListener('play', () => {
       status.value = 'playing'
       startAnalysisLoop()
+      if (audioEnhancer.value && fadeEnabled.value) {
+        audioEnhancer.value.fadeIn(500)
+      }
     })
 
     audio.value.addEventListener('pause', () => {
@@ -84,6 +98,26 @@ export const usePlayerStore = defineStore('player', () => {
     audio.value.addEventListener('error', () => {
       status.value = 'error'
       console.error('Audio play error')
+      handleAudioError()
+    })
+
+    audioEnhancer.value = new AudioEnhancer(audio.value)
+    audioEnhancer.value.setBaseVolume(volume.value)
+    audioEnhancer.value.setReplayGainEnabled(replayGainEnabled.value)
+
+    audioEnhancer.value.onBufferProgress((p) => {
+      bufferProgress.value = p
+    })
+
+    audioEnhancer.value.onError((err) => {
+      lastError.value = err
+    })
+
+    audioEnhancer.value.onLoadTimeout(() => {
+      console.warn('Audio load timeout')
+      if (audioEnhancer.value?.canRetry()) {
+        retryPlay()
+      }
     })
 
     initAudioAnalyzer()
@@ -215,24 +249,47 @@ export const usePlayerStore = defineStore('player', () => {
     beatMapReady.value = false
   }
 
+  async function getSongUrl(song: Song): Promise<string | null> {
+    if (song.source === 'local') {
+      return localMusicLibrary.getSongUrl(song.id)
+    }
+
+    const provider = providerManager.get(song.source) || providerManager.default
+    const result = await provider.getSongUrl(song.id)
+    return result?.url || null
+  }
+
   async function play(song: Song): Promise<void> {
     initAudio()
     if (!audio.value) return
+
+    if (isSwitchingSong) return
+    isSwitchingSong = true
+
+    if (audioEnhancer.value && fadeEnabled.value && !audio.value.paused && currentSong.value) {
+      await audioEnhancer.value.fadeOut(300)
+    }
 
     currentSong.value = song
     status.value = 'loading'
     currentTime.value = 0
     clearBeatMap()
+    lastError.value = null
+    audioEnhancer.value?.resetRetry()
+
+    if (audioEnhancer.value && replayGainEnabled.value) {
+      audioEnhancer.value.applyReplayGainToSong(song.id)
+    }
 
     try {
-      const provider = providerManager.get(song.source) || providerManager.default
-      const result = await provider.getSongUrl(song.id)
-      if (!result?.url) {
+      const url = await getSongUrl(song)
+      if (!url) {
         status.value = 'error'
+        isSwitchingSong = false
         return
       }
 
-      audio.value.src = result.url
+      audio.value.src = url
       await audio.value.play()
 
       setTimeout(() => {
@@ -241,13 +298,21 @@ export const usePlayerStore = defineStore('player', () => {
     } catch (e) {
       console.error('Play failed:', e)
       status.value = 'error'
+    } finally {
+      isSwitchingSong = false
     }
   }
 
   function togglePlay(): void {
     if (!audio.value || !currentSong.value) return
     if (status.value === 'playing') {
-      audio.value.pause()
+      if (audioEnhancer.value && fadeEnabled.value) {
+        audioEnhancer.value.fadeOut(200).then(() => {
+          audio.value?.pause()
+        })
+      } else {
+        audio.value.pause()
+      }
     } else if (status.value === 'paused') {
       audio.value.play()
     }
@@ -255,7 +320,13 @@ export const usePlayerStore = defineStore('player', () => {
 
   function pause(): void {
     if (audio.value && status.value === 'playing') {
-      audio.value.pause()
+      if (audioEnhancer.value && fadeEnabled.value) {
+        audioEnhancer.value.fadeOut(200).then(() => {
+          audio.value?.pause()
+        })
+      } else {
+        audio.value.pause()
+      }
     }
   }
 
@@ -275,7 +346,9 @@ export const usePlayerStore = defineStore('player', () => {
   function setVolume(v: number): void {
     const newVolume = Math.max(0, Math.min(1, v))
     volume.value = newVolume
-    if (audio.value) {
+    if (audioEnhancer.value) {
+      audioEnhancer.value.setBaseVolume(newVolume)
+    } else if (audio.value) {
       audio.value.volume = newVolume
     }
     if (newVolume > 0 && muted.value) {
@@ -299,7 +372,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   function next(): void {
     const queue = playQueueStore()
-    const nextSong = queue.getNext()
+    const nextSong = queue.getNext(playMode.value)
     if (nextSong) {
       play(nextSong)
     }
@@ -307,7 +380,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   function prev(): void {
     const queue = playQueueStore()
-    const prevSong = queue.getPrev()
+    const prevSong = queue.getPrev(playMode.value)
     if (prevSong) {
       play(prevSong)
     }
@@ -324,6 +397,21 @@ export const usePlayerStore = defineStore('player', () => {
     next()
   }
 
+  function handleAudioError(): void {
+    if (audioEnhancer.value?.canRetry()) {
+      retryPlay()
+    }
+  }
+
+  function retryPlay(): void {
+    if (!audio.value || !currentSong.value) return
+    console.log(`Retrying playback (attempt ${audioEnhancer.value?.getRetryCount() || 0 + 1})`)
+    audio.value.load()
+    audio.value.play().catch(() => {
+      console.error('Retry failed')
+    })
+  }
+
   function setPlayMode(mode: typeof playMode.value): void {
     playMode.value = mode
   }
@@ -332,6 +420,21 @@ export const usePlayerStore = defineStore('player', () => {
     const modes: typeof playMode.value[] = ['sequence', 'loop', 'single', 'shuffle']
     const idx = modes.indexOf(playMode.value)
     playMode.value = modes[(idx + 1) % modes.length]
+  }
+
+  function setFadeEnabled(enabled: boolean): void {
+    fadeEnabled.value = enabled
+  }
+
+  function setReplayGainEnabled(enabled: boolean): void {
+    replayGainEnabled.value = enabled
+    if (audioEnhancer.value) {
+      audioEnhancer.value.setReplayGainEnabled(enabled)
+    }
+  }
+
+  function getBufferProgress(): BufferProgress {
+    return bufferProgress.value
   }
 
   async function playProgram(program: DjProgram, radio?: DjRadio): Promise<void> {
@@ -406,6 +509,10 @@ export const usePlayerStore = defineStore('player', () => {
     isAnalyzing,
     beatMapReady,
     djMode,
+    bufferProgress,
+    lastError,
+    fadeEnabled,
+    replayGainEnabled,
     initAudio,
     play,
     togglePlay,
@@ -430,5 +537,9 @@ export const usePlayerStore = defineStore('player', () => {
     getDjVisualMultiplier,
     getDjCameraShakeIntensity,
     getDjParticleBoost,
+    setFadeEnabled,
+    setReplayGainEnabled,
+    getBufferProgress,
+    retryPlay,
   }
 })

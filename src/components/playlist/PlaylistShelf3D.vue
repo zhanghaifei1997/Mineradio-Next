@@ -200,7 +200,7 @@ function closeDetail() {
 function playSong(song: Playlist['tracks'][0]) {
   const queue = detailTracks.value
   const idx = queue.findIndex((s) => s.id === song.id)
-  player.play(song)
+  player.replaceQueue(queue, idx >= 0 ? idx : 0)
 }
 
 watch(shelfItems, (items) => {
