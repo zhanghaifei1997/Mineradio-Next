@@ -11,6 +11,13 @@ const __dirname = path.dirname(__filename)
 
 const isDev = process.env.NODE_ENV === 'development'
 
+// Electron 42 security-warnings module calls `new URL(name)` on every
+// PerformanceResourceTiming entry.  In dev mode Vite may inject resources
+// whose `name` is empty or otherwise invalid, causing an uncaught
+// "Failed to construct 'URL': Invalid URL" inside renderer_init.
+// The warnings only fire during development anyway, so it is safe to disable them.
+process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true'
+
 const APP_NAME = 'Mineradio'
 const APP_USER_MODEL_ID = 'com.mineradio.desktop'
 
