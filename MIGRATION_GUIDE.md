@@ -128,51 +128,104 @@ App.vue
 - [x] Electron 主进程模块化
 - [x] 全局样式 & CSS 变量
 
-### ⏳ 待迁移（从原 index.html）
+### ✅ 已完成迁移
 
 **视觉模块（高优先级）：**
-- [ ] Three.js 3D 粒子系统
-- [ ] 7 种视觉预设 (emily/skull/galaxy/vinyl/planet/cylinder/void)
-- [ ] 3D 歌单架
-- [ ] 自由相机模式
-- [ ] 节拍检测与相机同步
-- [ ] 实时 Beat Engine
-- [ ] Cinema Dynamics
+- [x] Three.js 3D 粒子系统 (`src/modules/visual/`)
+- [x] 7 种视觉预设 (emily/skull/galaxy/vinyl/planet/cylinder/void)
+- [x] 3D 歌单架 (`src/modules/shelf/`)
+- [x] 自由相机模式 (`src/modules/visual/CameraSystem.ts`)
+- [x] 节拍检测与相机同步 (`src/modules/visual/BeatSync.ts`)
+- [x] 实时 Beat Engine (`src/modules/audio/BeatDetector.ts`)
+- [x] Cinema Dynamics (`src/modules/audio/AudioAnalyzer.ts`)
+
+**音频模块（高优先级）：**
+- [x] Web Audio API 实时频谱分析
+- [x] BPM / 节拍检测算法
+- [x] 低频/中频/高频能量计算
+- [x] 节拍事件生成
+- [x] Beat map 预分析
+- [x] mpg123 解码集成 (`src/modules/audio/mpg123Decoder.ts`)
+- [x] DJ 模式节拍增强
 
 **歌词模块（高优先级）：**
-- [ ] 歌词舞台 (全屏歌词)
-- [ ] 逐字/逐行歌词渲染
-- [ ] 卡拉 OK 效果
-- [ ] 桌面歌词窗口
+- [x] 歌词舞台 (全屏歌词) (`src/components/lyrics/StageLyrics.vue`)
+- [x] 逐字/逐行歌词渲染 (`src/modules/lyrics/LyricRenderer.ts`)
+- [x] 卡拉 OK 效果 (`src/components/lyrics/LyricLine.vue`)
+- [x] 桌面歌词窗口 (`src/components/lyrics/DesktopLyrics.vue`)
+- [x] 歌词翻译显示
+- [x] 字体发光/阴影效果
+- [x] 歌词排版布局系统
 
-**播放模块（中优先级）：**
-- [ ] mpg123 解码集成
-- [ ] 音频可视化 (Web Audio API)
-- [ ] 淡入淡出
-- [ ] 音量归一化
+**3D 歌单架（高优先级）：**
+- [x] 3D 旋转唱片/封面墙
+- [x] 歌单卡片 3D 弧形排列
+- [x] 鼠标悬停交互
+- [x] 滚轮缩放浏览
+- [x] 点击展开歌单详情
+- [x] 与相机系统联动
 
-**功能模块（中优先级）：**
-- [ ] 用户登录/登出
-- [ ] 我喜欢的音乐
-- [ ] 每日推荐
-- [ ] 私人 FM / DJ 模式
-- [ ] 歌单收藏
-- [ ] 本地音乐
+**用户系统（中优先级）：**
+- [x] 用户登录/登出 (`src/stores/user.ts`)
+- [x] 二维码登录 + 浏览器登录
+- [x] 我喜欢的音乐
+- [x] 每日推荐
+- [x] 用户歌单列表
+- [x] 用户胶囊组件
+- [x] 双音乐源账号管理
 
-**桌面专属功能（低优先级 - Windows）：**
-- [ ] WorkerW 桌面歌词注入
-- [ ] 壁纸模式
-- [ ] 全局快捷键
-- [ ] 系统托盘
-- [ ] 通知栏歌词
+**DJ 模式（中优先级）：**
+- [x] DJ 模式引擎 (`src/modules/dj/DjModeEngine.ts`)
+- [x] 播客/电台管理 (`src/modules/dj/PodcastManager.ts`)
+- [x] 电台推荐与分类
+- [x] 节目详情与主播信息
+- [x] DJ 模式视觉增强
+- [x] 节目过渡效果
+
+**性能管理（中优先级）：**
+- [x] 性能分级（eco/balanced/high/ultra）
+- [x] 动态 DPR 调整（像素预算）
+- [x] 后台模式优化
+- [x] 封面图缓存管理（LRU）
+- [x] Beat map 缓存
+- [x] 景深图缓存
+- [x] 运行时性能监控
+- [x] 缓存自动修剪
+- [x] 长任务观察者
+
+**后端 API（中优先级）：**
+- [x] 网易云完整 API（50+ 端点）
+- [x] QQ 音乐 API
+- [x] 用户登录相关
+- [x] 歌单管理
+- [x] 搜索/推荐
+- [x] 电台播客
+- [x] 代理服务
+- [x] 本地文件服务
+
+**Electron 桌面功能（低优先级）：**
+- [x] 系统托盘
+- [x] 全局快捷键
+- [x] 桌面歌词窗口
+- [x] 登录窗口
+- [x] 单实例锁定
+- [x] IPC 通信完善
+- [x] 壁纸模式框架
+- [x] 多平台构建配置
+
+### ⚠️ 需进一步完善/验证的功能
+
+以下功能框架已搭建，但需要更多调优和真实环境验证：
+
+- [ ] Skull 预设的真实模型点云（当前用程序生成形状）
+- [ ] WorkerW 桌面歌词注入（Windows 专属 Win32 API）
 - [ ] 锁屏歌词
-
-**系统功能：**
-- [ ] 自动更新
-- [ ] 增量补丁更新
-- [ ] 数据持久化
-- [ ] 缓存管理
-- [ ] 性能监控
+- [ ] 通知栏歌词
+- [ ] 自动增量补丁更新
+- [ ] 本地音乐扫描与管理
+- [ ] 音量归一化
+- [ ] 音频淡入淡出
+- [ ] 更精细的电影动力学曲目画像
 
 ## 迁移策略
 
