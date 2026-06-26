@@ -1,0 +1,71 @@
+{
+  "name": "mineradio-next",
+  "productName": "Mineradio",
+  "version": "2.0.0-alpha.1",
+  "description": "沉浸式音乐播放器 - 模块化重构版",
+  "author": "Mineradio",
+  "license": "GPL-3.0",
+  "private": true,
+  "main": "electron/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "electron:dev": "concurrently -k \"vite\" \"wait-on http://127.0.0.1:5173 && cross-env NODE_ENV=development electron .\"",
+    "electron:build": "npm run build && electron-builder",
+    "server:dev": "node --watch server/index.js",
+    "lint": "eslint . --ext .vue,.js,.ts --fix",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "vue": "^3.4.0",
+    "pinia": "^2.1.7",
+    "gsap": "^3.15.0",
+    "mpg123-decoder": "^1.0.3",
+    "NeteaseCloudMusicApi": "^4.32.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "typescript": "^5.3.0",
+    "vue-tsc": "^1.8.27",
+    "vite": "^5.0.0",
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
+    "concurrently": "^8.2.2",
+    "wait-on": "^7.2.0",
+    "cross-env": "^7.0.3",
+    "@types/node": "^20.10.0"
+  },
+  "build": {
+    "appId": "com.mineradio.desktop",
+    "productName": "Mineradio",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "dist/**/*",
+      "server/**/*",
+      "package.json"
+    ],
+    "asar": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.music"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Audio"
+    }
+  }
+}
