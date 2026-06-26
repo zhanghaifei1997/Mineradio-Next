@@ -1,123 +1,92 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useFxStore } from '@/stores/fx'
 import { usePlayerStore } from '@/stores/player'
+import { useDjStore } from '@/stores/dj'
+import { VisualEngine } from '@/modules/visual'
+import type { FxSettings } from '@/types'
 
 const fx = useFxStore()
 const player = usePlayerStore()
+const dj = useDjStore()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
-let ctx: CanvasRenderingContext2D | null = null
-let animationId: number | null = null
-let time = 0
-let particles: Array<{
-  x: number
-  y: number
-  vx: number
-  vy: number
-  size: number
-  alpha: number
-  hue: number
-}> = []
+let visualEngine: VisualEngine | null = null
 
-const particleCount = computed(() => {
-  const base = 150
-  const mult = { eco: 0.3, balanced: 1, high: 1.5, ultra: 2 }
-  return Math.floor(base * (mult[fx.settings.performanceQuality] || 1) * fx.settings.particleResolution)
-})
+const fxSettingsForEngine = computed<FxSettings>(() => ({
+  ...fx.settings,
+}))
 
-import { computed } from 'vue'
+function initVisualEngine() {
+  if (!canvasRef.value || visualEngine) return
 
-function initCanvas() {
-  if (!canvasRef.value) return
-  const canvas = canvasRef.value
-  canvas.width = window.innerWidth
-  canvas.height = window.innerHeight
-  ctx = canvas.getContext('2d')
-  initParticles()
-}
+  visualEngine = new VisualEngine({
+    canvas: canvasRef.value,
+    fxSettings: fxSettingsForEngine.value,
+  })
 
-function initParticles() {
-  particles = []
-  const w = window.innerWidth
-  const h = window.innerHeight
-  for (let i = 0; i < particleCount.value; i++) {
-    particles.push({
-      x: Math.random() * w,
-      y: Math.random() * h,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: (Math.random() - 0.5) * 0.5,
-      size: Math.random() * 2 + 1,
-      alpha: Math.random() * 0.5 + 0.2,
-      hue: Math.random() * 60 + 340,
-    })
-  }
-}
-
-function animate() {
-  if (!ctx || !canvasRef.value) return
-  const w = canvasRef.value.width
-  const h = canvasRef.value.height
-
-  ctx.fillStyle = 'rgba(10, 10, 15, 0.15)'
-  ctx.fillRect(0, 0, w, h)
-
-  const intensity = player.isPlaying ? fx.settings.cinemaIntensity : 0.2
-  const glowColor = fx.settings.glowColor
-
-  for (const p of particles) {
-    p.x += p.vx * (1 + intensity * 2)
-    p.y += p.vy * (1 + intensity * 2)
-
-    if (p.x < 0) p.x = w
-    if (p.x > w) p.x = 0
-    if (p.y < 0) p.y = h
-    if (p.y > h) p.y = 0
-
-    const gradient = ctx!.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * (1 + intensity * 2))
-    gradient.addColorStop(0, `hsla(${p.hue}, 70%, 65%, ${p.alpha * (0.5 + intensity)})`)
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
-
-    ctx!.fillStyle = gradient
-    ctx!.beginPath()
-    ctx!.arc(p.x, p.y, p.size * (1 + intensity * 2), 0, Math.PI * 2)
-    ctx!.fill()
+  if (player.audio) {
+    visualEngine.connectAudio(player.audio)
   }
 
-  if (player.isPlaying) {
-    const centerX = w / 2
-    const centerY = h / 2
-    const pulseRadius = 100 + Math.sin(time * 0.02) * 30 * intensity
-
-    const pulseGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, pulseRadius * 3)
-    pulseGradient.addColorStop(0, `${glowColor}22`)
-    pulseGradient.addColorStop(0.3, `${glowColor}11`)
-    pulseGradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
-    ctx.fillStyle = pulseGradient
-    ctx.fillRect(0, 0, w, h)
-  }
-
-  time++
-  animationId = requestAnimationFrame(animate)
+  updateDjModeInEngine()
 }
 
-function onResize() {
-  initCanvas()
+function updateDjModeInEngine() {
+  if (!visualEngine) return
+  visualEngine.setDjMode(dj.isDjModeActive, {
+    intensity: dj.djConfig.intensity,
+    visualBoost: dj.djConfig.visualBoost,
+    cameraShake: dj.djConfig.cameraShake ? dj.djMode.visualPulse * dj.djConfig.intensity : 0,
+    particleBoost: dj.djConfig.particleBoost ? 1 + dj.djMode.sectionEnergy * dj.djConfig.intensity * 0.5 : 1,
+  })
 }
+
+watch(
+  () => player.audio,
+  (audioEl) => {
+    if (visualEngine && audioEl) {
+      visualEngine.connectAudio(audioEl)
+    }
+  },
+)
+
+watch(
+  fxSettingsForEngine,
+  (settings) => {
+    if (visualEngine) {
+      visualEngine.updateFxSettings(settings)
+    }
+  },
+  { deep: true },
+)
+
+watch(
+  () => [dj.isDjModeActive, dj.djConfig, dj.djMode.visualPulse, dj.djMode.sectionEnergy],
+  () => {
+    updateDjModeInEngine()
+  },
+  { deep: true },
+)
 
 onMounted(() => {
-  initCanvas()
-  animate()
-  window.addEventListener('resize', onResize)
+  initVisualEngine()
 })
 
 onUnmounted(() => {
-  if (animationId) cancelAnimationFrame(animationId)
-  window.removeEventListener('resize', onResize)
+  if (visualEngine) {
+    visualEngine.dispose()
+    visualEngine = null
+  }
 })
 
-watch(particleCount, () => {
-  initParticles()
+function toggleFreeCamera() {
+  visualEngine?.getCameraSystem().toggleFreeCamera()
+}
+
+defineExpose({
+  toggleFreeCamera,
+  getEngine: () => visualEngine,
 })
 </script>
 
@@ -133,5 +102,6 @@ watch(particleCount, () => {
   width: 100%;
   height: 100%;
   z-index: 1;
+  pointer-events: auto;
 }
 </style>

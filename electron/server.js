@@ -1,45 +1,38 @@
-import { fork } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-let serverProcess = null
+let serverModule = null
 
-export function startServer() {
-  if (serverProcess) return serverProcess
+export async function startServer(options = {}) {
+  if (serverModule) return serverModule
 
-  const serverPath = path.join(__dirname, '../server/index.js')
-  serverProcess = fork(serverPath, [], {
-    env: {
-      ...process.env,
-      PORT: '27232',
-    },
-    stdio: 'pipe',
-  })
+  process.env.PORT = options.port || '27232'
+  process.env.HOST = options.host || '127.0.0.1'
+  if (options.cookieDir) {
+    process.env.COOKIE_DIR = options.cookieDir
+  }
+  if (options.localMusicDir) {
+    process.env.LOCAL_MUSIC_DIR = options.localMusicDir
+  }
 
-  serverProcess.stdout?.on('data', (data) => {
-    console.log('[Server]', data.toString().trim())
-  })
+  const serverPath = path.join(__dirname, '..', 'server', 'index.js')
+  const moduleUrl = pathToFileURL(serverPath).href
+  
+  const mod = await import(moduleUrl)
+  serverModule = mod.startServer ? mod.startServer(options) : mod.server
 
-  serverProcess.stderr?.on('data', (data) => {
-    console.error('[Server Error]', data.toString().trim())
-  })
-
-  serverProcess.on('exit', (code) => {
-    console.log(`Server process exited with code ${code}`)
-    serverProcess = null
-  })
-
-  return serverProcess
+  return serverModule
 }
 
 export function stopServer() {
-  if (serverProcess) {
-    serverProcess.kill()
-    serverProcess = null
+  if (serverModule && serverModule.close) {
+    serverModule.close()
+    serverModule = null
   }
 }
 
-export { serverProcess }
+export { serverModule as server }

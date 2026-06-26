@@ -1,7 +1,20 @@
 import { json } from '../utils/http.js'
 import { readFileSync, existsSync } from 'node:fs'
-import { join } from 'node:path'
-import pkg from '../package.json' assert { type: 'json' }
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
+const pkgPath = join(__dirname, '..', '..', 'package.json')
+let pkg = { version: '0.0.0' }
+try {
+  if (existsSync(pkgPath)) {
+    pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
+  }
+} catch (e) {
+  console.warn('Failed to read package.json:', e.message)
+}
 
 const UPDATE_SERVER = 'https://api.mineradio.example.com/update'
 

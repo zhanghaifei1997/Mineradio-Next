@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { providerManager } from '@/modules/providers'
 import type { Playlist } from '@/types'
 import { playQueueStore } from '@/stores/playQueue'
 import { usePlayerStore } from '@/stores/player'
+import PlaylistShelf3D from './PlaylistShelf3D.vue'
+import { formatPlayCount } from '@/utils'
 
 const player = usePlayerStore()
 const queue = playQueueStore()
 
 const playlists = ref<Playlist[]>([])
 const loading = ref(false)
+const viewMode = ref<'2d' | '3d'>('3d')
 
 async function loadPlaylists() {
   loading.value = true
@@ -33,46 +36,69 @@ async function openPlaylist(playlist: Playlist) {
   }
 }
 
+function toggleViewMode() {
+  viewMode.value = viewMode.value === '2d' ? '3d' : '2d'
+}
+
 onMounted(() => {
   loadPlaylists()
 })
 </script>
 
 <template>
-  <div class="playlist-shelf">
+  <div class="playlist-shelf" :class="{ 'mode-3d': viewMode === '3d' }">
     <div class="shelf-header">
       <h3>推荐歌单</h3>
-      <button class="refresh-btn" @click="loadPlaylists" :disabled="loading">
-        {{ loading ? '加载中...' : '刷新' }}
-      </button>
-    </div>
-    <div class="shelf-grid">
-      <div
-        v-for="pl in playlists"
-        :key="pl.id"
-        class="playlist-card"
-        @click="openPlaylist(pl)"
-      >
-        <div class="playlist-card__cover">
-          <img :src="pl.coverUrl" alt="" v-if="pl.coverUrl" />
-          <div class="cover-placeholder" v-else></div>
-          <div class="play-count" v-if="pl.playCount">
-            ▶ {{ formatPlayCount(pl.playCount) }}
-          </div>
-        </div>
-        <div class="playlist-card__name">{{ pl.name }}</div>
+      <div class="header-actions">
+        <button class="view-toggle" @click="toggleViewMode" :title="viewMode === '3d' ? '切换到 2D 视图' : '切换到 3D 视图'">
+          <svg v-if="viewMode === '3d'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7" />
+            <rect x="14" y="3" width="7" height="7" />
+            <rect x="14" y="14" width="7" height="7" />
+            <rect x="3" y="14" width="7" height="7" />
+          </svg>
+          <span>{{ viewMode === '3d' ? '3D' : '2D' }}</span>
+        </button>
+        <button class="refresh-btn" @click="loadPlaylists" :disabled="loading">
+          {{ loading ? '加载中...' : '刷新' }}
+        </button>
       </div>
     </div>
+
+    <Transition name="mode-fade" mode="out-in">
+      <div v-if="viewMode === '2d'" key="2d" class="shelf-2d">
+        <div class="shelf-grid">
+          <div
+            v-for="pl in playlists"
+            :key="pl.id"
+            class="playlist-card"
+            @click="openPlaylist(pl)"
+          >
+            <div class="playlist-card__cover">
+              <img :src="pl.coverUrl" alt="" v-if="pl.coverUrl" />
+              <div class="cover-placeholder" v-else></div>
+              <div class="play-count" v-if="pl.playCount">
+                ▶ {{ formatPlayCount(pl.playCount) }}
+              </div>
+            </div>
+            <div class="playlist-card__name">{{ pl.name }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div v-else key="3d" class="shelf-3d">
+        <PlaylistShelf3D
+          :playlists="playlists"
+          @playlist-click="openPlaylist"
+        />
+      </div>
+    </Transition>
   </div>
 </template>
-
-<script lang="ts">
-function formatPlayCount(count: number): string {
-  if (count >= 100000000) return (count / 100000000).toFixed(1) + '亿'
-  if (count >= 10000) return (count / 10000).toFixed(1) + '万'
-  return String(count)
-}
-</script>
 
 <style scoped>
 .playlist-shelf {
@@ -85,17 +111,61 @@ function formatPlayCount(count: number): string {
   flex-direction: column;
 }
 
+.playlist-shelf.mode-3d {
+  top: 80px;
+  left: 0;
+  right: 0;
+  bottom: 80px;
+}
+
 .shelf-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+  padding: 0 8px;
+  position: relative;
+  z-index: 10;
+}
+
+.mode-3d .shelf-header {
+  position: absolute;
+  top: 0;
+  left: 24px;
+  right: 24px;
 }
 
 .shelf-header h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-color: rgba(0, 245, 212, 0.3);
 }
 
 .refresh-btn {
@@ -114,12 +184,29 @@ function formatPlayCount(count: number): string {
   color: #fff;
 }
 
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.shelf-2d {
+  flex: 1;
+  overflow: hidden;
+}
+
 .shelf-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 20px;
   overflow-y: auto;
   padding-right: 8px;
+  height: 100%;
+  align-content: start;
+}
+
+.shelf-3d {
+  position: absolute;
+  inset: 0;
 }
 
 .playlist-card {
@@ -172,5 +259,15 @@ function formatPlayCount(count: number): string {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.mode-fade-enter-active,
+.mode-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.mode-fade-enter-from,
+.mode-fade-leave-to {
+  opacity: 0;
 }
 </style>

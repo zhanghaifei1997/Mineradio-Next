@@ -56,6 +56,44 @@ export interface UserProfile {
   avatarUrl?: string
   signature?: string
   vipType?: number
+  vipLevel?: string
+  isSvip?: boolean
+}
+
+export type MusicSource = 'netease' | 'qqmusic'
+
+export interface UserAccount {
+  source: MusicSource
+  profile: UserProfile | null
+  loggedIn: boolean
+  cookie?: string
+}
+
+export interface LoginQrCode {
+  qrKey: string
+  qrUrl: string
+  qrImg?: string
+}
+
+export type QrLoginStatus = 'waiting' | 'scanned' | 'success' | 'expired' | 'error'
+
+export interface LoginState {
+  activeTab: MusicSource
+  qrCode: LoginQrCode | null
+  qrStatus: QrLoginStatus
+  loading: boolean
+  errorMessage: string | null
+}
+
+export interface UserPlaylist {
+  id: string
+  name: string
+  coverUrl?: string
+  trackCount: number
+  playCount?: number
+  source: MusicSource
+  isFavorite?: boolean
+  isOwned?: boolean
 }
 
 export interface SearchResult {
@@ -111,3 +149,7 @@ export interface PlayerState {
   playMode: 'sequence' | 'loop' | 'single' | 'shuffle'
   speed: number
 }
+
+export type PerformanceQuality = 'eco' | 'balanced' | 'high' | 'ultra'
+
+export type PerformanceBackgroundMode = 'auto' | 'keep' | 'release'

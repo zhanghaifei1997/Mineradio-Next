@@ -17,6 +17,10 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        'desktop-lyrics': resolve(__dirname, 'desktop-lyrics.html'),
+      },
       output: {
         manualChunks: {
           'vendor-vue': ['vue', 'pinia'],

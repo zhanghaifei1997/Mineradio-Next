@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { FxSettings, VisualPreset } from '@/types'
+import type { FxSettings, VisualPreset, PerformanceQuality, PerformanceBackgroundMode } from '@/types'
+import { normalizePerformanceQuality, normalizePerformanceBackgroundMode } from '@/modules/performance'
 
 const STORAGE_KEY = 'mineradio_fx_settings'
 
@@ -15,7 +16,7 @@ const defaultSettings: FxSettings = {
   shelfMergeCollections: false,
   liveBackgroundKeep: false,
   performanceBackground: 'auto',
-  performanceQuality: 'balanced',
+  performanceQuality: 'high',
 }
 
 export const useFxStore = defineStore('fx', () => {
@@ -53,10 +54,43 @@ export const useFxStore = defineStore('fx', () => {
 
   const performanceQuality = computed({
     get: () => settings.value.performanceQuality,
-    set: (v: FxSettings['performanceQuality']) => {
-      settings.value.performanceQuality = v
+    set: (v: PerformanceQuality) => {
+      settings.value.performanceQuality = normalizePerformanceQuality(v)
       save()
     },
+  })
+
+  const performanceBackground = computed({
+    get: () => settings.value.performanceBackground,
+    set: (v: PerformanceBackgroundMode) => {
+      settings.value.performanceBackground = v
+      save()
+    },
+  })
+
+  const liveBackgroundKeep = computed({
+    get: () => settings.value.liveBackgroundKeep,
+    set: (v: boolean) => {
+      settings.value.liveBackgroundKeep = v
+      save()
+    },
+  })
+
+  const particleGridSize = computed(() => {
+    const grid = Math.round(118 * normalizeCoverResolution(settings.value.particleResolution))
+    return Math.max(88, Math.min(183, grid % 2 ? grid : grid + 1))
+  })
+
+  const particleCountLabel = computed(() => {
+    const grid = particleGridSize.value
+    return `${grid}x${grid}`
+  })
+
+  const coverTextureSize = computed(() => {
+    const v = normalizeCoverResolution(settings.value.particleResolution)
+    if (v >= 1.32) return 512
+    if (v >= 1.10) return 384
+    return 256
   })
 
   function update<K extends keyof FxSettings>(key: K, value: FxSettings[K]): void {
@@ -69,11 +103,35 @@ export const useFxStore = defineStore('fx', () => {
     save()
   }
 
+  function setPerformanceQuality(quality: PerformanceQuality): void {
+    settings.value.performanceQuality = normalizePerformanceQuality(quality)
+    save()
+  }
+
+  function setPerformanceBackgroundMode(mode: PerformanceBackgroundMode): void {
+    settings.value.performanceBackground = normalizePerformanceBackgroundMode(mode, settings.value.liveBackgroundKeep)
+    save()
+  }
+
+  function toggleLiveBackgroundKeep(): void {
+    settings.value.liveBackgroundKeep = !settings.value.liveBackgroundKeep
+    save()
+  }
+
   function loadSettings(): FxSettings {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (raw) {
-        return { ...defaultSettings, ...JSON.parse(raw) }
+        const parsed = JSON.parse(raw)
+        return {
+          ...defaultSettings,
+          ...parsed,
+          performanceQuality: normalizePerformanceQuality(parsed.performanceQuality),
+          performanceBackground: normalizePerformanceBackgroundMode(
+            parsed.performanceBackground,
+            parsed.liveBackgroundKeep
+          ),
+        }
       }
     } catch (e) {
       console.warn('Failed to load fx settings:', e)
@@ -98,7 +156,19 @@ export const useFxStore = defineStore('fx', () => {
     accentColor,
     glowColor,
     performanceQuality,
+    performanceBackground,
+    liveBackgroundKeep,
+    particleGridSize,
+    particleCountLabel,
+    coverTextureSize,
     update,
     reset,
+    setPerformanceQuality,
+    setPerformanceBackgroundMode,
+    toggleLiveBackgroundKeep,
   }
 })
+
+function normalizeCoverResolution(v: number): number {
+  return Math.max(0.75, Math.min(1.55, Number(v) || 1))
+}

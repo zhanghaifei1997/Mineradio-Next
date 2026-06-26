@@ -27,8 +27,8 @@ export class NeteaseProvider extends MusicProvider {
 
   async isLoggedIn(): Promise<boolean> {
     try {
-      const data = await request<any>('/login/status')
-      return !!data?.profile
+      const data = await this.request<any>('/login/status')
+      return !!data?.loggedIn || !!data?.userId
     } catch {
       return false
     }
@@ -37,7 +37,8 @@ export class NeteaseProvider extends MusicProvider {
   async getCurrentUser(): Promise<UserProfile | null> {
     try {
       const data = await this.request<any>('/login/status')
-      return data?.profile ? this.mapUserProfile(data.profile) : null
+      if (!data?.loggedIn && !data?.userId) return null
+      return this.mapUserProfile(data)
     } catch {
       return null
     }
@@ -117,12 +118,18 @@ export class NeteaseProvider extends MusicProvider {
 
   async getUserPlaylists(uid?: string): Promise<Playlist[]> {
     const data = await this.request<any>('/user/playlist', { uid })
-    return (data?.playlist || []).map((p: any) => ({
+    const playlists = data?.playlists || []
+    return playlists.map((p: any) => ({
       id: String(p.id),
       name: p.name,
-      coverUrl: p.coverImgUrl,
+      coverUrl: p.cover || p.coverImgUrl,
+      description: p.description,
       tracks: [],
       trackCount: p.trackCount,
+      playCount: p.playCount,
+      creator: p.creator
+        ? { id: String(p.creator.userId || p.creator.id), nickname: p.creator.nickname || p.creator, avatarUrl: p.creator.avatarUrl } as UserProfile
+        : undefined,
       source: this.id,
     }))
   }
@@ -212,11 +219,13 @@ export class NeteaseProvider extends MusicProvider {
 
   private mapUserProfile(raw: any): UserProfile {
     return {
-      id: String(raw.userId || raw.id),
-      nickname: raw.nickname,
-      avatarUrl: raw.avatarUrl,
+      id: String(raw.userId || raw.id || ''),
+      nickname: raw.nickname || '',
+      avatarUrl: raw.avatar || raw.avatarUrl,
       signature: raw.signature,
       vipType: raw.vipType,
+      vipLevel: raw.vipLevel,
+      isSvip: raw.isSvip,
     }
   }
 
