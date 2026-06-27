@@ -1,4 +1,5 @@
 <template>
+  <!-- 老项目原版 fullscreen: stroke, 4 corner brackets -->
   <svg
     :width="size"
     :height="size"
@@ -8,15 +9,14 @@
     stroke-width="2"
     stroke-linecap="round"
     stroke-linejoin="round"
-    class="icon"
   >
-    <polyline points="15 3 21 3 21 9" />
-    <polyline points="9 21 3 21 3 15" />
-    <line x1="21" y1="3" x2="14" y2="10" />
-    <line x1="3" y1="21" x2="10" y2="14" />
+    <path d="M3 7V3h4" />
+    <path d="M21 7V3h-4" />
+    <path d="M3 17v4h4" />
+    <path d="M21 17v4h-4" />
   </svg>
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{ size?: number | string }>(), { size: 20 })
+withDefaults(defineProps<{ size?: number | string }>(), { size: 18 })
 </script>

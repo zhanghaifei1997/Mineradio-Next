@@ -1,5 +1,5 @@
 <template>
-  <!-- 老项目原版 shuffle 模式: cross-shuffle arrows -->
+  <!-- 老项目原版 controls-hide-btn: stroke, 3 horizontal lines (decreasing width) -->
   <svg
     :width="size"
     :height="size"
@@ -10,11 +10,9 @@
     stroke-linecap="round"
     stroke-linejoin="round"
   >
-    <path d="M16 3h5v5" />
-    <path d="M4 20 21 3" />
-    <path d="M21 16v5h-5" />
-    <path d="M15 15l6 6" />
-    <path d="M4 4l5 5" />
+    <path d="M5 8h14" />
+    <path d="M8 12h8" />
+    <path d="M10 16h4" />
   </svg>
 </template>
 

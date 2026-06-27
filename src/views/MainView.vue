@@ -23,6 +23,10 @@ import ImmersivePlayer from '@/components/player/ImmersivePlayer.vue'
 import ContextMenu from '@/components/common/ContextMenu.vue'
 import Toast from '@/components/common/Toast.vue'
 import DropOverlay from '@/components/common/DropOverlay.vue'
+import IconHome from '@/components/icons/IconHome.vue'
+import IconPalette from '@/components/icons/IconPalette.vue'
+import ThumbWrap from '@/components/player/ThumbWrap.vue'
+import UploadActions from '@/components/search/UploadActions.vue'
 
 const SearchPanel = defineAsyncComponent(() => import('@/components/search/SearchPanel.vue'))
 const PlaylistShelf = defineAsyncComponent(() => import('@/components/playlist/PlaylistShelf.vue'))
@@ -566,6 +570,44 @@ function openVisualGuide() {
   }
 }
 
+// Guide peek/reveal handlers (matching old project prepareVisualGuideStep)
+function peekSearchForGuide() {
+  // Show search panel briefly
+  if (searchPanelRef.value) {
+    searchPanelRef.value.peek?.()
+  }
+}
+
+function peekFxForGuide() {
+  // Show fx panel briefly
+  toggleVisualConsole()
+}
+
+function peekPlaylistForGuide() {
+  // Show playlist panel briefly - handled by existing toggle
+}
+
+function revealBottomForGuide() {
+  // Ensure player bar is visible
+  const playerBarEl = document.querySelector('.player-bar')
+  if (playerBarEl) {
+    playerBarEl.classList.add('visible')
+  }
+}
+
+// Auto-start guide on first launch (matching old project maybeRunStartupVisualGuide)
+function maybeAutoStartGuide() {
+  if (visualGuideRef.value && !visualGuideRef.value.hasCompletedGuide()) {
+    // Old project: auto-start if user has logged in or after splash
+    // New project: auto-start after a delay if guide hasn't been seen
+    setTimeout(() => {
+      if (!playerStore.isPlaying && !showVisualGuide.value) {
+        showVisualGuide.value = true
+      }
+    }, 2000)
+  }
+}
+
 async function loadLyricsForSong(songId: string, source: string) {
   try {
     const provider = providerManager.get(source) || providerManager.default
@@ -722,6 +764,9 @@ onMounted(() => {
   setTimeout(() => {
     appStartup.startInitialization()
   }, 100)
+
+  // Auto-start visual guide on first launch
+  maybeAutoStartGuide()
 })
 
 onUnmounted(() => {
@@ -818,7 +863,7 @@ onUnmounted(() => {
         <div class="top-toolbar">
           <div class="top-toolbar__left">
             <button class="icon-btn home-btn" :class="{ active: showHome }" @click="toggleHome" :title="showHome ? '隐藏首页' : '显示首页'">
-              🏠
+              <IconHome :size="19" />
             </button>
             <DjModeIndicator />
             <FMModeIndicator @toggle="toggleFMMode" />
@@ -840,7 +885,7 @@ onUnmounted(() => {
               {{ lyrics.stageEnabled ? '🎵' : '🎤' }}
             </button>
             <button class="icon-btn" @click="toggleVisualConsole" :title="showVisualConsole ? '关闭视觉控制台' : '打开视觉控制台'">
-              🎨
+              <IconPalette :size="21" />
             </button>
             <button class="icon-btn" @click="theme.toggleTheme" :title="theme.mode === 'dark' ? '暗色模式' : theme.mode === 'light' ? '亮色模式' : '跟随系统'">
               {{ theme.isDark ? '🌙' : '☀️' }}
@@ -852,7 +897,7 @@ onUnmounted(() => {
               ⚙️
             </button>
             <button class="icon-btn help-btn" @click="openVisualGuide" title="使用引导">
-              ❓
+              ?
             </button>
             <UpdateEntryButton @click="showSettings = true" />
             <UserCapsule @open-login="openLogin" @open-recent="toggleRecentPanel" />
@@ -870,6 +915,7 @@ onUnmounted(() => {
 
         <PlaylistShelf />
         <SearchPanel />
+        <UploadActions />
 
         <Suspense>
           <HomePanel
@@ -969,6 +1015,7 @@ onUnmounted(() => {
       <BottomHandle v-if="fx.controlsAutoHide" @click="handleBottomHandleClick" />
       <ImmersivePlayer />
       <ContextMenu @open-settings="toggleSettings" @open-about="toggleSettings" />
+      <ThumbWrap />
       <IdleGuide />
 
       <HintToast
@@ -992,6 +1039,10 @@ onUnmounted(() => {
       :visible="showVisualGuide"
       @close="showVisualGuide = false"
       @complete="showVisualGuide = false"
+      @peek-search="peekSearchForGuide"
+      @peek-fx="peekFxForGuide"
+      @peek-playlist="peekPlaylistForGuide"
+      @reveal-bottom="revealBottomForGuide"
     />
   </div>
 </template>
@@ -1068,6 +1119,16 @@ onUnmounted(() => {
   font-family: inherit;
 }
 
+.icon-btn svg {
+  width: 21px; height: 21px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .icon-btn:hover {
   background: rgba(255,255,255,0.09);
   border-color: rgba(255,255,255,0.18);
@@ -1098,6 +1159,21 @@ onUnmounted(() => {
   border-color: rgba(255,83,103,.36);
   background: rgba(255,83,103,.11);
   color: #fff;
+}
+
+.icon-btn.help-btn {
+  font-weight: 780;
+  font-size: 14px;
+  border-color: rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
+  color: rgba(255,255,255,.68);
+}
+
+.icon-btn.help-btn:hover {
+  color: #fff;
+  border-color: rgba(255,83,103,.40);
+  background: rgba(255,83,103,.10);
+  box-shadow: 0 14px 38px rgba(255,83,103,.08);
 }
 
 .side-panels {

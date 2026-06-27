@@ -7,6 +7,19 @@ import { useFxStore } from '@/stores/fx'
 import { useImmersiveStore } from '@/stores/immersive'
 import { useLyricsStore } from '@/stores/lyrics'
 import { formatTime } from '@/utils/time'
+import IconPlay from '@/components/icons/IconPlay.vue'
+import IconPause from '@/components/icons/IconPause.vue'
+import IconSkipBack from '@/components/icons/IconSkipBack.vue'
+import IconSkipForward from '@/components/icons/IconSkipForward.vue'
+import IconShuffle from '@/components/icons/IconShuffle.vue'
+import IconRepeat from '@/components/icons/IconRepeat.vue'
+import IconRepeat1 from '@/components/icons/IconRepeat1.vue'
+import IconHeart from '@/components/icons/IconHeart.vue'
+import IconFolder from '@/components/icons/IconFolder.vue'
+import IconListOrdered from '@/components/icons/IconListOrdered.vue'
+import IconMonitor from '@/components/icons/IconMonitor.vue'
+import IconMaximize from '@/components/icons/IconMaximize.vue'
+import IconEye from '@/components/icons/IconEye.vue'
 import QualitySelector from './QualitySelector.vue'
 import VolumePopover from './VolumePopover.vue'
 import SleepTimer from './SleepTimer.vue'
@@ -221,14 +234,14 @@ function toggleLyricsPanel() {
           :disabled="likeLoading"
           :title="isLiked ? '取消喜欢' : '喜欢'"
         >
-          {{ isLiked ? '❤️' : '🤍' }}
+          <IconHeart :size="21" :filled="isLiked" />
         </button>
         <button
           class="ctrl-btn song-action-btn"
           @click="handleOpenCollect"
           title="收藏到歌单"
         >
-          📁
+          <IconFolder :size="21" />
         </button>
       </div>
 
@@ -240,16 +253,25 @@ function toggleLyricsPanel() {
           @click="handleCyclePlayMode"
           :title="playModeLabel"
         >
-          <span class="mode-icon">{{ playModeIcon }}</span>
+          <span class="mode-icon">
+            <IconShuffle v-if="player.playMode === 'shuffle'" :size="21" />
+            <IconRepeat1 v-else-if="player.playMode === 'single'" :size="21" />
+            <IconRepeat v-else :size="21" />
+          </span>
         </button>
-        <button class="ctrl-btn" @click="player.prev()" title="上一首">⏮</button>
+        <button class="ctrl-btn" @click="player.prev()" title="上一首">
+          <IconSkipBack :size="18" />
+        </button>
         <button class="ctrl-btn play-btn" @click="player.togglePlay()" :title="player.isPlaying ? '暂停' : '播放'">
-          {{ player.isPlaying ? '⏸' : '▶' }}
+          <IconPause v-if="player.isPlaying" :size="20" />
+          <IconPlay v-else :size="20" />
         </button>
-        <button class="ctrl-btn" @click="player.next()" title="下一首">⏭</button>
+        <button class="ctrl-btn" @click="player.next()" title="下一首">
+          <IconSkipForward :size="18" />
+        </button>
         <div class="mini-queue-wrap">
           <button class="ctrl-btn" @click="toggleMiniQueue" :title="'当前队列 (' + queue.total + ')'">
-            📋
+            <IconListOrdered :size="21" />
             <span class="queue-badge" v-if="queue.total > 0">{{ queue.total }}</span>
           </button>
           <Transition name="mini-queue-fade">
@@ -294,13 +316,13 @@ function toggleLyricsPanel() {
           @click="toggleControlsAutoHide"
           title="控制条自动隐藏"
         >
-          {{ fx.settings.controlsAutoHide ? '👁️' : '👁️‍🗨️' }}
+          <IconEye :size="19" />
         </button>
         <button class="ctrl-btn" @click="toggleImmersive" title="沉浸式模式">
-          🖥️
+          <IconMonitor :size="21" />
         </button>
         <button class="ctrl-btn" @click="toggleFullscreen" title="全屏">
-          ⛶
+          <IconMaximize :size="21" />
         </button>
       </div>
     </div>
@@ -593,45 +615,73 @@ function toggleLyricsPanel() {
   border-radius: 11px;
   color: rgba(255,255,255,0.70);
   cursor: pointer;
-  transition: color .18s, transform .18s, text-shadow .18s, background .18s, box-shadow .18s;
+  transition: color .18s, transform .18s, background .18s, box-shadow .18s;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  font-size: 16px;
   position: relative;
+  will-change: transform;
+}
+
+.ctrl-btn svg {
+  width: 21px; height: 21px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .ctrl-btn:hover {
   color: #fff;
   background: rgba(255,255,255,.045);
   transform: translateY(-1px);
-  text-shadow: 0 0 10px rgba(0,245,212,.12);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.045);
+  filter: drop-shadow(0 0 10px rgba(0,245,212,.12));
 }
 
 .ctrl-btn:active {
   transform: translateY(0) scale(.96);
 }
 
+.ctrl-btn.active {
+  color: rgba(210,244,241,.90);
+  filter: drop-shadow(0 0 12px rgba(0,245,212,.16));
+}
+
 .ctrl-btn.liked {
   color: #ff7a90;
-  text-shadow: 0 0 18px rgba(255,122,144,.36);
+  filter: drop-shadow(0 0 18px rgba(255,122,144,.36));
+}
+
+.ctrl-btn.liked svg {
+  fill: currentColor;
 }
 
 /* --- Play button (glass) --- */
 .play-btn {
   width: 58px; height: 58px;
   border-radius: 50%;
+  border: 0;
   color: rgba(255,255,255,.96);
   background: rgba(0,0,0,.10);
-  font-size: 22px;
   box-shadow: inset 0 0 2px 1px rgba(255,255,255,.34),
     inset 0 0 10px 4px rgba(255,255,255,.13),
     0 10px 30px rgba(0,0,0,.18);
   backdrop-filter: blur(12px) saturate(1.8) brightness(1.16);
   -webkit-backdrop-filter: blur(12px) saturate(1.8) brightness(1.16);
-  transition: transform .20s cubic-bezier(.16,1,.3,1), background .20s, box-shadow .20s;
+  transition: transform .20s cubic-bezier(.16,1,.3,1), background .20s, box-shadow .20s, filter .20s;
+}
+
+.play-btn svg {
+  width: 24px; height: 24px;
+}
+
+:global(html.control-glass-svg-ok) .play-btn {
+  backdrop-filter: blur(24px) saturate(1) brightness(1);
+  -webkit-backdrop-filter: blur(24px) saturate(1) brightness(1);
 }
 
 .play-btn:hover {
@@ -656,7 +706,9 @@ function toggleLyricsPanel() {
 }
 
 .mode-icon {
-  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @keyframes play-mode-pop {
@@ -863,10 +915,16 @@ function toggleLyricsPanel() {
   transform: translateY(4px) scale(.98);
 }
 
-/* --- Lyrics toggle button --- */
+/* --- Lyrics toggle button (老项目原版: 纯文字"词") --- */
+.lyrics-toggle-btn {
+  gap: 0;
+}
+
 .lyrics-word-icon {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 1;
+  color: currentColor;
+  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 </style>

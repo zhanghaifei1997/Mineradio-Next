@@ -1,4 +1,5 @@
 <template>
+  <!-- 老项目原版 collect-btn: stroke, plus "M12 5v14 M5 12h14" -->
   <svg
     :width="size"
     :height="size"
@@ -8,12 +9,12 @@
     stroke-width="2"
     stroke-linecap="round"
     stroke-linejoin="round"
-    class="icon"
   >
-    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    <path d="M12 5v14" />
+    <path d="M5 12h14" />
   </svg>
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{ size?: number | string }>(), { size: 20 })
+withDefaults(defineProps<{ size?: number | string }>(), { size: 18 })
 </script>

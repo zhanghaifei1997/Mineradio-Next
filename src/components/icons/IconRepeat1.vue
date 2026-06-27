@@ -1,4 +1,5 @@
 <template>
+  <!-- 老项目原版 single 模式: repeat arrows + "1" indicator (down arrow + small 1) -->
   <svg
     :width="size"
     :height="size"
@@ -8,16 +9,16 @@
     stroke-width="2"
     stroke-linecap="round"
     stroke-linejoin="round"
-    class="icon"
   >
-    <polyline points="17 1 21 5 17 9" />
+    <path d="M17 2l4 4-4 4" />
     <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-    <polyline points="7 23 3 19 7 15" />
+    <path d="M7 22l-4-4 4-4" />
     <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-    <path d="M11 11h1v4" />
+    <path d="M12 9v6" />
+    <path d="M10.5 10.5 12 9l1.5 1.5" />
   </svg>
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{ size?: number | string }>(), { size: 20 })
+withDefaults(defineProps<{ size?: number | string }>(), { size: 19 })
 </script>

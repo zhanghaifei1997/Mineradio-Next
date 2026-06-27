@@ -42,6 +42,18 @@ import IconArrowDown from './IconArrowDown.vue'
 import IconLayers from './IconLayers.vue'
 import IconBox from './IconBox.vue'
 import IconEdit from './IconEdit.vue'
+import IconHome from './IconHome.vue'
+import IconHeart from './IconHeart.vue'
+import IconSun from './IconSun.vue'
+import IconMoon from './IconMoon.vue'
+import IconCloudSun from './IconCloudSun.vue'
+import IconCalendar from './IconCalendar.vue'
+import IconTrophy from './IconTrophy.vue'
+import IconPalette from './IconPalette.vue'
+import IconMonitor from './IconMonitor.vue'
+import IconEye from './IconEye.vue'
+import IconEyeOff from './IconEyeOff.vue'
+import IconUpload from './IconUpload.vue'
 
 const iconMap: Record<string, any> = {
   play: IconPlay,
@@ -82,6 +94,18 @@ const iconMap: Record<string, any> = {
   layers: IconLayers,
   box: IconBox,
   edit: IconEdit,
+  home: IconHome,
+  heart: IconHeart,
+  sun: IconSun,
+  moon: IconMoon,
+  'cloud-sun': IconCloudSun,
+  calendar: IconCalendar,
+  trophy: IconTrophy,
+  palette: IconPalette,
+  monitor: IconMonitor,
+  eye: IconEye,
+  'eye-off': IconEyeOff,
+  upload: IconUpload,
 }
 
 const props = withDefaults(defineProps<{

@@ -148,31 +148,35 @@ defineExpose({
   position: absolute;
   left: -24px;
   top: 50%;
-  transform: translateY(-50%);
-  width: 24px;
-  height: 24px;
+  transform: translateY(-50%) translateX(6px) scale(.92);
+  width: 18px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0);
-  font-size: 18px;
+  background: rgba(255,255,255,.035);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 999px;
+  color: rgba(255,255,255,.34);
+  font-size: 11px;
+  opacity: 0;
   cursor: pointer;
-  border-radius: 50%;
-  transition: all 0.2s ease;
   padding: 0;
   z-index: 1;
+  transition: opacity .18s, transform .18s, background .18s, border-color .18s, color .18s;
+  font-family: inherit;
 }
 
 .user-capsule-wrapper:hover .user-capsule__hide-btn {
-  color: rgba(255, 255, 255, 0.6);
-  background: rgba(255, 255, 255, 0.05);
+  opacity: 1;
+  transform: translateY(-50%) translateX(0) scale(1);
+  color: rgba(255,255,255,.60);
 }
 
 .user-capsule__hide-btn:hover {
-  color: #fff !important;
-  background: rgba(255, 255, 255, 0.15) !important;
+  color: #fff;
+  background: rgba(255,255,255,.09);
+  border-color: rgba(255,255,255,.18);
 }
 
 :global(body.user-capsule-auto-hide:not(.user-capsule-peek)) .user-capsule-wrapper {
@@ -185,26 +189,30 @@ defineExpose({
   align-items: center;
   gap: 10px;
   height: 44px;
+  min-width: 58px;
   padding: 0 16px;
   border-radius: 22px;
   border: 1px solid rgba(244, 210, 138, 0.28);
   background: rgba(255, 255, 255, 0.045);
   color: rgba(255, 255, 255, 0.78);
   font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.4px;
+  font-weight: 650;
+  letter-spacing: .08em;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all .22s;
   font-family: inherit;
   overflow: visible;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 12px 34px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.08);
 }
 
 .user-capsule:hover {
+  color: #fff2bd;
   border-color: rgba(244, 210, 138, 0.56);
   background: rgba(244, 210, 138, 0.11);
-  color: #fff2bd;
-  box-shadow: 0 14px 42px rgba(244, 210, 138, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 42px rgba(244, 210, 138, 0.10), inset 0 1px 0 rgba(255,255,255,.10);
+  transform: translateY(-1px);
 }
 
 .user-capsule--logged-in {

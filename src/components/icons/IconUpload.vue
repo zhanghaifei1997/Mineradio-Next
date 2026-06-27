@@ -1,5 +1,5 @@
 <template>
-  <!-- 老项目原版 muted volume: speaker + X cross -->
+  <!-- 老项目原版 upload-btn: stroke, upload arrow -->
   <svg
     :width="size"
     :height="size"
@@ -10,9 +10,9 @@
     stroke-linecap="round"
     stroke-linejoin="round"
   >
-    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-    <line x1="17" y1="9" x2="22" y2="14" />
-    <line x1="22" y1="9" x2="17" y2="14" />
+    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+    <polyline points="17 8 12 3 7 8" />
+    <line x1="12" y1="3" x2="12" y2="15" />
   </svg>
 </template>
 

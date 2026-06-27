@@ -1,4 +1,5 @@
 <template>
+  <!-- 老项目原版 search-icon: stroke, magnifying glass -->
   <svg
     :width="size"
     :height="size"
@@ -8,13 +9,12 @@
     stroke-width="2"
     stroke-linecap="round"
     stroke-linejoin="round"
-    class="icon"
   >
     <circle cx="11" cy="11" r="8" />
-    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    <path d="m21 21-4.35-4.35" />
   </svg>
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{ size?: number | string }>(), { size: 20 })
+withDefaults(defineProps<{ size?: number | string }>(), { size: 17 })
 </script>

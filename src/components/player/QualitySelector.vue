@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { usePlayerStore } from '@/stores/player'
+import { useUserStore } from '@/stores/user'
 import type { QualityLevel } from '@/types'
 
 const props = defineProps<{
@@ -12,26 +13,45 @@ const emit = defineEmits<{
 }>()
 
 const player = usePlayerStore()
+const userStore = useUserStore()
 const showPopup = ref(false)
 const popupRef = ref<HTMLElement | null>(null)
 
 const qualityOptions = [
-  { id: 'standard' as QualityLevel, name: '标准', bitrate: '128kbps', size: '约 1MB/分钟' },
-  { id: 'higher' as QualityLevel, name: '较高', bitrate: '192kbps', size: '约 1.5MB/分钟' },
-  { id: 'exhigh' as QualityLevel, name: '极高', bitrate: '320kbps', size: '约 2.5MB/分钟' },
-  { id: 'lossless' as QualityLevel, name: '无损', bitrate: 'FLAC', size: '约 8MB/分钟' },
-  { id: 'hires' as QualityLevel, name: 'Hi-Res', bitrate: '高解析', size: '约 15MB/分钟' },
+  { id: 'standard' as QualityLevel, name: '标准', desc: '128kbps', svip: false },
+  { id: 'exhigh' as QualityLevel, name: '极高 HQ', desc: '320kbps', svip: false },
+  { id: 'lossless' as QualityLevel, name: '无损 SQ', desc: 'FLAC 优先', svip: false },
+  { id: 'hires' as QualityLevel, name: '高清臻音', desc: '默认 / 细节优先', svip: false },
+  { id: 'jymaster' as QualityLevel, name: '超清母带', desc: 'SVIP / 最高规格', svip: true },
 ]
+
+const shortLabels: Record<string, string> = {
+  standard: '标',
+  exhigh: 'HQ',
+  lossless: 'SQ',
+  hires: '臻',
+  jymaster: '母',
+}
+
+const canUseSvip = computed(() => userStore.isLoggedIn)
 
 const currentQualityInfo = computed(() => {
   return qualityOptions.find(q => q.id === player.currentQuality) || qualityOptions[2]
 })
 
-function togglePopup() {
+const displayLabel = computed(() => shortLabels[player.currentQuality] || 'HQ')
+
+function togglePopup(e: MouseEvent) {
+  e.stopPropagation()
   showPopup.value = !showPopup.value
 }
 
 async function selectQuality(quality: QualityLevel) {
+  const opt = qualityOptions.find(q => q.id === quality)
+  if (opt?.svip && !canUseSvip.value) {
+    showPopup.value = false
+    return
+  }
   if (player.currentSong) {
     await player.switchQuality(quality)
   } else {
@@ -57,160 +77,156 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="quality-selector" ref="popupRef">
+  <div class="quality-control" :class="{ open: showPopup }" ref="popupRef">
     <button
-      class="quality-btn"
-      @click.stop="togglePopup"
-      :title="'当前音质: ' + currentQualityInfo.name"
+      class="ctrl-btn quality-pill"
+      @click="togglePopup"
+      :title="'音质: ' + currentQualityInfo.name"
     >
-      <span class="quality-icon">🎵</span>
-      <span v-if="showLabel" class="quality-label">{{ currentQualityInfo.name }}</span>
+      <span class="quality-pill-label">{{ displayLabel }}</span>
     </button>
 
-    <div v-show="showPopup" class="quality-popup">
-      <div class="popup-header">
-        <span class="popup-title">音质选择</span>
-      </div>
-      <div class="quality-list">
-        <button
-          v-for="q in qualityOptions"
-          :key="q.id"
-          class="quality-item"
-          :class="{ active: player.currentQuality === q.id }"
-          @click="selectQuality(q.id)"
-        >
-          <div class="quality-item__info">
-            <span class="quality-item__name">{{ q.name }}</span>
-            <span class="quality-item__bitrate">{{ q.bitrate }}</span>
-          </div>
-          <span class="quality-item__size">{{ q.size }}</span>
-          <span v-if="player.currentQuality === q.id" class="quality-item__check">✓</span>
-        </button>
-      </div>
+    <div class="quality-popover" @click.stop>
+      <button
+        v-for="q in qualityOptions"
+        :key="q.id"
+        class="quality-option"
+        :class="{
+          active: player.currentQuality === q.id,
+          locked: q.svip && !canUseSvip,
+          'svip-only': q.svip
+        }"
+        :disabled="q.svip && !canUseSvip"
+        @click="selectQuality(q.id)"
+      >
+        <span>{{ q.name }}</span>
+        <small>{{ q.desc }}</small>
+      </button>
     </div>
   </div>
 </template>
 
 <style scoped>
-.quality-selector {
-  position: relative;
+/* --- Pill trigger button --- */
+.quality-pill {
+  width: auto;
+  min-width: 56px;
+  padding: 0 11px;
+  border-radius: 13px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  color: rgba(237,245,255,.82);
+  background: rgba(255,255,255,.038);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
 }
 
-.quality-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px;
-  border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 16px;
-  cursor: pointer;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-}
-
-.quality-btn:hover {
+.quality-pill:hover {
   color: #fff;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255,255,255,.09);
+  border-color: rgba(255,255,255,.18);
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.10),
+    0 8px 24px rgba(0,0,0,.12);
 }
 
-.quality-label {
-  font-size: 12px;
-  font-weight: 500;
+.quality-pill-label {
+  display: block;
+  min-width: 30px;
+  text-align: center;
+  white-space: nowrap;
 }
 
-.quality-popup {
+/* --- Popover panel --- */
+.quality-popover {
   position: absolute;
-  bottom: calc(100% + 8px);
-  right: 0;
-  width: 240px;
-  background: rgba(15, 15, 20, 0.95);
-  backdrop-filter: blur(20px) saturate(1.8);
-  -webkit-backdrop-filter: blur(20px) saturate(1.8);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-  overflow: hidden;
-  z-index: 200;
-  animation: qualityPopIn 0.2s ease-out;
+  left: 50%;
+  bottom: 46px;
+  transform: translateX(-50%) translateY(8px);
+  width: 228px;
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(157,184,207,.24);
+  background: rgba(10,11,14,.82);
+  backdrop-filter: blur(24px) saturate(1.25);
+  -webkit-backdrop-filter: blur(24px) saturate(1.25);
+  box-shadow: 0 18px 48px rgba(0,0,0,.38),
+    inset 0 1px 0 rgba(255,255,255,.08);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s, transform .2s;
+  z-index: 8;
 }
 
-@keyframes qualityPopIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.quality-control.open .quality-popover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
 }
 
-.popup-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.popup-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.quality-list {
-  padding: 4px 0;
-}
-
-.quality-item {
+/* --- Quality options --- */
+.quality-option {
+  min-height: 40px;
+  border-radius: 9px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.045);
+  color: rgba(255,255,255,.70);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .1px;
+  cursor: pointer;
+  transition: background .2s, border-color .2s, color .2s, transform .2s;
   display: flex;
   align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 10px 16px;
-  border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.7);
-  cursor: pointer;
-  transition: all 0.15s ease;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
   text-align: left;
 }
 
-.quality-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+.quality-option span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quality-option small {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: rgba(255,255,255,.42);
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.quality-option:hover {
+  transform: translateY(-1px);
   color: #fff;
+  background: rgba(255,255,255,.09);
 }
 
-.quality-item.active {
-  background: rgba(217, 91, 103, 0.15);
-  color: #fff;
+.quality-option.active {
+  color: #eaf2ff;
+  border-color: rgba(157,184,207,.46);
+  background: rgba(157,184,207,.16);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
 }
 
-.quality-item__info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.quality-option.locked {
+  opacity: .42;
+  cursor: not-allowed;
+  transform: none !important;
 }
 
-.quality-item__name {
-  font-size: 13px;
-  font-weight: 500;
+.quality-option.locked small::after {
+  content: ' · 需网易云SVIP';
+  color: rgba(244,210,138,.88);
 }
 
-.quality-item__bitrate {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.quality-item__size {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.quality-item__check {
-  color: #d95b67;
-  font-size: 14px;
-  font-weight: 600;
+.quality-option.svip-only {
+  border-color: rgba(244,210,138,.18);
 }
 </style>

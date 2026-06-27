@@ -1028,6 +1028,43 @@ onMounted(() => {
   background: rgba(var(--fc-accent-rgb),.075);
 }
 
+/* Source-specific hover colors (matching old project) */
+.result-item.netease-source:hover {
+  background: rgba(217,91,103,.045);
+}
+
+.result-item.qq-source:hover {
+  background: rgba(191,214,107,.052);
+}
+
+/* Source tag (matching old project .tag-source) */
+.tag-source {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.045);
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: .55px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.tag-source.netease {
+  color: #ffd8dd;
+  border-color: rgba(217,91,103,.30);
+  background: rgba(217,91,103,.075);
+}
+
+.tag-source.qq {
+  color: #f0ffc8;
+  border-color: rgba(191,214,107,.30);
+  background: rgba(191,214,107,.075);
+}
+
 .result-item__index {
   width: 24px;
   text-align: center;

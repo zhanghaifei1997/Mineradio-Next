@@ -585,6 +585,7 @@ onUnmounted(() => {
   --tone-a: #00f5d4;
   --tone-b: #2442ff;
   --tone-c: #f8f4ee;
+  --home-accent: #00f5d4;
   position: relative;
   min-height: 152px;
   border: 1px solid color-mix(in srgb, var(--home-accent) 10%, rgba(255,255,255,.085));
@@ -599,6 +600,26 @@ onUnmounted(() => {
   transition: transform .22s cubic-bezier(.16,1,.3,1), border-color .22s, background .22s, box-shadow .22s;
   animation: cardFloat 7.4s ease-in-out infinite;
   animation-delay: var(--delay);
+}
+
+/* --- Tone color groups per card type (matching old project data-home-tone) --- */
+.card-weather {
+  --tone-a: #00f5d4; --tone-b: #f8f4ee; --tone-c: #2442ff; --home-accent: #00f5d4;
+}
+.card-daily {
+  --tone-a: #9db8cf; --tone-b: #00f5d4; --tone-c: #2442ff; --home-accent: #9db8cf;
+}
+.card-fm {
+  --tone-a: #f8f4ee; --tone-b: #00f5d4; --tone-c: #2442ff; --home-accent: #f8f4ee;
+}
+.card-continue {
+  --tone-a: #7ad7c2; --tone-b: #2442ff; --tone-c: #f8f4ee; --home-accent: #7ad7c2;
+}
+.card-profile {
+  --tone-a: #2442ff; --tone-b: #f8f4ee; --tone-c: #00f5d4; --home-accent: #2442ff;
+}
+.card-artists {
+  --tone-a: #f4d28a; --tone-b: #d95b67; --tone-c: #00f5d4; --home-accent: #f4d28a;
 }
 
 .home-card::before {
@@ -768,6 +789,18 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   font-size: 24px;
+}
+
+/* Cover placeholder with vinyl disc pattern (old project style) */
+.card-cover-mini.placeholder::before {
+  content: '';
+  position: absolute;
+  inset: 18px;
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(circle,rgba(255,255,255,.16) 0 1px,transparent 1px 8px),
+    conic-gradient(from 180deg,var(--tone-a),var(--tone-b),var(--tone-c),var(--tone-a));
+  box-shadow: inset 0 0 0 14px rgba(5,5,8,.44),0 12px 28px rgba(0,0,0,.26);
 }
 
 .card-cover-mini img {
@@ -1219,22 +1252,19 @@ onUnmounted(() => {
 .home-disc::before {
   content: '';
   position: absolute;
-  inset: 15px;
+  inset: 34%;
   border-radius: 50%;
-  background: repeating-radial-gradient(
-    circle at center,
-    #1a1a1a 0px,
-    #1a1a1a 3px,
-    #2a2a2a 3px,
-    #2a2a2a 6px
-  );
+  background: linear-gradient(145deg, rgba(12,12,16,.96), rgba(34,32,38,.90));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.20), 0 0 0 12px rgba(255,255,255,.055);
 }
 
 .disc-ring {
   position: absolute;
-  inset: 10px;
+  inset: 10%;
   border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--home-accent) 40%, transparent);
+  border: 1px solid rgba(255,255,255,.14);
+  border-left-color: rgba(255,255,255,.03);
+  border-bottom-color: rgba(255,255,255,.04);
   z-index: 1;
 }
 

@@ -67,6 +67,10 @@ export function checkSvgBackdropFilter(): boolean {
   if (typeof document === 'undefined' || typeof CSS === 'undefined') return false
   
   try {
+    const ua = navigator.userAgent || ''
+    // Safari and Firefox don't support SVG backdrop-filter
+    if ((/Safari/.test(ua) && !/Chrome/.test(ua)) || /Firefox/.test(ua)) return false
+    
     const testEl = document.createElement('div')
     testEl.style.position = 'fixed'
     testEl.style.top = '-9999px'
@@ -88,12 +92,82 @@ export function checkSvgBackdropFilter(): boolean {
   }
 }
 
+/**
+ * Generate a displacement map SVG data URI for the glass chromatic aberration filter.
+ * This creates a gradient-based displacement map that drives the RGB channel splitting
+ * in the feDisplacementMap filters.
+ */
+export function generateControlGlassDisplacementMap(
+  width: number = 400,
+  height: number = 92,
+  radius: number = 50
+): string {
+  width = Math.max(240, Math.round(width))
+  height = Math.max(48, Math.round(height))
+  radius = Math.max(12, Math.round(radius))
+  
+  const borderWidth = 0.07
+  const edge = Math.min(width, height) * (borderWidth * 0.5)
+  const innerW = Math.max(1, width - edge * 2)
+  const innerH = Math.max(1, height - edge * 2)
+  
+  const svg = `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">` +
+    `<defs>` +
+    `<linearGradient id="glass-red" x1="100%" y1="0%" x2="0%" y2="0%">` +
+      `<stop offset="0%" stop-color="#0000"/><stop offset="100%" stop-color="red"/></linearGradient>` +
+    `<linearGradient id="glass-blue" x1="0%" y1="0%" x2="0%" y2="100%">` +
+      `<stop offset="0%" stop-color="#0000"/><stop offset="100%" stop-color="blue"/></linearGradient>` +
+    `</defs>` +
+    `<rect x="0" y="0" width="${width}" height="${height}" fill="black"/>` +
+    `<rect x="0" y="0" width="${width}" height="${height}" rx="${radius}" fill="url(#glass-red)"/>` +
+    `<rect x="0" y="0" width="${width}" height="${height}" rx="${radius}" fill="url(#glass-blue)" style="mix-blend-mode:difference"/>` +
+    `<rect x="${edge.toFixed(2)}" y="${edge.toFixed(2)}" width="${innerW.toFixed(2)}" height="${innerH.toFixed(2)}" rx="${radius}" fill="hsl(0 0% 50% / 1)" style="filter:blur(11px)"/>` +
+    `</svg>`
+  
+  return 'data:image/svg+xml,' + encodeURIComponent(svg)
+}
+
+/**
+ * Update chromatic aberration offset in the SVG glass filter.
+ * Adjusts the feOffset dx attribute to control the intensity of RGB channel splitting.
+ */
+export function updateGlassChromaticOffset(offset: number): void {
+  if (typeof document === 'undefined') return
+  const filter = document.getElementById('mineradio-control-glass-filter')
+  if (!filter) return
+  const dx = String(-Math.round(offset))
+  filter.querySelectorAll('feOffset').forEach(node => {
+    node.setAttribute('dx', dx)
+    node.setAttribute('dy', '0')
+  })
+}
+
 export function initGlassFilter(): void {
   if (typeof document === 'undefined') return
   
   const supported = checkSvgBackdropFilter()
-  if (supported) {
-    document.documentElement.classList.add('control-glass-svg-ok')
+  if (!supported) return
+  
+  document.documentElement.classList.add('control-glass-svg-ok')
+  
+  // Generate and inject displacement maps for all glass filters
+  const controlGlassMap = document.getElementById('control-glass-map')
+  if (controlGlassMap) {
+    // Use the PlayerBar's typical dimensions for the displacement map
+    const mapUri = generateControlGlassDisplacementMap(1120, 82, 40)
+    controlGlassMap.setAttribute('href', mapUri)
+  }
+  
+  const searchBoxMap = document.getElementById('search-box-glass-map')
+  if (searchBoxMap) {
+    const mapUri = generateControlGlassDisplacementMap(520, 58, 22)
+    searchBoxMap.setAttribute('href', mapUri)
+  }
+  
+  const searchPillMap = document.getElementById('search-pill-glass-map')
+  if (searchPillMap) {
+    const mapUri = generateControlGlassDisplacementMap(200, 24, 12)
+    searchPillMap.setAttribute('href', mapUri)
   }
 }
 

@@ -381,6 +381,12 @@ export const useFxStore = defineStore('fx', () => {
   function update<K extends keyof FxSettings>(key: K, value: FxSettings[K]): void {
     settings.value[key] = value
     save()
+    // When chromatic offset changes, update the SVG glass filter feOffset nodes
+    if (key === 'controlGlassChromaticOffset') {
+      import('@/utils').then(({ updateGlassChromaticOffset }) => {
+        updateGlassChromaticOffset(Number(value))
+      })
+    }
   }
 
   const resetVersion = ref(0)

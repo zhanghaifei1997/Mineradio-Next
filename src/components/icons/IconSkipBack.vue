@@ -1,17 +1,13 @@
 <template>
+  <!-- 老项目原版 prev-btn: fill, bar+triangle "M6 6h2v12H6zm3.5 6l8.5 6V6z" -->
   <svg
     :width="size"
     :height="size"
     viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    class="icon"
+    fill="currentColor"
+    stroke="none"
   >
-    <polygon points="19 20 9 12 19 4 19 20" />
-    <line x1="5" y1="19" x2="5" y2="5" />
+    <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
   </svg>
 </template>
 
@@ -19,6 +15,6 @@
 withDefaults(defineProps<{
   size?: number | string
 }>(), {
-  size: 20,
+  size: 18,
 })
 </script>
