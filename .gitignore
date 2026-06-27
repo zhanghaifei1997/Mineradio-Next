@@ -51,5 +51,6 @@ coverage/
 # OS
 Thumbs.db
 
-# 老项目参考目录
-old-Mineradio/
+# 老项目内部 git 备份
+old-Mineradio/.git-backup/
+old-Mineradio/build/
