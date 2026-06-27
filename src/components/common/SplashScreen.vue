@@ -327,6 +327,15 @@ onUnmounted(() => {
   if (_resizeFn) window.removeEventListener('resize', _resizeFn)
   if (readyTimer) clearTimeout(readyTimer)
   if (autoEnterTimer) clearTimeout(autoEnterTimer)
+
+  // 显式销毁 WebGL GPU 资源，防止与主页面 WebGL 上下文共存导致黑屏
+  if (_gl) {
+    if (_glBuf) _gl.deleteBuffer(_glBuf)
+    if (_glProg) _gl.deleteProgram(_glProg)
+    const ext = _gl.getExtension('WEBGL_lose_context')
+    if (ext) ext.loseContext()
+  }
+
   _gl = null; _glProg = null; _glBuf = null; _glU = null; _c2d = null
 })
 </script>

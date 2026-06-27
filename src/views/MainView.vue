@@ -601,7 +601,7 @@ function maybeAutoStartGuide() {
     // Old project: auto-start if user has logged in or after splash
     // New project: auto-start after a delay if guide hasn't been seen
     setTimeout(() => {
-      if (!playerStore.isPlaying && !showVisualGuide.value) {
+      if (!player.isPlaying && !showVisualGuide.value) {
         showVisualGuide.value = true
       }
     }, 2000)
