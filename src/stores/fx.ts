@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { FxSettings, VisualPreset, PerformanceQuality, PerformanceBackgroundMode, SpectrumMode, CinemaMode, ShelfMode, ShelfCameraMode, ShelfPresence, LayoutMode } from '@/types'
+import type { FxSettings, VisualPreset, PerformanceQuality, PerformanceBackgroundMode, SpectrumMode, CinemaMode, ShelfMode, ShelfCameraMode, ShelfPresence, LayoutMode, UserFxArchive } from '@/types'
 import { normalizePerformanceQuality, normalizePerformanceBackgroundMode } from '@/modules/performance'
 
 const STORAGE_KEY = 'mineradio-lyric-layout-v1'
@@ -64,6 +64,97 @@ const defaultSettings: FxSettings = {
   fxFabAutoHide: false,
   queuePinned: false,
   freeCameraEnabled: false,
+
+  // === 老项目 fxDefaults 补齐 ===
+
+  // 主控参数
+  intensity: 0.85,
+  cinemaShake: 0.5,
+  depth: 1.0,
+  coverResolution: 1.55,
+
+  // 粒子参数
+  point: 1.0,
+  speed: 1.0,
+  twist: 0.0,
+  color: 1.10,
+  scatter: 0.0,
+  bgFade: 0.20,
+  bloomStrength: 0.62,
+
+  // 歌词外观
+  lyricGlowStrength: 0.28,
+  lyricScale: 1.0,
+  lyricOffsetX: 0,
+  lyricOffsetY: 0,
+  lyricOffsetZ: 0,
+  lyricTiltX: 0,
+  lyricTiltY: 0,
+  lyricColorMode: 'auto',
+  lyricColor: '#a9b8c8',
+  lyricHighlightMode: 'auto',
+  lyricHighlightColor: '#fac900',
+  lyricGlowLinked: true,
+  lyricGlowColor: '#008aff',
+  lyricFont: 'hei',
+  lyricLetterSpacing: 0,
+  lyricLineHeight: 1.0,
+  lyricWeight: 900,
+  lyricCameraLock: false,
+
+  // 视觉色调
+  visualTintMode: 'auto',
+  visualTintColor: '#9db8cf',
+
+  // UI 颜色
+  uiAccentColor: '#ffffff',
+  homeAccentColor: '#ffffff',
+  homeIconColor: '#ffffff',
+  visualIconColor: '#ffffff',
+
+  // 背景
+  backgroundColorMode: 'cover',
+  backgroundColor: '#000000',
+  backgroundOpacity: 1,
+  controlGlassChromaticOffset: 90,
+  backgroundColorCustom: false,
+  backgroundImage: '',
+  backgroundMedia: null,
+
+  // 叠加效果开关
+  floatLayer: false,
+  cinema: true,
+  edge: false,
+  aiDepth: false,
+  bloom: false,
+  lyricGlowEnabled: true,
+  lyricGlowBeat: true,
+  lyricGlowParticles: false,
+  particleLyrics: true,
+  backCover: false,
+
+  // 桌面歌词
+  desktopLyrics: false,
+  desktopLyricsSize: 1.0,
+  desktopLyricsOpacity: 0.92,
+  desktopLyricsY: 0.76,
+  desktopLyricsClickThrough: false,
+  desktopLyricsCinema: true,
+  desktopLyricsHighlight: false,
+  desktopLyricsFps: 60,
+
+  // 壁纸模式
+  wallpaperMode: false,
+  wallpaperOpacity: 1,
+
+  // 摄像头/手势
+  cam: 'off',
+
+  // 歌单架
+  shelfAngleYManual: false,
+
+  // 用户存档槽位 (4 个空槽)
+  userFxArchives: [],
 }
 
 export const useFxStore = defineStore('fx', () => {
@@ -292,8 +383,11 @@ export const useFxStore = defineStore('fx', () => {
     save()
   }
 
+  const resetVersion = ref(0)
+
   function reset(): void {
     settings.value = { ...defaultSettings }
+    resetVersion.value++
     save()
   }
 
@@ -320,6 +414,54 @@ export const useFxStore = defineStore('fx', () => {
   function toggleFreeCamera(): void {
     settings.value.freeCameraEnabled = !settings.value.freeCameraEnabled
     save()
+  }
+
+  // === 用户存档管理 ===
+  function saveArchive(slot: number, name: string): void {
+    const archives = [...(settings.value.userFxArchives || [])]
+    const snapshot: Partial<FxSettings> = { ...settings.value }
+    // 移除存档本身避免循环引用
+    delete (snapshot as any).userFxArchives
+    const entry: UserFxArchive = { name, snapshot, savedAt: Date.now() }
+    if (slot < archives.length) {
+      archives[slot] = entry
+    } else {
+      archives.push(entry)
+    }
+    settings.value.userFxArchives = archives
+    save()
+  }
+
+  function loadArchive(slot: number): boolean {
+    const archives = settings.value.userFxArchives || []
+    if (slot < 0 || slot >= archives.length) return false
+    const entry = archives[slot]
+    if (!entry?.snapshot) return false
+    const currentArchives = settings.value.userFxArchives
+    settings.value = {
+      ...defaultSettings,
+      ...entry.snapshot,
+      userFxArchives: currentArchives,
+    }
+    resetVersion.value++
+    save()
+    return true
+  }
+
+  function deleteArchive(slot: number): void {
+    const archives = [...(settings.value.userFxArchives || [])]
+    archives.splice(slot, 1)
+    settings.value.userFxArchives = archives
+    save()
+  }
+
+  function renameArchive(slot: number, name: string): void {
+    const archives = [...(settings.value.userFxArchives || [])]
+    if (slot >= 0 && slot < archives.length) {
+      archives[slot] = { ...archives[slot], name }
+      settings.value.userFxArchives = archives
+      save()
+    }
   }
 
   function loadSettings(): FxSettings {
@@ -402,11 +544,16 @@ export const useFxStore = defineStore('fx', () => {
     coverTextureSize,
     update,
     reset,
+    resetVersion,
     setPerformanceQuality,
     setPerformanceBackgroundMode,
     toggleLiveBackgroundKeep,
     toggleLayoutMode,
     toggleFreeCamera,
+    saveArchive,
+    loadArchive,
+    deleteArchive,
+    renameArchive,
   }
 })
 

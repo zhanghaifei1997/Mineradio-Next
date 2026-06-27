@@ -96,3 +96,16 @@ export function initGlassFilter(): void {
     document.documentElement.classList.add('control-glass-svg-ok')
   }
 }
+
+/**
+ * 将外部音频 URL 通过服务端代理路由，避免 Web Audio CORS 静音。
+ * createMediaElementSource 要求音频源为同源或具备 CORS 头，
+ * 否则会完全静音（输出零值）。
+ * local-audio:// 协议已具备 CORS 特权，无需代理。
+ */
+export function proxyAudioUrl(url: string): string {
+  if (!url || /^https?:\/\//i.test(url)) {
+    return `/api/audio?url=${encodeURIComponent(url)}`
+  }
+  return url
+}

@@ -233,11 +233,17 @@ export class VisualEngine {
     this.initPreset(presetName, true)
   }
 
+  /** Force reinitialize the current preset (e.g. after settings reset) */
+  forceReinitPreset(): void {
+    this.initPreset(this.currentPreset, false)
+  }
+
   updateFxSettings(settings: Partial<FxSettings>): void {
     const prevQuality = this.fxSettings.performanceQuality
     const prevResolution = this.fxSettings.particleResolution
     const prevColor = this.fxSettings.accentColor
     const prevGlowColor = this.fxSettings.glowColor
+    const prevPreset = this.fxSettings.preset
 
     this.fxSettings = { ...this.fxSettings, ...settings }
 
@@ -247,15 +253,20 @@ export class VisualEngine {
       (settings.accentColor !== undefined && settings.accentColor !== prevColor) ||
       (settings.glowColor !== undefined && settings.glowColor !== prevGlowColor)
 
-    if (needsReinit) {
-      const hasPresetChange = settings.preset !== undefined
-      if (!hasPresetChange) {
-        this.initPreset(this.currentPreset, false)
-      }
+    const presetChanged = settings.preset !== undefined && settings.preset !== prevPreset
+
+    if (needsReinit && !presetChanged) {
+      // quality/resolution/color changed but preset name unchanged → reinitialize current preset
+      this.initPreset(this.currentPreset, false)
     }
 
     if (settings.preset) {
-      this.setPreset(settings.preset)
+      if (presetChanged) {
+        this.setPreset(settings.preset)
+      } else if (needsReinit) {
+        // same preset name but settings changed → force reinitialize
+        this.initPreset(settings.preset, false)
+      }
     }
 
     if (settings.cinemaMode) {

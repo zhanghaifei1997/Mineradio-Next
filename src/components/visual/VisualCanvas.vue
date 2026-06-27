@@ -86,6 +86,16 @@ watch(
 )
 
 watch(
+  () => fx.resetVersion,
+  () => {
+    if (visualEngine) {
+      // Force full preset reinitialization on settings reset
+      visualEngine.forceReinitPreset()
+    }
+  },
+)
+
+watch(
   () => [dj.isDjModeActive, dj.djConfig, dj.djMode.visualPulse, dj.djMode.sectionEnergy],
   () => {
     updateDjModeInEngine()

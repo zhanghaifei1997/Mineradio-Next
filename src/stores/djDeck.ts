@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import type { Song } from '@/types'
 import { BeatMapData, analyzePodcastDjStream } from '@/modules/audio'
 import type { BeatMap } from '@/modules/audio'
+import { proxyAudioUrl } from '@/utils'
 
 export type DeckId = 'A' | 'B'
 
@@ -273,7 +274,7 @@ export const useDjDeckStore = defineStore('djDeck', () => {
       syncLocked: false,
     })
 
-    audio.src = audioUrl
+    audio.src = proxyAudioUrl(audioUrl)
     audio.load()
 
     applyEq(deck)

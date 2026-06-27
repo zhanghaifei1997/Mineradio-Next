@@ -218,6 +218,12 @@ export type ShelfMode = 'off' | 'sidebar' | 'stage'
 export type ShelfCameraMode = 'dynamic' | 'static'
 export type ShelfPresence = 'auto' | 'always'
 
+export interface UserFxArchive {
+  name: string
+  snapshot: Partial<FxSettings>
+  savedAt: number
+}
+
 export interface FxSettings {
   preset: VisualPreset
   particleResolution: number
@@ -276,6 +282,97 @@ export interface FxSettings {
   fxFabAutoHide: boolean
   queuePinned: boolean
   freeCameraEnabled: boolean
+
+  // === 以下字段从老项目 fxDefaults 补齐 ===
+
+  // 主控参数
+  intensity: number
+  cinemaShake: number
+  depth: number
+  coverResolution: number
+
+  // 粒子参数
+  point: number
+  speed: number
+  twist: number
+  color: number
+  scatter: number
+  bgFade: number
+  bloomStrength: number
+
+  // 歌词外观
+  lyricGlowStrength: number
+  lyricScale: number
+  lyricOffsetX: number
+  lyricOffsetY: number
+  lyricOffsetZ: number
+  lyricTiltX: number
+  lyricTiltY: number
+  lyricColorMode: 'auto' | 'manual'
+  lyricColor: string
+  lyricHighlightMode: 'auto' | 'follow' | 'manual'
+  lyricHighlightColor: string
+  lyricGlowLinked: boolean
+  lyricGlowColor: string
+  lyricFont: string
+  lyricLetterSpacing: number
+  lyricLineHeight: number
+  lyricWeight: number
+  lyricCameraLock: boolean
+
+  // 视觉色调
+  visualTintMode: 'auto' | 'manual'
+  visualTintColor: string
+
+  // UI 颜色
+  uiAccentColor: string
+  homeAccentColor: string
+  homeIconColor: string
+  visualIconColor: string
+
+  // 背景
+  backgroundColorMode: 'cover' | 'custom' | 'black'
+  backgroundColor: string
+  backgroundOpacity: number
+  controlGlassChromaticOffset: number
+  backgroundColorCustom: boolean
+  backgroundImage: string
+  backgroundMedia: string | null
+
+  // 叠加效果开关
+  floatLayer: boolean
+  cinema: boolean
+  edge: boolean
+  aiDepth: boolean
+  bloom: boolean
+  lyricGlowEnabled: boolean
+  lyricGlowBeat: boolean
+  lyricGlowParticles: boolean
+  particleLyrics: boolean
+  backCover: boolean
+
+  // 桌面歌词
+  desktopLyrics: boolean
+  desktopLyricsSize: number
+  desktopLyricsOpacity: number
+  desktopLyricsY: number
+  desktopLyricsClickThrough: boolean
+  desktopLyricsCinema: boolean
+  desktopLyricsHighlight: boolean
+  desktopLyricsFps: number
+
+  // 壁纸模式
+  wallpaperMode: boolean
+  wallpaperOpacity: number
+
+  // 摄像头/手势
+  cam: 'off' | 'gesture'
+
+  // 歌单架
+  shelfAngleYManual: boolean
+
+  // 用户存档槽位
+  userFxArchives: UserFxArchive[]
 }
 
 export interface BeatAnalysisResult {

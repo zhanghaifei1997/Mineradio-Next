@@ -255,7 +255,7 @@ function clearAllStats() {
   position: absolute;
   top: 60px;
   right: 20px;
-  width: 420px;
+  width: min(420px, calc(100vw - 48px));
   max-height: calc(100vh - 120px);
   background: rgba(15, 15, 20, 0.95);
   backdrop-filter: blur(20px);

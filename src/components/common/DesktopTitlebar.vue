@@ -128,18 +128,19 @@ onUnmounted(() => {
   top: 0;
   left: 0;
   right: 0;
-  height: 38px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
-  background: rgba(10, 10, 15, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  z-index: 9999;
+  padding: 0 12px 0 18px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom: none;
+  z-index: 500;
   -webkit-app-region: drag;
   user-select: none;
+  pointer-events: none;
 }
 
 .titlebar-left {
@@ -147,6 +148,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 10px;
   -webkit-app-region: drag;
+  pointer-events: auto;
 }
 
 .app-icon {
@@ -172,26 +174,31 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   -webkit-app-region: no-drag;
+  pointer-events: auto;
 }
 
 .titlebar-btn {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(4,8,10,.42);
+  color: rgba(224,250,255,.70);
+  border-radius: 10px;
   cursor: pointer;
   font-size: 14px;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   transition: all 0.2s ease;
 }
 
 .titlebar-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--color-text);
+  background: rgba(255,83,103,.10);
+  border-color: rgba(255,83,103,.32);
+  color: #fff;
+  transform: translateY(-1px);
 }
 
 .guide-btn {
@@ -206,33 +213,31 @@ onUnmounted(() => {
 .window-controls {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 4px;
-  padding-left: 8px;
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 2px;
+  margin-left: 6px;
 }
 
 .window-btn {
-  width: 30px;
-  height: 30px;
+  width: 46px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   background: transparent;
-  color: var(--color-text-secondary);
-  border-radius: 6px;
+  color: rgba(255,255,255,.65);
+  border-radius: 0;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .window-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 
 .window-btn.close-btn:hover {
-  background: rgba(255, 82, 82, 0.8);
+  background: #e81123;
   color: #fff;
 }
 

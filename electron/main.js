@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage, shell, session, dialog, protocol } from 'electron'
+import { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage, shell, session, dialog, protocol, net } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs'
+import { Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 import { startServer, stopServer } from './server.js'
 import * as workerw from './workerw.js'
@@ -8,6 +9,12 @@ import { updater } from './updater.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+
+const APP_START_TIME = Date.now()
+function startupLog(label) {
+  const elapsed = Date.now() - APP_START_TIME
+  console.log(`[Startup] ${label} (+${elapsed}ms)`)
+}
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -17,6 +24,28 @@ const isDev = process.env.NODE_ENV === 'development'
 // "Failed to construct 'URL': Invalid URL" inside renderer_init.
 // The warnings only fire during development anyway, so it is safe to disable them.
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true'
+
+// Windows 上透明无边框窗口 + GPU 硬件加速会导致窗口闪烁/消失
+// 在 app ready 之前禁用硬件加速以修复此问题
+if (process.platform === 'win32') {
+  app.disableHardwareAcceleration()
+}
+
+// 注册 local-audio 自定义协议：替代 file:// 以绕过 Chromium 安全策略
+// 必须在 app.whenReady() 之前调用
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'local-audio',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      bypassCSP: true,
+      stream: true,
+      corsEnabled: true,
+    },
+  },
+])
 
 const APP_NAME = 'Mineradio'
 const APP_USER_MODEL_ID = 'com.mineradio.desktop'
@@ -230,10 +259,13 @@ function createMainWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 
+  startupLog('mainWindow created, loading content...')
+
   mainWindow.once('ready-to-show', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.show()
       mainWindow.focus()
+      startupLog('mainWindow ready-to-show & visible')
       closeSplashWindow()
     }
   })
@@ -1536,18 +1568,10 @@ function setupIpc() {
       if (!fs.existsSync(filePath)) {
         return null
       }
-      const ext = path.extname(filePath).toLowerCase()
-      const mimeTypeMap = {
-        '.mp3': 'audio/mpeg',
-        '.flac': 'audio/flac',
-        '.wav': 'audio/wav',
-        '.m4a': 'audio/mp4',
-        '.ogg': 'audio/ogg',
-        '.aac': 'audio/aac',
-        '.opus': 'audio/opus',
-      }
-      const mimeType = mimeTypeMap[ext] || 'audio/mpeg'
-      return `file://${filePath}`
+      // 使用自定义 local-audio:// 协议替代 file://
+      // file:// 在 webSecurity 启用的渲染进程中会被阻止
+      const encodedPath = encodeURI(filePath.replace(/\\/g, '/'))
+      return `local-audio://audio/${encodedPath}`
     } catch (e) {
       console.error('Failed to get file URL:', e)
       return null
@@ -1611,20 +1635,89 @@ if (!gotSingleInstanceLock) {
     }
   })
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
+    startupLog('app.whenReady() resolved')
     app.setName(APP_NAME)
     if (process.platform === 'win32') app.setAppUserModelId(APP_USER_MODEL_ID)
+
+    // 注册 local-audio:// 协议处理器：将自定义协议映射到本地文件
+    // 解决 file:// 在 webSecurity 渲染进程中被阻止的问题
+    protocol.handle('local-audio', async (request) => {
+      try {
+        const url = new URL(request.url)
+        // Windows 路径解码后形如 /C:/Users/...，需去掉开头的 /
+        let filePath = decodeURIComponent(url.pathname)
+        if (process.platform === 'win32' && /^\/[A-Za-z]:/.test(filePath)) {
+          filePath = filePath.slice(1)
+        }
+        const resolvedPath = path.normalize(filePath)
+
+        if (!fs.existsSync(resolvedPath)) {
+          return new Response('File not found', { status: 404 })
+        }
+
+        const ext = path.extname(resolvedPath).toLowerCase()
+        const mimeTypeMap = {
+          '.mp3': 'audio/mpeg',
+          '.flac': 'audio/flac',
+          '.wav': 'audio/wav',
+          '.m4a': 'audio/mp4',
+          '.ogg': 'audio/ogg',
+          '.aac': 'audio/aac',
+          '.opus': 'audio/opus',
+          '.wma': 'audio/x-ms-wma',
+        }
+        const mimeType = mimeTypeMap[ext] || 'audio/mpeg'
+        const stat = fs.statSync(resolvedPath)
+
+        // 支持 Range 请求以实现音频流式播放与拖拽进度
+        const rangeHeader = request.headers.get('range')
+        if (rangeHeader) {
+          const match = rangeHeader.match(/bytes=(\d+)-(\d*)/)
+          if (match) {
+            const start = parseInt(match[1], 10)
+            const end = match[2] ? parseInt(match[2], 10) : stat.size - 1
+            const chunkSize = end - start + 1
+            const stream = fs.createReadStream(resolvedPath, { start, end })
+            return new Response(Readable.toWeb(stream), {
+              status: 206,
+              headers: {
+                'Content-Type': mimeType,
+                'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+                'Accept-Ranges': 'bytes',
+                'Content-Length': String(chunkSize),
+              },
+            })
+          }
+        }
+
+        const stream = fs.createReadStream(resolvedPath)
+        return new Response(Readable.toWeb(stream), {
+          headers: {
+            'Content-Type': mimeType,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': String(stat.size),
+          },
+        })
+      } catch (e) {
+        console.error('[local-audio] Protocol handler error:', e)
+        return new Response('Internal error', { status: 500 })
+      }
+    })
+    startupLog('local-audio protocol registered')
 
     loadAppSettings()
     applyAutoStart()
 
     if (!isDev) {
       createSplashWindow()
+      startupLog('splashWindow created')
     }
 
-    serverProcess = startServer({
+    serverProcess = await startServer({
       cookieDir: app.getPath('userData'),
     })
+    startupLog('backend server started')
 
     createMainWindow()
     createTray()

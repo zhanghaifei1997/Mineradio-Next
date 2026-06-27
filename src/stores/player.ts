@@ -31,6 +31,7 @@ import type {
 } from '@/modules/audio'
 import { djModeEngine } from '@/modules/dj'
 import type { DjProgram, DjRadio } from '@/modules/dj'
+import { proxyAudioUrl } from '@/utils'
 
 const QUALITY_STORAGE_KEY = 'mineradio-playback-quality-v1'
 const QUALITY_STORAGE_KEY_LEGACY = 'mineradio_player_quality'
@@ -273,6 +274,9 @@ export const usePlayerStore = defineStore('player', () => {
 
     audio.value.addEventListener('play', () => {
       status.value = 'playing'
+      // 关键：AudioContext 可能在 suspended 状态（浏览器/Electron 自动播放策略）
+      // 必须显式 resume，否则音频图静默——音乐在播但没声音
+      audioAnalyzer.value?.resume()
       startAnalysisLoop()
       if (audioEnhancer.value && fadeEnabled.value) {
         audioEnhancer.value.fadeIn(500)
@@ -716,7 +720,7 @@ export const usePlayerStore = defineStore('player', () => {
       const url = await getSongUrl(currentSong.value, quality)
       if (!url) return
 
-      audio.value.src = url
+      audio.value.src = proxyAudioUrl(url)
       audio.value.currentTime = currentTime
 
       if (wasPlaying) {
@@ -935,7 +939,7 @@ export const usePlayerStore = defineStore('player', () => {
       }
 
       markPhase('audio-element')
-      audio.value.src = result.url
+      audio.value.src = proxyAudioUrl(result.url)
 
       markPhase('visual-prep')
       // 重置可视化状态由现有监听器处理
@@ -1191,7 +1195,7 @@ export const usePlayerStore = defineStore('player', () => {
         const preserveTime = audio.value.currentTime
 
         currentSong.value = updatedSong
-        audio.value.src = urlResult.url
+        audio.value.src = proxyAudioUrl(urlResult.url)
         audio.value.currentTime = Math.min(preserveTime, 5)
 
         if (wasPlaying) {

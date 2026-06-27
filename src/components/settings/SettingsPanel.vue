@@ -208,9 +208,13 @@ function setLayoutMode(mode: 'simple' | 'diy') {
 
 function resetSettings() {
   fx.reset()
+  // Sync rendering & visual systems
   performance.setQuality(fx.settings.performanceQuality)
   performance.setBackgroundMode(fx.settings.performanceBackground, fx.settings.liveBackgroundKeep)
   lyrics.setGlow({ strength: fx.settings.lyricGlow })
+  // Reset audio quality to defaults
+  player.setWifiQuality('exhigh')
+  player.setMobileQuality('standard')
 }
 
 function toggleDesktopLyrics() {
@@ -1568,7 +1572,7 @@ onMounted(() => {
   position: absolute;
   top: 56px;
   right: 0;
-  width: 380px;
+  width: min(380px, calc(100vw - 48px));
   max-height: 75vh;
   overflow: hidden;
   display: flex;

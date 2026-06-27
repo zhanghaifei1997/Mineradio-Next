@@ -215,7 +215,9 @@ export class AudioEnhancer {
 
       this.clearFade()
 
-      const { duration, from, to } = options
+      const { duration } = options
+      const from = Math.max(0, Math.min(1, options.from))
+      const to = Math.max(0, Math.min(1, options.to))
       const startTime = performance.now()
 
       this.audio.volume = from
@@ -230,7 +232,7 @@ export class AudioEnhancer {
         const elapsed = currentTime - startTime
         const progress = Math.min(elapsed / duration, 1)
         const eased = this.easeOutCubic(progress)
-        const currentVolume = from + (to - from) * eased
+        const currentVolume = Math.max(0, Math.min(1, from + (to - from) * eased))
 
         if (this.audio) {
           this.audio.volume = currentVolume

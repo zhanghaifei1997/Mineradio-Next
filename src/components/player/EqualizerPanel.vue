@@ -291,8 +291,10 @@ const frequencyResponse = computed(() => {
 }
 
 .eq-slider {
-  -webkit-appearance: slider-vertical;
-  appearance: slider-vertical;
+  -webkit-appearance: none;
+  appearance: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
   width: 8px;
   height: 120px;
   background: transparent;

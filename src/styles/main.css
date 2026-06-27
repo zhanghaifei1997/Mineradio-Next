@@ -2,7 +2,7 @@
   --color-accent: #d95b67;
   --color-accent-light: #f0a0a0;
   --color-glow: #d95b67;
-  --color-bg: #0a0a0f;
+  --color-bg: #08090B;
   --color-surface: rgba(15, 15, 20, 0.85);
   --color-surface-solid: #0f0f14;
   --color-border: rgba(255, 255, 255, 0.08);
@@ -26,7 +26,7 @@
 
   /* 分场景 backdrop-filter，拉开毛玻璃层次感 */
   --blur-search: blur(34px) saturate(1.34);
-  --blur-bottom-bar: blur(30px) saturate(1.16);
+  --blur-bottom-bar: blur(12px) saturate(1.8) brightness(1.16);
   --blur-fx-panel: blur(28px) saturate(1.4);
   --blur-shelf: blur(40px) saturate(1.4);
   --blur-modal: blur(24px) saturate(1.12);
@@ -56,58 +56,60 @@
   /* ===== 原项目 (Mineradio) CSS 变量体系（追加，别名兼容） ===== */
   /* 香槟金 / 装饰色 */
   --champagne: #f4d28a;
-  --champagne-deep: #d4a942;
+  --champagne-deep: #9a6f2c;
   /* 主品牌色（fc-* 体系） */
   --fc-accent: #00F5D4;
   --fc-accent-rgb: 0,245,212;
-  --fc-accent-hov: #5cfbe0;
-  --fc-bg: #060809;
-  --fc-paper: rgba(20,20,28,0.66);
-  --fc-ink: #f3f4f8;
-  --fc-ink-2: #b8bcc8;
-  --fc-muted: #6b7280;
-  --fc-hair: rgba(255,255,255,0.08);
-  --fc-hair-2: rgba(255,255,255,0.04);
-  --fc-blue: #3257F7;
-  --fc-warm: #ff5367;
+  --fc-accent-hov: #00E0BE;
+  --fc-bg: #08090B;
+  --fc-paper: #0E1014;
+  --fc-ink: #E8ECEF;
+  --fc-ink-2: #D2D7DC;
+  --fc-muted: #8A9099;
+  --fc-hair: #1A1D22;
+  --fc-hair-2: #262A31;
+  --fc-blue: #2442ff;
+  --fc-warm: #f8f4ee;
   /* chill 冷调体系 */
-  --chill-ink: #c8d6e5;
-  --chill-deep: #1a2532;
-  --chill-cyan: #00f5d4;
-  --chill-blue: #2442ff;
-  --chill-mint: #7ad7c2;
-  --chill-soft: rgba(0,245,212,0.12);
+  --chill-ink: #030608;
+  --chill-deep: #061116;
+  --chill-cyan: #8fe9ff;
+  --chill-blue: #73a7ff;
+  --chill-mint: #9cffdf;
+  --chill-soft: rgba(214,248,255,.9);
   /* 首页 / 视觉强调 */
   --home-accent: #00f5d4;
   --home-accent-rgb: 0,245,212;
-  --visual-tint: #00f5d4;
+  --visual-tint: #9db8cf;
   /* 音源色 */
-  --source-netease: #ff5367;
-  --source-qq: #31c27c;
-  --source-local: #00f5d4;
+  --source-netease: #d95b67;
+  --source-qq: #00F5D4;
+  --source-local: #9db8cf;
   /* 玻璃质感 */
-  --glass-bg: rgba(20,20,28,0.66);
-  --glass-bg-focus: rgba(20,20,28,0.82);
-  --glass-border: rgba(255,255,255,0.10);
-  --glass-border-soft: rgba(255,255,255,0.06);
-  --glass-shadow: 0 8px 32px rgba(0,0,0,0.37);
-  --glass-shadow-focus: 0 12px 40px rgba(0,0,0,0.44);
+  --glass-bg: linear-gradient(112deg,rgba(72,74,76,.62),rgba(24,27,30,.70) 48%,rgba(8,12,14,.74));
+  --glass-bg-focus: linear-gradient(112deg,rgba(88,91,92,.68),rgba(28,32,35,.76) 50%,rgba(8,13,15,.82));
+  --glass-border: rgba(0,245,212,.30);
+  --glass-border-soft: rgba(255,255,255,.095);
+  --glass-shadow: 0 22px 64px rgba(0,0,0,.30),0 0 34px rgba(0,245,212,.052),inset 0 1px 0 rgba(255,255,255,.16),inset 0 -24px 58px rgba(0,0,0,.16);
+  --glass-shadow-focus: 0 24px 72px rgba(0,0,0,.34),0 0 0 1px rgba(0,245,212,.13),0 0 42px rgba(0,245,212,.075),inset 0 1px 0 rgba(255,255,255,.20);
   /* 收藏面板玻璃 */
-  --saved-panel-glass-bg: rgba(18,18,26,0.78);
+  --saved-panel-glass-bg: rgba(0,0,0,.10);
   --saved-panel-glass-border: rgba(244,210,138,0.18);
-  --saved-panel-glass-shadow: 0 10px 40px rgba(0,0,0,0.44);
+  --saved-panel-glass-shadow: inset 0 0 2px 1px rgba(255,255,255,.35),inset 0 0 10px 4px rgba(255,255,255,.15),0 4px 16px rgba(17,17,26,.05),0 8px 24px rgba(17,17,26,.05),0 16px 56px rgba(17,17,26,.05),inset 0 4px 16px rgba(17,17,26,.05),inset 0 8px 24px rgba(17,17,26,.05),inset 0 16px 56px rgba(17,17,26,.05);
+  --saved-panel-glass-radius: 50px;
   /* 收藏按钮玻璃 */
-  --saved-button-glass-bg: rgba(22,22,30,0.72);
+  --saved-button-glass-bg: rgba(0,0,0,.10);
   --saved-button-glass-border: rgba(255,255,255,0.08);
-  --saved-button-glass-shadow: 0 6px 24px rgba(0,0,0,0.32);
-  --saved-button-glass-hover-bg: rgba(28,28,36,0.82);
+  --saved-button-glass-shadow: inset 0 0 2px 1px rgba(255,255,255,.34),inset 0 0 10px 4px rgba(255,255,255,.13),0 10px 30px rgba(0,0,0,.18);
+  --saved-button-glass-hover-bg: rgba(255,255,255,.055);
   --saved-button-glass-hover-border: rgba(244,210,138,0.32);
+  --saved-button-glass-hover-shadow: inset 0 0 2px 1px rgba(255,255,255,.42),inset 0 0 12px 5px rgba(255,255,255,.17),0 12px 34px rgba(0,0,0,.22),0 0 18px rgba(255,255,255,.06);
   --saved-button-glass-active-bg: rgba(32,32,40,0.88);
   /* 图标色 */
-  --home-icon-color: #00f5d4;
-  --home-icon-rgb: 0,245,212;
-  --visual-icon-color: #00f5d4;
-  --visual-icon-rgb: 0,245,212;
+  --home-icon-color: #f4d28a;
+  --home-icon-rgb: 244,210,138;
+  --visual-icon-color: #7fd8ff;
+  --visual-icon-rgb: 127,216,255;
   /* 字体族 */
   --font-sans: 'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
   --font-mono: 'JetBrains Mono','Consolas','Monaco',monospace;
@@ -120,13 +122,30 @@
 /* ===== 玻璃质感类（原项目兼容） ===== */
 .glass-saved-panel {
   background: var(--saved-panel-glass-bg);
-  border: 1px solid var(--saved-panel-glass-border);
+  border: 0;
+  border-radius: var(--saved-panel-glass-radius, 50px);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
   box-shadow: var(--saved-panel-glass-shadow);
 }
+html.control-glass-svg-ok .glass-saved-panel {
+  backdrop-filter: url(#mineradio-control-glass-filter) saturate(1);
+  -webkit-backdrop-filter: url(#mineradio-control-glass-filter) saturate(1);
+}
 .glass-saved-button {
+  border: 0;
   background: var(--saved-button-glass-bg);
-  border: 1px solid var(--saved-button-glass-border);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
   box-shadow: var(--saved-button-glass-shadow);
+}
+html.control-glass-svg-ok .glass-saved-button {
+  backdrop-filter: url(#mineradio-control-glass-filter) saturate(1);
+  -webkit-backdrop-filter: url(#mineradio-control-glass-filter) saturate(1);
+}
+.glass-saved-button:hover {
+  background: var(--saved-button-glass-hover-bg);
+  box-shadow: var(--saved-button-glass-hover-shadow);
 }
 
 /* SVG 玻璃滤镜支持时的增强样式 */
@@ -263,6 +282,8 @@ img {
   transform: translateY(20px);
 }
 
+body.cursor-hidden,body.cursor-hidden *{cursor:none!important}
+
 body.immersive-mode {
   cursor: none;
 }
@@ -329,11 +350,8 @@ body.simple-mode .control-bar-hide-btn {
 }
 
 body.simple-mode .player-bar {
-  width: 100%;
-  left: 0;
-  right: 0;
-  padding-left: 24px;
-  padding-right: 24px;
+  width: min(1120px, calc(100vw - clamp(20px, 5vw, 72px))) !important;
+  left: 50%;
 }
 
 body.simple-mode .player-bar__right .volume-control {
@@ -350,7 +368,22 @@ body.simple-mode .playlist-shelf {
 }
 
 body.diy-mode .player-bar {
-  right: 320px;
+  width: min(1120px, calc(100vw - clamp(28px, 8vw, 148px))) !important;
+  left: 50%;
+}
+
+/* 桌面端 + DIY 模式：更窄的播放器栏 (对齐老项目 desktop-shell.diy-mode) */
+body.desktop-titlebar-active.diy-mode .player-bar {
+  width: min(1080px, calc(100vw - 72px)) !important;
+  left: 50%;
+}
+
+/* 桌面端 + DIY 模式：视觉控制台充满可用高度 (对齐老项目) */
+body.desktop-titlebar-active.diy-mode .visual-console {
+  max-height: calc(100vh - 196px) !important;
+}
+body.desktop-titlebar-active.diy-mode.controls-visible .visual-console {
+  max-height: calc(100vh - 320px) !important;
 }
 
 body.render-deep-sleep .visual-canvas {
@@ -363,15 +396,15 @@ body.render-deep-sleep .visual-canvas canvas {
 }
 
 body.desktop-titlebar-active .top-toolbar {
-  top: 38px !important;
+  top: 58px !important;
 }
 
 body.desktop-titlebar-active .home-panel {
-  top: 110px !important;
+  top: 128px !important;
 }
 
 body.desktop-titlebar-active .search-panel {
-  top: 108px !important;
+  top: 58px !important;
 }
 
 /* ============================================================
@@ -437,9 +470,9 @@ body.peek-fx-hidden .visual-console:hover {
 
 /* 播放模式切换弹跳 */
 @keyframes play-mode-pop {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.3); }
-  100% { transform: scale(1); }
+  0% { opacity: .4; transform: translateY(3px) scale(.84) rotate(-18deg); }
+  65% { opacity: 1; transform: translateY(-1px) scale(1.10) rotate(4deg); }
+  100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
 }
 
 /* 视觉引导扫描线 */
@@ -456,12 +489,6 @@ body.peek-fx-hidden .visual-console:hover {
   100% { box-shadow: 0 0 0 12px rgba(0, 245, 212, 0); }
 }
 
-/* 启动页呼吸 */
-@keyframes splash-field-breathe {
-  0% { opacity: 0.82; }
-  100% { opacity: 0.94; }
-}
-
 /* 首页唱片旋转 */
 @keyframes home-disc-turn {
   from { transform: rotate(0deg); }
@@ -470,8 +497,8 @@ body.peek-fx-hidden .visual-console:hover {
 
 /* 首页均衡器 */
 @keyframes home-eq-rise {
-  0%, 100% { height: var(--h, 28px); }
-  50% { height: calc(var(--h, 28px) * 0.4); }
+  0%, 100% { transform: scaleY(.68); opacity: .66; }
+  45% { transform: scaleY(1); opacity: 1; }
 }
 
 /* 首页骨架屏 */
@@ -489,8 +516,8 @@ body.peek-fx-hidden .visual-console:hover {
 
 /* 视觉预览漂移 */
 @keyframes home-visual-drift {
-  0%, 100% { transform: translate(0, 0) rotate(0deg); }
-  50% { transform: translate(8px, -4px) rotate(1deg); }
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(0, -5px, 0) rotate(.6deg); }
 }
 
 /* 队列骨架屏 */
@@ -500,83 +527,7 @@ body.peek-fx-hidden .visual-console:hover {
 }
 
 /* ============================================================
- * 响应式断点（补齐）
+ * 响应式断点（全局规则，组件内部断点各自 scoped）
+ * 注：player-bar / search-panel / visual-console / home-panel
+ *     的响应式断点已移至各组件 <style scoped> 内
  * ============================================================ */
-
-/* 1180px - 大屏适配 */
-@media (max-width: 1180px) {
-  .visual-console { width: 320px; }
-  .playlist-shelf { width: 280px; }
-}
-
-/* 1120px */
-@media (max-width: 1120px) {
-  .search-panel { width: 360px; }
-}
-
-/* 1040px */
-@media (max-width: 1040px) {
-  .visual-console { width: 280px; }
-  .player-bar { padding: 0 16px; }
-}
-
-/* 940px */
-@media (max-width: 940px) {
-  .playlist-shelf { width: 240px; }
-  .home-card { min-width: 140px; }
-}
-
-/* 920px */
-@media (max-width: 920px) {
-  .search-panel { width: 300px; }
-}
-
-/* 840px */
-@media (max-width: 840px) {
-  .visual-console { display: none; }
-}
-
-/* 760px */
-@media (max-width: 760px) {
-  .player-bar { height: 64px; }
-  .player-bar .song-info { max-width: 180px; }
-}
-
-/* 720px */
-@media (max-width: 720px) {
-  .search-panel { width: 100%; left: 0; right: 0; }
-  .visual-console { display: none; }
-  .playlist-shelf { display: none; }
-}
-
-/* 620px */
-@media (max-width: 620px) {
-  .player-bar .ctrl-btn { width: 32px; height: 32px; }
-  .player-bar .progress-bar { display: none; }
-}
-
-/* 520px */
-@media (max-width: 520px) {
-  .player-bar { padding: 0 8px; }
-  .player-bar .song-info__cover { width: 36px; height: 36px; }
-  .player-bar .song-info__title { font-size: 12px; }
-  .player-bar .song-info__artist { font-size: 10px; }
-}
-
-/* 420px */
-@media (max-width: 420px) {
-  .player-bar .song-info { max-width: 120px; }
-  .player-bar .ctrl-btn--volume,
-  .player-bar .ctrl-btn--queue { display: none; }
-}
-
-/* max-height 适配 */
-@media (max-height: 760px) {
-  .home-card { padding: 12px; }
-  .search-results { max-height: 300px; }
-}
-
-@media (max-height: 700px) {
-  .visual-console { max-height: 400px; }
-  .playlist-shelf { max-height: 400px; }
-}
