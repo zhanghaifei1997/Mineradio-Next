@@ -1,56 +1,47 @@
 # Dependencies
 node_modules/
-.pnpm-store/
 
-# Build outputs
+# Build output
 dist/
-dist-ssr/
-release/
+dist-*/
 out/
+release/
+releases/
+win-unpacked/
+*.exe
+*.msi
+*.blockmap
+*.zip
+*.7z
+*.asar
 
-# Electron
-.electron/
-electron-builder/
-
-# Logs
-logs/
+# User data and private state
+.cookie
+.qq-cookie
+updates/
+backups/
 *.log
+*.tmp
+*.cache
+.env
+.env.*
+
+# Local development noise
+.DS_Store
+Thumbs.db
+desktop.ini
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea/
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Historical local experiment files
+public/index.*.html
+!public/index.html
 
-# Environment
-.env
-.env.local
-.env.*.local
-
-# Cache
-.cache/
-.temp/
+# Screenshots and transient verification artifacts
+.playwright-cli/
+output/
 tmp/
-
-# Coverage
-coverage/
-*.lcov
-
-# TypeScript
-*.tsbuildinfo
-
-# OS
-Thumbs.db
-
-# 老项目内部 git 备份
-old-Mineradio/.git-backup/
-old-Mineradio/build/
+*.png.tmp
+verification/
+screenshots/
