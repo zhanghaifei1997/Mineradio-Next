@@ -7097,9 +7097,23 @@ var POINT_CLOUD_PRESETS = {
 var pcAssetCache = {};
 var pcGroup = null;
 var pcOpacity = 0;
-var pcAmpPulse = 0;
 var pcBeatFlash = 0;
 var pcActivePreset = -1;
+
+// ========== 涟漪系统 ==========
+var PC_RIPPLE_MAX = 8;
+var pcRipples = [];
+for (var i = 0; i < PC_RIPPLE_MAX; i++) {
+  pcRipples.push({ x: 0, y: 0, z: 0, age: -10, str: 0 });
+}
+var pcRippleIdx = 0;
+var pcRippleTexData = new Float32Array(PC_RIPPLE_MAX * 4);
+var pcRippleTex = null;
+
+// ========== 尘埃层 ==========
+var pcDustGroup = null;
+var pcDustCount = 2000;
+var PC_DUST_COUNT = 2000;
 
 function isPointCloudPreset(p) { return POINT_CLOUD_PRESETS.hasOwnProperty(Number(p)); }
 
@@ -7140,65 +7154,246 @@ function loadPointCloudAsset(idx) {
   return pcAssetCache[idx].promise;
 }
 
+// ============================================================
+//  点云粒子增强系统 v2.0
+//   - 四频段音频驱动 (bass/mid/treble/beat)
+//   - 沿法线方向分频段位移
+//   - 颜色律动 + kind 分层响应
+//   - 辉光层叠加
+// ============================================================
+
+var pcGlowGroup = null;
+var pcBassNorm = 0;
+var pcMidNorm = 0;
+var pcTrebleNorm = 0;
+var pcBeatNorm = 0;
+
 function createPointCloudMaterial(cfg) {
+  // 初始化涟漪纹理
+  if (!pcRippleTex) {
+    pcRippleTex = new THREE.DataTexture(pcRippleTexData, 1, PC_RIPPLE_MAX, THREE.RGBAFormat, THREE.FloatType);
+    pcRippleTex.magFilter = THREE.NearestFilter;
+    pcRippleTex.minFilter = THREE.NearestFilter;
+  }
+
   return new THREE.ShaderMaterial({
     uniforms: {
       uColorA:     { value: new THREE.Color(cfg.colors.a) },
       uColorB:     { value: new THREE.Color(cfg.colors.b) },
       uShadow:     { value: new THREE.Color(cfg.colors.shadow) },
       uLight:      { value: new THREE.Color(cfg.colors.light) },
+      uColorHot:   { value: new THREE.Color('#ff8040') },  // 低频驱动偏暖色
+      uColorCool:  { value: new THREE.Color('#80c0ff') },  // 高频驱动偏冷色
+      uColorRipple: { value: new THREE.Color('#ffffff') }, // 涟漪颜色
       uOpacity:    { value: 0 },
-      uAmpPulse:   { value: 0 },
+      uBass:       { value: 0 },
+      uMid:        { value: 0 },
+      uTreble:     { value: 0 },
+      uBeat:       { value: 0 },
       uBeatFlash:  { value: 0 },
+      uRippleTex:  { value: pcRippleTex },
+      uRippleCount: { value: PC_RIPPLE_MAX },
       uPointScale: { value: fx.point || 1.0 },
       uTime:       uniforms.uTime,
-      uPixel:      { value: renderer.getPixelRatio() }
+      uPixel:      { value: renderer.getPixelRatio() },
+      uSeed:       { value: Math.random() * 1000 }
     },
     vertexShader: [
       'attribute float seed;',
       'attribute float kind;',
-      'uniform float uTime, uAmpPulse, uBeatFlash, uPointScale, uPixel;',
-      'varying float vLight, vRim, vAmp, vFlash;',
+      'uniform float uTime, uBass, uMid, uTreble, uBeat, uBeatFlash, uPointScale, uPixel, uSeed;',
+      'uniform sampler2D uRippleTex;',
+      'uniform int uRippleCount;',
+      'varying float vLight, vRim, vAmp, vFlash, vKind, vBass, vMid, vTreble, vEdge, vRipple;',
+      'varying vec3 vWorldPos;',
+
+      // 简化 Simplex 2D/3D Noise
+      'vec3 mod289v3(vec3 x){return x-floor(x*(1./289.))*289.;}',
+      'vec4 mod289v4(vec4 x){return x-floor(x*(1./289.))*289.;}',
+      'vec4 permute(vec4 x){return mod289v4(((x*34.)+1.)*x);}',
+      'vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-.85373472095314*r;}',
+
+      'float snoise(vec3 v){',
+      '  const vec2 C=vec2(1./6.,1./3.);',
+      '  const vec4 D=vec4(0.,.5,1.,2.);',
+      '  vec3 i=floor(v+dot(v,C.yyy));',
+      '  vec3 x0=v-i+dot(i,C.xxx);',
+      '  vec3 g=step(x0.yzx,x0.xyz);',
+      '  vec3 l=1.-g;',
+      '  vec3 i1=min(g.xyz,l.zxy);',
+      '  vec3 i2=max(g.xyz,l.zxy);',
+      '  vec3 x1=x0-i1+C.xxx;',
+      '  vec3 x2=x0-i2+C.yyy;',
+      '  vec3 x3=x0-D.yyy;',
+      '  i=mod289v3(i);',
+      '  vec4 p=permute(permute(permute(',
+      '    i.z+vec4(0.,i1.z,i2.z,1.))',
+      '    +i.y+vec4(0.,i1.y,i2.y,1.))',
+      '    +i.x+vec4(0.,i1.x,i2.x,1.));',
+      '  float n_=.142857142857;',
+      '  vec3 ns=n_*D.wyz-D.xzx;',
+      '  vec4 j=p-49.*floor(p*ns.z*ns.z);',
+      '  vec4 x_=floor(j*ns.z);',
+      '  vec4 y_=floor(j-7.*x_);',
+      '  vec4 x=x_*ns.x+ns.yyyy;',
+      '  vec4 y=y_*ns.x+ns.yyyy;',
+      '  vec4 h=1.-abs(x)-abs(y);',
+      '  vec4 b0=vec4(x.xy,y.xy);',
+      '  vec4 b1=vec4(x.zw,y.zw);',
+      '  vec4 s0=floor(b0)*2.+1.;',
+      '  vec4 s1=floor(b1)*2.+1.;',
+      '  vec4 sh=-step(h,vec4(0.));',
+      '  vec4 a0=b0.xzyw+s0.xzyw*sh.xxyy;',
+      '  vec4 a1=b1.xzyw+s1.xzyw*sh.zzww;',
+      '  vec3 p0=vec3(a0.xy,h.x);',
+      '  vec3 p1=vec3(a0.zw,h.y);',
+      '  vec3 p2=vec3(a1.xy,h.z);',
+      '  vec3 p3=vec3(a1.zw,h.w);',
+      '  vec4 norm=taylorInvSqrt(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));',
+      '  p0*=norm.x;p1*=norm.y;p2*=norm.z;p3*=norm.w;',
+      '  vec4 m=max(.6-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.);',
+      '  m=m*m;',
+      '  return 42.*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));',
+      '}',
+
+      // 涟漪采样函数
+      'float rippleSumAt(vec3 p){',
+      '  float total = 0.0;',
+      '  float maxAmp = 0.0;',
+      '  for(int i=0; i<8; i++){',
+      '    if(i >= uRippleCount) break;',
+      '    vec4 r = texture2D(uRippleTex, vec2(float(i)+0.5/float(' + PC_RIPPLE_MAX + '), 0.5));',
+      '    float age = r.z;',
+      '    float str = r.w;',
+      '    if(age < 0.0 || age > 2.5 || str < 0.001) continue;',
+      '    float dist = length(p - r.xyz);',
+      '    float wave = sin(dist * 8.0 - age * 12.0);',
+      '    float decay = (1.0 - age/2.5) * exp(-dist * 1.5);',
+      '    float amp = wave * str * decay;',
+      '    total += amp;',
+      '    maxAmp = max(maxAmp, abs(amp));',
+      '  }',
+      '  return maxAmp;',
+      '}',
+
       'void main(){',
       '  vec3 pos = position;',
-      '  float n = fract(sin(seed * 13.871 + pos.x * 19.7 + pos.y * 7.1) * 43758.5453);',
+
+      // 估算法线方向（基于位置归一化 + 随机扰动模拟）
+      '  vec3 approxNormal = normalize(pos + vec3(0.001));',
+      '  float normalVariation = snoise(pos * 0.5 + uSeed) * 0.3;',
+      '  vec3 N = normalize(approxNormal + vec3(normalVariation * 0.15));',
+
+      // ========== 涟漪位移 ==========
+      '  vRipple = rippleSumAt(pos);',
+      '  pos += N * vRipple * 0.12;',
+
+      // ========== 分频段位移 ==========
+      // 低频(Bass): 大尺度呼吸，沿法线方向缓慢膨胀
+      '  float bassBreath = uBass * 0.12 * (0.8 + snoise(pos * 0.3 + uTime * 0.2) * 0.2);',
+      '  pos += N * bassBreath;',
+
+      // 中频(Mid): 中尺度波动，水平方向扰动
+      '  float midWaveX = snoise(vec3(pos.y * 2.5, pos.z * 2.5, uTime * 0.5)) * uMid * 0.06;',
+      '  float midWaveY = snoise(vec3(pos.x * 2.5, pos.z * 2.5, uTime * 0.45 + 10.0)) * uMid * 0.06;',
+      '  float midWaveZ = snoise(vec3(pos.x * 2.5, pos.y * 2.5, uTime * 0.4 + 20.0)) * uMid * 0.04;',
+      '  pos += vec3(midWaveX, midWaveY, midWaveZ);',
+
+      // 高频(Treble): 小尺度闪烁抖动
+      '  float trebleJitter = uTreble * 0.025;',
       '  pos += vec3(',
-      '    sin(uTime * 0.4 + seed * 0.1) * 0.008,',
-      '    cos(uTime * 0.35 + seed * 0.13) * 0.008,',
-      '    sin(uTime * 0.3 + seed * 0.17) * 0.006',
+      '    snoise(pos * 8.0 + uTime * 2.5) * trebleJitter,',
+      '    snoise(pos * 8.0 + uTime * 2.7 + 50.0) * trebleJitter,',
+      '    snoise(pos * 8.0 + uTime * 2.3 + 100.0) * trebleJitter',
       '  );',
-      '  pos *= 1.0 + uAmpPulse;',
+
+      // 节拍(Beat): 瞬态爆发 + 涟漪扩散
+      '  float beatWave = uBeat * (0.5 + snoise(pos * 3.0 + uTime * 4.0) * 0.5);',
+      '  pos += N * beatWave * 0.08;',
+
+      // 持续呼吸（环境微动）
+      '  pos += vec3(',
+      '    sin(uTime * 0.4 + seed * 0.1) * 0.006,',
+      '    cos(uTime * 0.35 + seed * 0.13) * 0.006,',
+      '    sin(uTime * 0.3 + seed * 0.17) * 0.004',
+      '  );',
+
       '  vec4 mv = modelViewMatrix * vec4(pos, 1.0);',
       '  float dist = max(0.5, -mv.z);',
-      '  vec3 vn = normalize(normalMatrix * normalize(pos + vec3(0.001)));',
+
+      // ========== 光照计算 ==========
+      '  vec3 vn = normalize(normalMatrix * N);',
       '  vec3 keyDir = normalize(vec3(-0.42, 0.58, 0.56));',
       '  vec3 fillDir = normalize(vec3(0.38, -0.08, 0.60));',
       '  vec3 rimDir = normalize(vec3(0.80, 0.22, -0.40));',
       '  float key = pow(max(dot(vn, keyDir), 0.0), 1.1);',
       '  float fill = max(dot(vn, fillDir), 0.0) * 0.12;',
-      '  vRim = pow(max(dot(vn, rimDir), 0.0), 2.2) * (0.20 + uBeatFlash * 0.50);',
-      '  vAmp = uAmpPulse * 2.0;',
+      '  vRim = pow(max(dot(vn, rimDir), 0.0), 2.2) * (0.20 + uBeatFlash * 0.60);',
+      '  vBass = uBass;',
+      '  vMid = uMid;',
+      '  vTreble = uTreble;',
+      '  vAmp = (uBass * 0.5 + uMid * 0.3 + uBeat * 0.8) * 1.5;',
       '  vFlash = uBeatFlash;',
-      '  vLight = clamp(0.14 + key * 0.90 + fill + vRim * 0.18 + vAmp * 0.40 + vFlash * 0.28, 0.04, 1.60);',
-      '  float size = (0.032 + kind * 0.02) * (0.86 + vLight * 0.16 + uBeatFlash * 0.14);',
-      '  gl_PointSize = clamp(size * uPixel * uPointScale * 128.0 / dist, 0.9, 7.2);',
+      '  vKind = kind;',
+
+      // 边缘检测（基于与原点的距离）
+      '  float distFromCenter = length(position);',
+      '  vEdge = smoothstep(0.8, 1.5, distFromCenter);',
+
+      // 亮度 = 基础光照 + bass驱动(暖色偏移) + treble驱动(冷色偏移) + beat闪烁 + 涟漪亮化
+      '  vLight = clamp(0.14 + key * 0.90 + fill + vRim * 0.18 + vBass * 0.25 + vFlash * 0.35 + vRipple * 0.45, 0.04, 1.60);',
+
+      // ========== 粒子大小 ==========
+      // kind=0 大粒子响应低频，kind>0 小粒子响应高频，涟漪增强
+      '  float baseSize = mix(0.028, 0.042, 1.0 - kind * 0.5);',
+      '  float sizeScale = 0.86 + vLight * 0.20 + uBeatFlash * 0.18 + vBass * 0.12 + vMid * 0.08 + vRipple * 0.15;',
+      '  float size = baseSize * sizeScale;',
+      '  gl_PointSize = clamp(size * uPixel * uPointScale * 128.0 / dist, 0.8, 8.0);',
       '  gl_Position = projectionMatrix * mv;',
+      '  vWorldPos = pos;',
       '}'
     ].join('\n'),
     fragmentShader: [
       'precision highp float;',
-      'uniform vec3 uColorA, uColorB, uShadow, uLight;',
-      'uniform float uOpacity, uBeatFlash;',
-      'varying float vLight, vRim, vAmp, vFlash;',
+      'uniform vec3 uColorA, uColorB, uShadow, uLight, uColorHot, uColorCool, uColorRipple;',
+      'uniform float uOpacity, uBeatFlash, uBass, uMid, uTreble;',
+      'varying float vLight, vRim, vAmp, vFlash, vKind, vBass, vMid, vTreble, vEdge, vRipple;',
+      'varying vec3 vWorldPos;',
+
       'void main(){',
       '  float d = length(gl_PointCoord - vec2(0.5));',
       '  if(d > 0.5) discard;',
-      '  float alpha = smoothstep(0.5, 0.12, d);',
+
+      // 软圆点衰减
+      '  float alpha = smoothstep(0.5, 0.08, d);',
+
+      // 基础颜色 = 阴影 -> 主色A -> 主色B (按亮度渐变)
       '  float lit = clamp(vLight, 0.0, 1.0);',
       '  vec3 col = mix(uShadow, mix(uColorA, uColorB, lit), clamp(lit, 0.0, 1.0));',
-      '  col = mix(col, uLight, clamp(vRim * 0.22 + vFlash * 0.40, 0.0, 0.60));',
-      '  col += vAmp * 0.08;',
-      '  gl_FragColor = vec4(col, alpha * uOpacity * clamp(0.30 + lit * 0.50 + vFlash * 0.30, 0.12, 1.0));',
+
+      // ========== 颜色律动 ==========
+      // 低频(Bass)驱动: 偏暖色偏移
+      '  float warmMix = vBass * 0.30 * (1.0 - vEdge);',
+      '  col = mix(col, uColorHot, clamp(warmMix, 0.0, 0.35));',
+
+      // 高频(Treble)驱动: 偏冷色偏移（边缘更明显）
+      '  float coolMix = vTreble * 0.25 * (0.3 + vEdge * 0.7);',
+      '  col = mix(col, uColorCool, clamp(coolMix, 0.0, 0.30));',
+
+      // 节拍闪烁: 整体提亮 + 饱和度增强
+      '  col = mix(col, uLight, clamp(vFlash * 0.45, 0.0, 0.55));',
+      '  col += vAmp * 0.12;',
+
+      // 涟漪亮化
+      '  col = mix(col, uColorRipple, clamp(vRipple * 0.35, 0.0, 0.40));',
+
+      // 边缘粒子更亮
+      '  col += vEdge * vLight * 0.15;',
+
+      // 最终透明度
+      '  float finalAlpha = alpha * uOpacity * clamp(0.25 + lit * 0.55 + vFlash * 0.30 + vEdge * 0.15 + vRipple * 0.20, 0.10, 1.0);',
+
+      '  gl_FragColor = vec4(col, finalAlpha);',
       '}'
     ].join('\n'),
     transparent: true,
@@ -7220,6 +7415,13 @@ function destroyPointCloudLayer() {
   }
   pcGroup = null;
   pcActivePreset = -1;
+  // 清理辉光层
+  if (pcGlowGroup) {
+    scene.remove(pcGlowGroup);
+    if (pcGlowGroup.geometry) pcGlowGroup.geometry.dispose();
+    if (pcGlowGroup.material) pcGlowGroup.material.dispose();
+    pcGlowGroup = null;
+  }
 }
 
 function createPointCloudLayer(idx) {
@@ -7259,9 +7461,19 @@ function createPointCloudLayer(idx) {
 
 function clearPointCloudResidue() {
   pcOpacity = 0;
-  pcAmpPulse = 0;
+  pcBassNorm = 0;
+  pcMidNorm = 0;
+  pcTrebleNorm = 0;
+  pcBeatNorm = 0;
   pcBeatFlash = 0;
   if (pcGroup) pcGroup.visible = false;
+  if (pcGlowGroup) pcGlowGroup.visible = false;
+  if (pcDustGroup) pcDustGroup.visible = false;
+  // 重置涟漪
+  for (var i = 0; i < PC_RIPPLE_MAX; i++) {
+    pcRipples[i].age = -10;
+    pcRipples[i].str = 0;
+  }
 }
 
 function updatePointCloudLayer(dt) {
@@ -7277,36 +7489,400 @@ function updatePointCloudLayer(dt) {
   pcOpacity += (target - pcOpacity) * Math.min(1, dt * (pcPresetActive ? 3.2 : 2.4));
   if (pcOpacity < 0.006 && !pcPresetActive) {
     pcGroup.visible = false;
+    if (pcGlowGroup) pcGlowGroup.visible = false;
     return;
   }
   pcGroup.visible = true;
-  pcGroup.material.uniforms.uOpacity.value = pcOpacity * clampRange(0.78 + (fx.intensity || 0.85) * 0.18, 0.56, 1.0);
+
+  // ========== 计算四频段音频参数 ==========
+  // 节拍脉冲 (Beat)
   var beatTransient = clampRange(Math.max(0, beatPulse - 0.16) / 0.84, 0, 1.35);
   var flashTarget = clampRange(Math.pow(beatTransient, 1.34) * 1.08 + Math.max(0, bass - 0.60) * 0.18 * beatTransient, 0, 1);
   pcBeatFlash += (flashTarget - pcBeatFlash) * Math.min(1, dt * (flashTarget > pcBeatFlash ? 24.0 : 6.2));
+
+  // 低频 (Bass): 直接映射 + 节拍增强
+  var bassTarget = clampRange(bass * 0.6 + pcBeatFlash * 0.25, 0, 1);
+  pcBassNorm += (bassTarget - pcBassNorm) * Math.min(1, dt * (bassTarget > pcBassNorm ? 8.0 : 4.0));
+
+  // 中频 (Mid): 平滑响应
+  var midTarget = clampRange(mid * 0.5, 0, 1);
+  pcMidNorm += (midTarget - pcMidNorm) * Math.min(1, dt * (midTarget > pcMidNorm ? 6.0 : 3.5));
+
+  // 高频 (Treble): 快速响应衰减
+  var trebleTarget = clampRange(treble * 0.45, 0, 1);
+  pcTrebleNorm += (trebleTarget - pcTrebleNorm) * Math.min(1, dt * (trebleTarget > pcTrebleNorm ? 10.0 : 5.0));
+
+  // 节拍 (Beat): 瞬态爆发
+  var beatTarget = clampRange(pcBeatFlash * 0.8 + beatTransient * 0.3, 0, 1);
+  pcBeatNorm += (beatTarget - pcBeatNorm) * Math.min(1, dt * (beatTarget > pcBeatNorm ? 18.0 : 6.0));
+
+  // ========== 更新主层 uniforms ==========
+  var intensity = clampRange(0.78 + (fx.intensity || 0.85) * 0.18, 0.56, 1.0);
+  pcGroup.material.uniforms.uOpacity.value = pcOpacity * intensity;
+  pcGroup.material.uniforms.uBass.value = pcBassNorm;
+  pcGroup.material.uniforms.uMid.value = pcMidNorm;
+  pcGroup.material.uniforms.uTreble.value = pcTrebleNorm;
+  pcGroup.material.uniforms.uBeat.value = pcBeatNorm;
   pcGroup.material.uniforms.uBeatFlash.value = pcBeatFlash;
-  var ampTarget = clampRange(bass * 0.006 + mid * 0.004 + pcBeatFlash * 0.070, 0, 0.090);
-  pcAmpPulse += (ampTarget - pcAmpPulse) * Math.min(1, dt * (ampTarget > pcAmpPulse ? 11.0 : 4.0));
-  pcGroup.material.uniforms.uAmpPulse.value = pcAmpPulse;
   pcGroup.material.uniforms.uPointScale.value = fx.point || 1.0;
+
+  // ========== 涟漪系统更新 ==========
+  updatePointCloudRipples(dt, pcBeatFlash, bass);
+
+  // ========== 辉光层更新 ==========
+  updatePointCloudGlowLayer(dt, intensity, pcBassNorm, pcBeatFlash);
+
+  // ========== 尘埃层更新 ==========
+  updatePointCloudDustLayer(dt, intensity, pcBassNorm, pcTrebleNorm);
+
+  // ========== 位置和旋转更新 ==========
   var cfg = POINT_CLOUD_PRESETS[pcActivePreset];
   if (!cfg) return;
+
+  // 呼吸动画（环境微动）
   var breathX = Math.sin(uniforms.uTime.value * 0.30) * 0.018;
   var breathY = Math.sin(uniforms.uTime.value * 0.36 + 0.5) * 0.022;
   var tgtX = breathX;
   var tgtY = 0.15 + breathY;
   pcGroup.position.x += (tgtX - pcGroup.position.x) * Math.min(1, dt * 4.0);
   pcGroup.position.y += (tgtY - pcGroup.position.y) * Math.min(1, dt * 4.0);
-  var tgtScale = cfg.scale * (1 + pcAmpPulse);
-  pcGroup.scale.x += (tgtScale - pcGroup.scale.x) * Math.min(1, dt * 4.6);
+
+  // 整体缩放（保留但响应bass）
+  var baseScale = cfg.scale * (1 + pcBassNorm * 0.05);
+  pcGroup.scale.x += (baseScale - pcGroup.scale.x) * Math.min(1, dt * 4.6);
   pcGroup.scale.y = pcGroup.scale.x;
   pcGroup.scale.z = pcGroup.scale.x;
+
+  // 旋转
   var tgtRotY = (cfg.rotY || 0) + (orbit.centerLocked ? 0 : gestureRotation.y);
   var tgtRotX = (cfg.rotX || 0) + (orbit.centerLocked ? 0 : gestureRotation.x);
   var rotEase = Math.min(1, dt * 7.0);
   pcGroup.rotation.y += (tgtRotY - pcGroup.rotation.y) * rotEase;
   pcGroup.rotation.x += (tgtRotX - pcGroup.rotation.x) * rotEase;
   pcGroup.rotation.z += (0 - pcGroup.rotation.z) * Math.min(1, dt * 6.0);
+}
+
+// ============================================================
+//  点云辉光层
+//   - 同一份点云，放大并淡化
+//   - 只在低频和节拍时显现
+//   - 营造光晕包裹的感觉
+// ============================================================
+
+function createPointCloudGlowMaterial(cfg) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uColorA:     { value: new THREE.Color(cfg.colors.a) },
+      uColorB:     { value: new THREE.Color(cfg.colors.b) },
+      uLight:      { value: new THREE.Color(cfg.colors.light) },
+      uOpacity:    { value: 0 },
+      uBass:       { value: 0 },
+      uBeatFlash:  { value: 0 },
+      uPointScale: { value: fx.point || 1.0 },
+      uTime:       uniforms.uTime,
+      uPixel:      { value: renderer.getPixelRatio() }
+    },
+    vertexShader: [
+      'attribute float seed;',
+      'attribute float kind;',
+      'uniform float uTime, uBass, uBeatFlash, uPointScale, uPixel;',
+      'varying float vBright;',
+      'void main(){',
+      '  vec3 pos = position;',
+      '  // 轻微膨胀 + beat爆发',
+      '  float scale = 1.08 + uBass * 0.06 + uBeatFlash * 0.08;',
+      '  pos *= scale;',
+      '  pos += vec3(',
+      '    sin(uTime * 0.35 + seed * 0.12) * 0.012,',
+      '    cos(uTime * 0.30 + seed * 0.15) * 0.012,',
+      '    sin(uTime * 0.28 + seed * 0.18) * 0.008',
+      '  );',
+      '  vec4 mv = modelViewMatrix * vec4(pos, 1.0);',
+      '  float dist = max(0.5, -mv.z);',
+      '  vBright = 0.5 + uBass * 0.3 + uBeatFlash * 0.5;',
+      '  // 辉光层粒子更大更模糊',
+      '  float size = (0.055 + kind * 0.015) * (0.9 + vBright * 0.2);',
+      '  gl_PointSize = clamp(size * uPixel * uPointScale * 128.0 / dist, 1.5, 12.0);',
+      '  gl_Position = projectionMatrix * mv;',
+      '}'
+    ].join('\n'),
+    fragmentShader: [
+      'precision highp float;',
+      'uniform vec3 uColorA, uColorB, uLight;',
+      'uniform float uOpacity, uBass, uBeatFlash;',
+      'varying float vBright;',
+      'void main(){',
+      '  float d = length(gl_PointCoord - vec2(0.5));',
+      '  if(d > 0.5) discard;',
+      '  // 更软的辉光衰减',
+      '  float alpha = smoothstep(0.5, 0.0, d) * smoothstep(0.5, 0.2, d);',
+      '  vec3 col = mix(uColorA, uColorB, vBright);',
+      '  col = mix(col, uLight, clamp(vBright * 0.4 + uBeatFlash * 0.3, 0.0, 0.6));',
+      '  // 辉光层透明度很低',
+      '  float finalAlpha = alpha * uOpacity * clamp(0.08 + vBright * 0.12 + uBeatFlash * 0.15, 0.05, 0.35);',
+      '  gl_FragColor = vec4(col, finalAlpha);',
+      '}'
+    ].join('\n'),
+    transparent: true,
+    depthWrite: false,
+    depthTest: true,
+    blending: THREE.AdditiveBlending
+  });
+}
+
+function createPointCloudGlowLayer(idx) {
+  var cfg = POINT_CLOUD_PRESETS[idx];
+  var asset = pcAssetCache[idx] && pcAssetCache[idx].data;
+  if (!cfg || !asset) return null;
+  if (pcGlowGroup) {
+    scene.remove(pcGlowGroup);
+    if (pcGlowGroup.geometry) pcGlowGroup.geometry.dispose();
+    if (pcGlowGroup.material) pcGlowGroup.material.dispose();
+    pcGlowGroup = null;
+  }
+  var count = asset.length / 5;
+  var geo = new THREE.BufferGeometry();
+  var pos = new Float32Array(count * 3);
+  var seedArr = new Float32Array(count);
+  var kindArr = new Float32Array(count);
+  for (var i = 0; i < count; i++) {
+    pos[i * 3]     = asset[i * 5];
+    pos[i * 3 + 1] = asset[i * 5 + 1];
+    pos[i * 3 + 2] = asset[i * 5 + 2];
+    seedArr[i] = asset[i * 5 + 3];
+    kindArr[i] = asset[i * 5 + 4];
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('seed', new THREE.BufferAttribute(seedArr, 1));
+  geo.setAttribute('kind', new THREE.BufferAttribute(kindArr, 1));
+  var mat = createPointCloudGlowMaterial(cfg);
+  mat.uniforms.uPointScale.value = fx.point || 1.0;
+  pcGlowGroup = new THREE.Points(geo, mat);
+  pcGlowGroup.frustumCulled = false;
+  pcGlowGroup.renderOrder = 31; // 在主层之前
+  pcGlowGroup.position.set(0, 0.15, 0);
+  pcGlowGroup.scale.setScalar(cfg.scale);
+  scene.add(pcGlowGroup);
+  return pcGlowGroup;
+}
+
+function updatePointCloudGlowLayer(dt, intensity, bassVal, beatVal) {
+  var pcPresetActive = fx && isPointCloudPreset(fx.preset);
+  if (pcPresetActive && pcGlowGroup && pcGlowGroup.geometry !== pcGroup.geometry) {
+    // 重建辉光层（如果预设变了）
+    createPointCloudGlowLayer(fx.preset);
+  }
+  if (pcPresetActive && !pcGlowGroup) {
+    createPointCloudGlowLayer(fx.preset);
+  }
+  if (!pcGlowGroup) return;
+  if (!pcPresetActive) {
+    pcGlowGroup.visible = false;
+    return;
+  }
+  var cfg = POINT_CLOUD_PRESETS[pcActivePreset];
+  if (!cfg) return;
+
+  pcGlowGroup.visible = true;
+  pcGlowGroup.material.uniforms.uOpacity.value = intensity * 0.3;
+  pcGlowGroup.material.uniforms.uBass.value = bassVal;
+  pcGlowGroup.material.uniforms.uBeatFlash.value = beatVal;
+  pcGlowGroup.material.uniforms.uPointScale.value = fx.point || 1.0;
+
+  // 跟随主层变换
+  pcGlowGroup.position.copy(pcGroup.position);
+  pcGlowGroup.rotation.copy(pcGroup.rotation);
+  pcGlowGroup.scale.copy(pcGroup.scale);
+}
+
+// ============================================================
+//  点云涟漪系统
+//   - 节拍触发涟漪
+//   - 沿点云表面扩散
+//   - 影响位移和颜色
+// ============================================================
+
+var pcRippleCooldown = 0;
+
+function updatePointCloudRipples(dt, beatFlash, bassVal) {
+  var pcPresetActive = fx && isPointCloudPreset(fx.preset);
+  if (!pcPresetActive || !pcGroup) {
+    // 熄灭所有涟漪
+    for (var i = 0; i < PC_RIPPLE_MAX; i++) {
+      pcRipples[i].age = -10;
+      pcRipples[i].str = 0;
+    }
+  } else {
+    // 涟漪老化
+    for (var i = 0; i < PC_RIPPLE_MAX; i++) {
+      if (pcRipples[i].age >= 0) {
+        pcRipples[i].age += dt;
+        if (pcRipples[i].age > 2.5) {
+          pcRipples[i].age = -10;
+          pcRipples[i].str = 0;
+        }
+      }
+    }
+
+    // 节拍触发涟漪
+    pcRippleCooldown -= dt;
+    if (beatFlash > 0.6 && pcRippleCooldown <= 0 && bassVal > 0.3) {
+      var r = pcRipples[pcRippleIdx];
+      // 在点云范围内的随机位置
+      r.x = (Math.random() - 0.5) * 2.0;
+      r.y = (Math.random() - 0.5) * 2.0;
+      r.z = (Math.random() - 0.5) * 2.0;
+      r.age = 0;
+      r.str = Math.min(1, bassVal * 1.5 + beatFlash * 0.5);
+      pcRippleIdx = (pcRippleIdx + 1) % PC_RIPPLE_MAX;
+      pcRippleCooldown = 0.15; // 最小间隔
+    }
+  }
+
+  // 更新涟漪纹理数据
+  if (pcRippleTex) {
+    for (var i = 0; i < PC_RIPPLE_MAX; i++) {
+      var ripple = pcRipples[i];
+      pcRippleTexData[i * 4]     = ripple.x;
+      pcRippleTexData[i * 4 + 1] = ripple.y;
+      pcRippleTexData[i * 4 + 2] = ripple.age;
+      pcRippleTexData[i * 4 + 3] = ripple.str;
+    }
+    pcRippleTex.needsUpdate = true;
+  }
+}
+
+// ============================================================
+//  点云尘埃漂浮层
+//   - 在点云周围散布小粒子
+//   - 缓慢漂浮，高频闪烁
+//   - 增加空间感和空气感
+// ============================================================
+
+function createPointCloudDustMaterial(cfg) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uColorA:     { value: new THREE.Color(cfg.colors.a) },
+      uColorB:     { value: new THREE.Color(cfg.colors.b) },
+      uLight:      { value: new THREE.Color(cfg.colors.light) },
+      uOpacity:    { value: 0 },
+      uTreble:     { value: 0 },
+      uBeatFlash:  { value: 0 },
+      uPointScale: { value: fx.point || 1.0 },
+      uTime:       uniforms.uTime,
+      uPixel:      { value: renderer.getPixelRatio() }
+    },
+    vertexShader: [
+      'attribute float seed;',
+      'attribute float phase;',
+      'uniform float uTime, uTreble, uBeatFlash, uPointScale, uPixel;',
+      'varying float vBright;',
+      'void main(){',
+      '  vec3 pos = position;',
+      '  // 漂浮动画',
+      '  float floatY = sin(uTime * 0.5 + phase * 6.28) * 0.3;',
+      '  float floatX = cos(uTime * 0.4 + phase * 6.28 * 0.7) * 0.2;',
+      '  float floatZ = sin(uTime * 0.35 + phase * 6.28 * 0.5) * 0.25;',
+      '  pos += vec3(floatX, floatY, floatZ);',
+      '  // 高频闪烁抖动',
+      '  float trebleJitter = uTreble * 0.04;',
+      '  pos += vec3(',
+      '    sin(uTime * 3.5 + seed * 10.0) * trebleJitter,',
+      '    cos(uTime * 4.0 + seed * 12.0) * trebleJitter,',
+      '    sin(uTime * 3.0 + seed * 8.0) * trebleJitter',
+      '  );',
+      '  vec4 mv = modelViewMatrix * vec4(pos, 1.0);',
+      '  float dist = max(0.5, -mv.z);',
+      '  vBright = 0.3 + uTreble * 0.4 + uBeatFlash * 0.3;',
+      '  // 尘埃粒子更小',
+      '  float size = 0.012 * (1.0 + vBright * 0.5);',
+      '  gl_PointSize = clamp(size * uPixel * uPointScale * 128.0 / dist, 0.4, 4.0);',
+      '  gl_Position = projectionMatrix * mv;',
+      '}'
+    ].join('\n'),
+    fragmentShader: [
+      'precision highp float;',
+      'uniform vec3 uColorA, uColorB, uLight;',
+      'uniform float uOpacity;',
+      'varying float vBright;',
+      'void main(){',
+      '  float d = length(gl_PointCoord - vec2(0.5));',
+      '  if(d > 0.5) discard;',
+      '  float alpha = smoothstep(0.5, 0.1, d);',
+      '  vec3 col = mix(uColorA, uColorB, vBright);',
+      '  col = mix(col, uLight, vBright * 0.5);',
+      '  float finalAlpha = alpha * uOpacity * clamp(0.05 + vBright * 0.15, 0.02, 0.2);',
+      '  gl_FragColor = vec4(col, finalAlpha);',
+      '}'
+    ].join('\n'),
+    transparent: true,
+    depthWrite: false,
+    depthTest: true,
+    blending: THREE.AdditiveBlending
+  });
+}
+
+function createPointCloudDustLayer(idx) {
+  var cfg = POINT_CLOUD_PRESETS[idx];
+  if (!cfg) return null;
+  if (pcDustGroup) {
+    scene.remove(pcDustGroup);
+    if (pcDustGroup.geometry) pcDustGroup.geometry.dispose();
+    if (pcDustGroup.material) pcDustGroup.material.dispose();
+    pcDustGroup = null;
+  }
+  var count = PC_DUST_COUNT;
+  var geo = new THREE.BufferGeometry();
+  var pos = new Float32Array(count * 3);
+  var seedArr = new Float32Array(count);
+  var phaseArr = new Float32Array(count);
+  for (var i = 0; i < count; i++) {
+    // 在点云范围外随机分布
+    var theta = Math.random() * Math.PI * 2;
+    var phi = Math.acos(2 * Math.random() - 1);
+    var r = 1.5 + Math.random() * 1.5;
+    pos[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+    pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    pos[i * 3 + 2] = r * Math.cos(phi);
+    seedArr[i] = Math.random() * 1000;
+    phaseArr[i] = Math.random();
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('seed', new THREE.BufferAttribute(seedArr, 1));
+  geo.setAttribute('phase', new THREE.BufferAttribute(phaseArr, 1));
+  var mat = createPointCloudDustMaterial(cfg);
+  mat.uniforms.uPointScale.value = fx.point || 1.0;
+  pcDustGroup = new THREE.Points(geo, mat);
+  pcDustGroup.frustumCulled = false;
+  pcDustGroup.renderOrder = 33; // 在主层之后
+  pcDustGroup.position.set(0, 0.15, 0);
+  pcDustGroup.scale.setScalar(cfg.scale);
+  scene.add(pcDustGroup);
+  return pcDustGroup;
+}
+
+function updatePointCloudDustLayer(dt, intensity, bassVal, trebleVal) {
+  var pcPresetActive = fx && isPointCloudPreset(fx.preset);
+  if (pcPresetActive && !pcDustGroup) {
+    createPointCloudDustLayer(fx.preset);
+  }
+  if (pcPresetActive && pcDustGroup && pcDustGroup.material.uniforms) {
+    // 只在 bass 强的时候显示尘埃层
+    var dustOpacity = bassVal > 0.2 ? (bassVal - 0.2) * 0.6 : 0;
+    dustOpacity *= intensity;
+    pcDustGroup.visible = dustOpacity > 0.01;
+    pcDustGroup.material.uniforms.uOpacity.value = dustOpacity;
+    pcDustGroup.material.uniforms.uTreble.value = trebleVal;
+    pcDustGroup.material.uniforms.uBeatFlash.value = pcBeatFlash;
+    pcDustGroup.material.uniforms.uPointScale.value = fx.point || 1.0;
+    // 跟随主层变换
+    pcDustGroup.position.copy(pcGroup.position);
+    pcDustGroup.rotation.copy(pcGroup.rotation);
+    pcDustGroup.scale.copy(pcGroup.scale);
+  }
+  if (!pcPresetActive && pcDustGroup) {
+    pcDustGroup.visible = false;
+  }
 }
 
 // ============================================================
