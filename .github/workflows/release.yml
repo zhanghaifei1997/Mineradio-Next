@@ -81,7 +81,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          targets: aarch64-apple-darwin
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -92,7 +92,7 @@ jobs:
         run: cargo install tauri-cli --version "^2" --locked
 
       - name: Build Tauri app
-        run: cargo tauri build --target universal-apple-darwin
+        run: cargo tauri build --target aarch64-apple-darwin
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -102,7 +102,7 @@ jobs:
         with:
           name: release-macos
           path: |
-            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
           retention-days: 30
 
   release:
@@ -163,7 +163,7 @@ jobs:
             ### 下载
             - **Windows (NSIS)**: `Mineradio-Next_${{ steps.get_version.outputs.VERSION }}_x64-setup.exe`
             - **Windows (MSI)**: `Mineradio-Next_${{ steps.get_version.outputs.VERSION }}_x64_en-US.msi`
-            - **macOS (Universal)**: `Mineradio-Next_${{ steps.get_version.outputs.VERSION }}_universal.dmg`
+            - **macOS (Apple Silicon)**: `Mineradio-Next_${{ steps.get_version.outputs.VERSION }}_aarch64.dmg`
           files: |
             release/win/**/*.exe
             release/win-msi/**/*.msi
