@@ -1,17 +1,17 @@
-# Mineradio AI Handoff
+# Mineradio-Next AI Handoff
 
 这个文件是给后续接管本工作区的 AI 看的。每次完成一个任务后，都要更新本文件的「工作日志」和「未完成事项」，让下一位接手者能快速知道用户偏好、当前状态和最近做过什么。
 
-## 当前权威入口（2026-06-24）
+> **项目说明**：Mineradio-Next 是基于 XxHuberrr 的 [Mineradio](https://github.com/XxHuberrr/Mineradio) 的二次开发版本，从 Electron 迁移至 Tauri v2 + Rust 架构。仓库：`https://github.com/zhanghaifei1997/Mineradio-Next`。
 
-- 当前真实代码/Git 仓库仍是 `E:\桌面\播放器软件\Mineradio\resources\app`。
-- 当前版本是 `v1.1.0` 纯净安装发布线；本轮已从当前可信源码重新生成并发布 `dist/Mineradio-1.1.0-Setup.exe`。
-- GitHub 仓库已公开：`https://github.com/XxHuberrr/Mineradio`
-- `v1.1.0` Release：`https://github.com/XxHuberrr/Mineradio/releases/tag/v1.1.0`
-- GitHub `/releases/latest` 仍返回 `v1.0.10`，这是刻意设置，避免旧版软件内更新到 1.1.0。
-- `v1.0.10` 及更早旧安装包不再信任，需要在 GitHub Release/README/SECURITY 中标记隔离。
-- `v1.1.0` 不提供从 `v1.0.10` 的软件内本地更新，不上传 `latest.yml`，不生成 `v1.0.10 -> v1.1.0` 快速补丁。
-- 新对话优先读 `AGENTS.md`、`docs/PROJECT_MEMORY.md`、`docs/HANDOFF_NEXT_CHAT.md`；涉及安全重建或发布时再读 `docs/SECURITY_REBUILD_2026-06-24.md`。本文件下面包含较早历史记录，不能覆盖上述文件的当前结论。
+## 当前权威入口（2026-06-28）
+
+- 当前工作区：`e:\Mineradio-Next`。
+- 技术栈已从 Electron 迁移至 **Tauri v2 + Rust**，后端使用 Actix-web HTTP server。
+- 当前版本是 `v1.1.1`。
+- GitHub 仓库：`https://github.com/zhanghaifei1997/Mineradio-Next`
+- 原项目（Electron 版）：`https://github.com/XxHuberrr/Mineradio`（作者 XxHuberrr）
+- 新对话优先读 `AGENTS.md`、`docs/PROJECT_MEMORY.md`；涉及安全重建或发布时再读相关安全文档。
 
 ## 用户偏好
 
@@ -21,20 +21,19 @@
 - 用户很在意视觉质感，尤其讨厌“默认白框”“太素”“没设计感”。Mineradio 视觉方向偏黑色、玻璃、舞台、音乐可视化。
 - 做网页、软件界面、安装器时，要优先考虑第一次打开的新用户是否知道软件是干什么的。
 - 发布软件时，不能只上传源码。GitHub Release 通常要包含可运行安装包 exe；但 `v1.1.0` 安全发布例外，不上传 `latest.yml`，避免旧版软件内更新直接拉取。
-- 安装器默认安装目录优先使用 `D:\Mineradio`，并创建桌面快捷方式。
+- 安装器默认安装目录优先使用用户选择的路径，并创建桌面快捷方式。
 - 更新逻辑优先轻量快速补丁；完整安装包作为兜底。
 - 搜索结果要尽量优先原唱/官方版本，不希望翻唱排在原唱前面。
 - 感谢名单曾确认：`emily、小天才e宝、应春日、锋将军、軌跡、林中、骊、风痕、花椰菜🥦`。
 
 ## 工作区地图
 
-- `server.js`：本地 API、网易云代理、搜索、首页数据、更新检查、完整安装包下载、快速补丁应用。
+- `src-tauri/`：Tauri + Rust 后端，包含 IPC 命令、网易云 API Rust 实现、Actix-web HTTP server 路由。
+- `server.js`：Node.js 本地 API（Electron 兼容保留）。
 - `public/index.html`：主界面和大部分前端逻辑，体量很大，修改前先用 `rg` 定位。
-- `desktop/`：Electron 主进程、preload、窗口和系统集成。
-- `build/`：应用图标、NSIS 安装器脚本、安装器视觉资源、after-pack 资源注入。
-- `dist/`：本地构建产物，已被 git 忽略。根部只放当前发布资产。
-- `updates/`：软件运行时更新区，已被 git 忽略。下载和补丁备份分开。
-- `backups/`：人工归档/历史实验备份，已被 git 忽略。不要和 `updates/` 混用。
+- `desktop/`：Electron 兼容层（main.js, preload.js）。
+- `build/`：应用图标、NSIS 安装器脚本、安装器视觉资源。
+- `dist/`：本地构建产物，已被 git 忽略。
 - `node_modules/`：依赖目录，通常不要手动整理。
 
 ## 本地分区约定
@@ -73,7 +72,9 @@
 
 这个目录是人工归档区，不参与软件更新流程。
 
-## 已完成工作日志
+## 历史工作日志
+
+> 以下为 Mineradio（Electron 版）时期的历史记录，保留作为项目演进参考。
 
 ### 2026-06-24
 

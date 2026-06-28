@@ -43,7 +43,7 @@ impl Default for AppState {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::init();
-    info!("Mineradio v{} starting (Tauri build)", env!("CARGO_PKG_VERSION"));
+    info!("Mineradio-Next v{} starting (Tauri build)", env!("CARGO_PKG_VERSION"));
 
     let state = Arc::new(AppState::default());
 

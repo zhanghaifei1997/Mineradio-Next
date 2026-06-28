@@ -6,16 +6,16 @@ fn public_dir() -> PathBuf {
     // Try to find public/ relative to the executable
     if let Ok(exe) = std::env::current_exe() {
         // exe is at: src-tauri/target/debug/mineradio.exe (dev)
-        // or at: Mineradio/mineradio.exe (release)
+        // or at: Mineradio-Next/mineradio.exe (release)
         let exe_dir = exe.parent().unwrap_or_else(|| std::path::Path::new("."));
 
         // Try multiple possible locations
         let candidates = [
             exe_dir.join("..").join("..").join("..").join("public"),  // dev: target/debug/../../.. /public
             exe_dir.join("..").join("..").join("public"),  // dev alt: target/../public
-            exe_dir.join("_up_").join("public"),            // NSIS: Mineradio/_up_/public/ (Tauri resource normalization)
-            exe_dir.join("resources"),                      // NSIS alt: Mineradio/resources/
-            exe_dir.join("resources").join("public"),       // NSIS alt: Mineradio/resources/public/
+            exe_dir.join("_up_").join("public"),            // NSIS: Mineradio-Next/_up_/public/ (Tauri resource normalization)
+            exe_dir.join("resources"),                      // NSIS alt: Mineradio-Next/resources/
+            exe_dir.join("resources").join("public"),       // NSIS alt: Mineradio-Next/resources/public/
             exe_dir.join("public"),                         // release alt: ./public
             exe_dir.join("..").join("public"),              // alt: ../public
         ];

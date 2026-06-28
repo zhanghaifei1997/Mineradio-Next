@@ -258,6 +258,6 @@
     document.body.classList.add('desktop-shell');
   }
 
-  console.log('[tauri-adapter] Mineradio Tauri adapter loaded (invoke:',
+  console.log('[tauri-adapter] Mineradio-Next Tauri adapter loaded (invoke:',
     invoke ? 'OK' : 'MISSING', ', listen:', listenFn ? 'OK' : 'MISSING', ')');
 })();

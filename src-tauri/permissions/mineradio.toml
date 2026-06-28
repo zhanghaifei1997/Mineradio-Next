@@ -1,7 +1,7 @@
-# Mineradio custom command permissions
+# Mineradio-Next custom command permissions
 
 [default]
-description = "Allow all Mineradio custom commands"
+description = "Allow all Mineradio-Next custom commands"
 permissions = [
   "allow-window-minimize",
   "allow-window-toggle-maximize",
