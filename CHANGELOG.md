@@ -1,5 +1,20 @@
 # Changelog
 
+## Mineradio-Next 分叉说明
+
+Mineradio-Next 是基于 [Mineradio](https://github.com/XxHuberrr/Mineradio)（原作者 XxHuberrr，GPL-3.0 协议）的二次开发版本。主要变更：
+
+- **架构迁移**：从 Electron 迁移至 Tauri v2 + Rust，后端使用 Rust 重写网易云 API 和 HTTP server，启动速度和内存占用显著优化。
+- **跨平台支持**：新增 macOS 支持（通过 Tauri 原生跨平台能力）。
+- **新增功能**：点云预设系统、WebGL 粒子视觉升级等。
+
+原项目由 XxHuberrr 设计与打造，Mineradio-Next 在此基础上进行架构迁移和功能演进。向原作者致敬。
+
+## v1.1.2
+
+- CI/CD 自动化：修复 GitHub Actions workflow，push tag 后自动编译 Windows (NSIS/MSI) 和 macOS (DMG) 安装包并发布到 GitHub Release。
+- Workflow 修复：Release 名称统一为 Mineradio-Next；build.yml tags 语法修正；所有构建 job 增加 Node.js 20 + pnpm 环境。
+
 ## v1.1.1
 
 - P0 installer safety fix: installation now defaults to the first available non-C drive from `D:\Mineradio` through `Z:\Mineradio`; it falls back to `C:\Mineradio` only when no D-Z drive exists.

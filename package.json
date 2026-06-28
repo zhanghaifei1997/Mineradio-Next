@@ -1,9 +1,9 @@
 {
-  "name": "mineradio",
-  "productName": "Mineradio",
-  "version": "1.1.1",
+  "name": "mineradio-next",
+  "productName": "Mineradio-Next",
+  "version": "1.1.2",
   "description": "沉浸式音乐播放器，融合天气电台、歌词舞台、粒子视觉和 3D 歌单架。",
-  "author": "Mineradio",
+  "author": "zhanghaifei1997",
   "main": "desktop/main.js",
   "private": true,
   "scripts": {
@@ -15,7 +15,7 @@
   },
   "build": {
     "appId": "com.mineradio.desktop",
-    "productName": "Mineradio",
+    "productName": "Mineradio-Next",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -36,7 +36,7 @@
     ],
     "asar": false,
     "mac": {
-      "executableName": "Mineradio",
+      "executableName": "Mineradio-Next",
       "icon": "build/icon.icns",
       "category": "public.app-category.music",
       "hardenedRuntime": false,
@@ -53,7 +53,7 @@
       ]
     },
     "dmg": {
-      "title": "Mineradio ${version}",
+      "title": "Mineradio-Next ${version}",
       "iconSize": 100,
       "contents": [
         {
@@ -69,10 +69,10 @@
         }
       ],
       "backgroundColor": "#111217",
-      "artifactName": "Mineradio-${version}-${arch}.${ext}"
+      "artifactName": "Mineradio-Next-${version}-${arch}.${ext}"
     },
     "win": {
-      "executableName": "Mineradio",
+      "executableName": "Mineradio-Next",
       "icon": "build/icon.ico",
       "signAndEditExecutable": false,
       "target": [
@@ -90,28 +90,28 @@
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Mineradio",
+      "shortcutName": "Mineradio-Next",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "installerSidebar": "build/installerSidebar.bmp",
       "uninstallerSidebar": "build/installerSidebar.bmp",
       "installerHeader": "build/installerHeader.bmp",
       "include": "build/installer.nsh",
-      "artifactName": "Mineradio-${version}-Setup.${ext}"
+      "artifactName": "Mineradio-Next-${version}-Setup.${ext}"
     },
     "publish": [
       {
         "provider": "github",
-        "owner": "XxHuberrr",
-        "repo": "Mineradio"
+        "owner": "zhanghaifei1997",
+        "repo": "Mineradio-Next"
       }
     ]
   },
   "mineradio": {
     "update": {
       "provider": "github",
-      "owner": "XxHuberrr",
-      "repo": "Mineradio",
+      "owner": "zhanghaifei1997",
+      "repo": "Mineradio-Next",
       "preview": true,
       "preferMirrors": true,
       "mirrors": [

@@ -1,6 +1,6 @@
 {
-  "productName": "Mineradio",
-  "version": "1.1.1",
+  "productName": "Mineradio-Next",
+  "version": "1.1.2",
   "identifier": "com.mineradio.desktop",
   "build": {
     "frontendDist": "../public",
@@ -10,7 +10,7 @@
   "app": {
     "windows": [
       {
-        "title": "Mineradio",
+        "title": "Mineradio-Next",
         "label": "main",
         "url": "about:blank",
         "width": 1280,
