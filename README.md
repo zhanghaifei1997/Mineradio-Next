@@ -8,9 +8,13 @@ Mineradio-Next 是一款基于 [Mineradio](https://github.com/XxHuberrr/Mineradi
 
 ## 下载
 
-| 下载入口 | 链接 |
-| --- | --- |
-| GitHub Release | [v1.1.1 Release](https://github.com/zhanghaifei1997/Mineradio-Next/releases/tag/v1.1.1) |
+| 平台 | 安装包 | 下载 |
+| --- | --- | --- |
+| Windows (x64) | NSIS 安装程序 | [Mineradio-Next_1.1.2_x64-setup.exe](https://github.com/zhanghaifei1997/Mineradio-Next/releases/download/v1.1.2/Mineradio-Next_1.1.2_x64-setup.exe) |
+| Windows (x64) | MSI 安装包 | [Mineradio-Next_1.1.2_x64_en-US.msi](https://github.com/zhanghaifei1997/Mineradio-Next/releases/download/v1.1.2/Mineradio-Next_1.1.2_x64_en-US.msi) |
+| macOS (Apple Silicon) | DMG | [Mineradio-Next_1.1.2_aarch64.dmg](https://github.com/zhanghaifei1997/Mineradio-Next/releases/download/v1.1.2/Mineradio-Next_1.1.2_aarch64.dmg) |
+
+更多版本见 [GitHub Releases](https://github.com/zhanghaifei1997/Mineradio-Next/releases)。
 
 安装时只需要下载并运行安装包。不要下载 `Source code`、`.blockmap`、`latest.yml`。
 
@@ -24,7 +28,7 @@ Mineradio-Next 是一款基于 [Mineradio](https://github.com/XxHuberrr/Mineradi
 
 ## 当前版本
 
-当前版本：`1.1.1`
+当前版本：`1.1.2`
 
 ## 核心特性
 
