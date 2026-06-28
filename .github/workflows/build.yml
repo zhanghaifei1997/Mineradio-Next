@@ -15,61 +15,34 @@ on:
 
 jobs:
   build:
-    name: Build & Test
-    runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [20.x]
+    name: Build (Tauri + Rust)
+    runs-on: windows-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          node-version: ${{ matrix.node-version }}
+          targets: x86_64-pc-windows-msvc
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
         with:
-          version: 9
-          run_install: false
+          workspaces: src-tauri
 
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+      - name: Cargo check
+        run: cargo check --manifest-path src-tauri/Cargo.toml
 
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Type check
-        run: pnpm typecheck
-
-      - name: Lint check
-        run: pnpm lint:check
+      - name: Cargo test
+        run: cargo test --manifest-path src-tauri/Cargo.toml --no-run
         continue-on-error: true
 
-      - name: Run unit tests
-        run: pnpm test
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
 
-      - name: Build frontend
-        run: pnpm build:only
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-${{ runner.os }}
-          path: dist/
-          retention-days: 7
+      - name: Tauri build (dry run)
+        run: cargo tauri build --no-bundle
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ""

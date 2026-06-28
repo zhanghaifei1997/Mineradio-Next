@@ -62,7 +62,11 @@ const QQ_COOKIE_FILE = process.env.QQ_COOKIE_FILE || path.join(__dirname, '.qq-c
 const UPDATE_WORK_DIR = process.env.MINERADIO_UPDATE_DIR || path.join(__dirname, 'updates');
 const UPDATE_DOWNLOAD_DIR = process.env.MINERADIO_UPDATE_DOWNLOAD_DIR || path.join(UPDATE_WORK_DIR, 'downloads');
 const UPDATE_PATCH_BACKUP_DIR = process.env.MINERADIO_PATCH_BACKUP_DIR || path.join(UPDATE_WORK_DIR, 'backups', 'patches');
-const BEATMAP_CACHE_DIR = process.env.MINERADIO_BEAT_CACHE_DIR || 'D:\\MineradioCache\\beatmaps';
+const BEATMAP_CACHE_DIR = process.env.MINERADIO_BEAT_CACHE_DIR || (() => {
+  if (process.platform === 'darwin') return path.join(require('os').homedir(), 'Library', 'Caches', 'Mineradio', 'beatmaps');
+  if (process.platform === 'win32') return 'D:\\MineradioCache\\beatmaps';
+  return path.join(require('os').homedir(), '.cache', 'mineradio', 'beatmaps');
+})();
 const APP_PACKAGE = readPackageInfo();
 const APP_VERSION = process.env.MINERADIO_VERSION || APP_PACKAGE.version || '0.9.11';
 const UPDATE_CONFIG = readUpdateConfig(APP_PACKAGE);
@@ -364,9 +368,17 @@ function extractReleaseNotes(body) {
 }
 function pickReleaseAsset(assets) {
   const list = Array.isArray(assets) ? assets : [];
-  const preferred = list.find(a => /\.(exe|msi)$/i.test(a && a.name || ''))
-    || list.find(a => /\.(zip|7z)$/i.test(a && a.name || ''))
-    || list[0];
+  let preferred;
+  if (process.platform === 'darwin') {
+    preferred = list.find(a => /\.dmg$/i.test(a && a.name || ''))
+      || list.find(a => /\.(exe|msi)$/i.test(a && a.name || ''))
+      || list.find(a => /\.(zip|7z)$/i.test(a && a.name || ''))
+      || list[0];
+  } else {
+    preferred = list.find(a => /\.(exe|msi)$/i.test(a && a.name || ''))
+      || list.find(a => /\.(zip|7z)$/i.test(a && a.name || ''))
+      || list[0];
+  }
   if (!preferred) return null;
   const digest = assetDigestInfo(preferred);
   const candidates = uniqueDownloadCandidates(preferred.browser_download_url || '');
@@ -452,8 +464,10 @@ function normalizeManifestUpdateInfo(data) {
   const notes = Array.isArray(release.notes) && release.notes.length
     ? release.notes.slice(0, 4).map(cleanReleaseLine).filter(Boolean)
     : (extractReleaseNotes(release.body || data.body).length ? extractReleaseNotes(release.body || data.body) : UPDATE_FALLBACK_NOTES);
+  const defaultExt = process.platform === 'darwin' ? '.dmg' : '.exe';
+  const defaultSetupName = `Mineradio-${latestVersion}-Setup${defaultExt}`;
   const assetInfo = downloadUrl ? {
-    name: asset.name || updateAssetNameFromUrl(downloadUrl) || `Mineradio-${latestVersion}-Setup.exe`,
+    name: asset.name || updateAssetNameFromUrl(downloadUrl) || defaultSetupName,
     size: Number(asset.size || 0) || 0,
     contentType: asset.contentType || asset.content_type || '',
     downloadUrl,
@@ -667,7 +681,10 @@ function githubReleaseDownloadUrl(version, fileName) {
 }
 function parseLatestYmlUpdateInfo(text, reason) {
   const latestVersion = normalizeVersion(yamlScalar(text, 'version') || APP_VERSION) || APP_VERSION;
-  const assetPath = yamlScalar(text, 'path') || yamlScalar(text, 'url') || `Mineradio-${latestVersion}-Setup.exe`;
+  const assetPath = yamlScalar(text, 'path') || yamlScalar(text, 'url') || (() => {
+    const ext = process.platform === 'darwin' ? '.dmg' : '.exe';
+    return `Mineradio-${latestVersion}-Setup${ext}`;
+  })();
   const sha512 = normalizeDigest(yamlScalar(text, 'sha512'), 'sha512');
   const size = Number(yamlScalar(text, 'size') || 0) || 0;
   const releaseDate = yamlScalar(text, 'releaseDate');
@@ -764,13 +781,14 @@ async function fetchLatestUpdateInfo() {
   }
 }
 function safeUpdateFileName(name, version) {
-  const raw = String(name || '').trim() || `Mineradio-${version || APP_VERSION}.exe`;
+  const ext = process.platform === 'darwin' ? '.dmg' : '.exe';
+  const raw = String(name || '').trim() || `Mineradio-${version || APP_VERSION}${ext}`;
   const cleaned = raw
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, '-')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 160);
-  return cleaned || `Mineradio-${version || APP_VERSION}.exe`;
+  return cleaned || `Mineradio-${version || APP_VERSION}${ext}`;
 }
 function publicUpdateJob(job) {
   if (!job) return { ok: false, error: 'UPDATE_JOB_NOT_FOUND' };
@@ -4184,7 +4202,14 @@ const server = http.createServer(async (req, res) => {
 
   // ---------- 静态资源 ----------
   if (pn === '/favicon.ico') {
-    serveStatic(res, path.join(__dirname, 'build', 'icon.ico'));
+    const iconPath = (() => {
+      if (process.platform === 'darwin') {
+        const icns = path.join(__dirname, 'build', 'icon.icns');
+        if (fs.existsSync(icns)) return icns;
+      }
+      return path.join(__dirname, 'build', 'icon.ico');
+    })();
+    serveStatic(res, iconPath);
     return;
   }
 

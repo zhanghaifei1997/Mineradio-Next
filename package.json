@@ -9,7 +9,9 @@
   "scripts": {
     "start": "electron .",
     "build:win": "electron-builder --win nsis",
-    "build:win:dir": "electron-builder --win dir"
+    "build:win:dir": "electron-builder --win dir",
+    "build:mac": "electron-builder --mac dmg",
+    "build:mac:dir": "electron-builder --mac dir"
   },
   "build": {
     "appId": "com.mineradio.desktop",
@@ -33,6 +35,42 @@
       "public/index.html"
     ],
     "asar": false,
+    "mac": {
+      "executableName": "Mineradio",
+      "icon": "build/icon.icns",
+      "category": "public.app-category.music",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "identity": null,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "dmg": {
+      "title": "Mineradio ${version}",
+      "iconSize": 100,
+      "contents": [
+        {
+          "x": 180,
+          "y": 170,
+          "type": "file"
+        },
+        {
+          "x": 480,
+          "y": 170,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "backgroundColor": "#111217",
+      "artifactName": "Mineradio-${version}-${arch}.${ext}"
+    },
     "win": {
       "executableName": "Mineradio",
       "icon": "build/icon.ico",

@@ -6,77 +6,79 @@ on:
       - 'v*'
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
-        node-version: [20.x]
+  build-windows:
+    name: Build Windows (Tauri)
+    runs-on: windows-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          node-version: ${{ matrix.node-version }}
+          targets: x86_64-pc-windows-msvc
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
         with:
-          version: 9
-          run_install: false
+          workspaces: src-tauri
 
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
 
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run unit tests
-        run: pnpm test
-
-      - name: Build Electron app (Windows)
-        if: runner.os == 'Windows'
-        run: pnpm electron:build:win
+      - name: Build Tauri app
+        run: cargo tauri build
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
-      - name: Build Electron app (macOS)
-        if: runner.os == 'macOS'
-        run: pnpm electron:build:mac
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Electron app (Linux)
-        if: runner.os == 'Linux'
-        run: pnpm electron:build:linux
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload artifacts
+      - name: Upload NSIS installer
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ runner.os }}
-          path: release/
+          name: release-windows
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+          retention-days: 30
+
+  build-macos:
+    name: Build macOS (Tauri)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: Build Tauri app
+        run: cargo tauri build --target universal-apple-darwin
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: |
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
           retention-days: 30
 
   release:
     name: Create GitHub Release
-    needs: build
+    needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -102,20 +104,14 @@ jobs:
       - name: Download Windows artifacts
         uses: actions/download-artifact@v4
         with:
-          name: release-Windows
+          name: release-windows
           path: release/win
 
       - name: Download macOS artifacts
         uses: actions/download-artifact@v4
         with:
-          name: release-macOS
+          name: release-macos
           path: release/mac
-
-      - name: Download Linux artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: release-Linux
-          path: release/linux
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -128,13 +124,11 @@ jobs:
             ${{ steps.changelog.outputs.CHANGELOG }}
 
             ### 下载
-            - **Windows**: `Mineradio-${{ steps.get_version.outputs.VERSION }}-Setup.exe`
-            - **macOS**: `Mineradio-${{ steps.get_version.outputs.VERSION }}.dmg`
-            - **Linux**: `Mineradio-${{ steps.get_version.outputs.VERSION }}.AppImage`
+            - **Windows**: `Mineradio_${{ steps.get_version.outputs.VERSION }}_x64-setup.exe`
+            - **macOS**: `Mineradio_${{ steps.get_version.outputs.VERSION }}_universal.dmg`
           files: |
-            release/win/*.exe
-            release/mac/*.dmg
-            release/linux/*.AppImage
+            release/win/**/*.exe
+            release/mac/**/*.dmg
           draft: false
           prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') }}
         env:

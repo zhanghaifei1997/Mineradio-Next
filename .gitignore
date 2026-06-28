@@ -38,6 +38,16 @@ yarn-error.log*
 public/index.*.html
 !public/index.html
 
+# Rust / Tauri build artifacts
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# IDE and tooling
+.qoder/
+
+# Temporary icon build files
+.tmp-ico/
+
 # Screenshots and transient verification artifacts
 .playwright-cli/
 output/

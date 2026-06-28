@@ -1,0 +1,120 @@
+# Mineradio custom command permissions
+
+[default]
+description = "Allow all Mineradio custom commands"
+permissions = [
+  "allow-window-minimize",
+  "allow-window-toggle-maximize",
+  "allow-window-toggle-fullscreen",
+  "allow-window-close",
+  "allow-window-get-state",
+  "allow-window-exit-fullscreen-windowed",
+  "allow-open-netease-login",
+  "allow-clear-netease-login",
+  "allow-open-qq-login",
+  "allow-clear-qq-login",
+  "allow-configure-global-hotkeys",
+  "allow-desktop-lyrics-set-enabled",
+  "allow-desktop-lyrics-update",
+  "allow-wallpaper-set-enabled",
+  "allow-wallpaper-update",
+  "allow-export-json-file",
+  "allow-import-json-file",
+  "allow-open-update-installer",
+  "allow-restart-app",
+]
+
+[[permission]]
+identifier = "allow-window-minimize"
+description = "Enables the window_minimize command"
+commands.allow = ["window_minimize"]
+
+[[permission]]
+identifier = "allow-window-toggle-maximize"
+description = "Enables the window_toggle_maximize command"
+commands.allow = ["window_toggle_maximize"]
+
+[[permission]]
+identifier = "allow-window-toggle-fullscreen"
+description = "Enables the window_toggle_fullscreen command"
+commands.allow = ["window_toggle_fullscreen"]
+
+[[permission]]
+identifier = "allow-window-close"
+description = "Enables the window_close command"
+commands.allow = ["window_close"]
+
+[[permission]]
+identifier = "allow-window-get-state"
+description = "Enables the window_get_state command"
+commands.allow = ["window_get_state"]
+
+[[permission]]
+identifier = "allow-window-exit-fullscreen-windowed"
+description = "Enables the window_exit_fullscreen_windowed command"
+commands.allow = ["window_exit_fullscreen_windowed"]
+
+[[permission]]
+identifier = "allow-open-netease-login"
+description = "Enables the open_netease_login command"
+commands.allow = ["open_netease_login"]
+
+[[permission]]
+identifier = "allow-clear-netease-login"
+description = "Enables the clear_netease_login command"
+commands.allow = ["clear_netease_login"]
+
+[[permission]]
+identifier = "allow-open-qq-login"
+description = "Enables the open_qq_login command"
+commands.allow = ["open_qq_login"]
+
+[[permission]]
+identifier = "allow-clear-qq-login"
+description = "Enables the clear_qq_login command"
+commands.allow = ["clear_qq_login"]
+
+[[permission]]
+identifier = "allow-configure-global-hotkeys"
+description = "Enables the configure_global_hotkeys command"
+commands.allow = ["configure_global_hotkeys"]
+
+[[permission]]
+identifier = "allow-desktop-lyrics-set-enabled"
+description = "Enables the desktop_lyrics_set_enabled command"
+commands.allow = ["desktop_lyrics_set_enabled"]
+
+[[permission]]
+identifier = "allow-desktop-lyrics-update"
+description = "Enables the desktop_lyrics_update command"
+commands.allow = ["desktop_lyrics_update"]
+
+[[permission]]
+identifier = "allow-wallpaper-set-enabled"
+description = "Enables the wallpaper_set_enabled command"
+commands.allow = ["wallpaper_set_enabled"]
+
+[[permission]]
+identifier = "allow-wallpaper-update"
+description = "Enables the wallpaper_update command"
+commands.allow = ["wallpaper_update"]
+
+[[permission]]
+identifier = "allow-export-json-file"
+description = "Enables the export_json_file command"
+commands.allow = ["export_json_file"]
+
+[[permission]]
+identifier = "allow-import-json-file"
+description = "Enables the import_json_file command"
+commands.allow = ["import_json_file"]
+
+[[permission]]
+identifier = "allow-open-update-installer"
+description = "Enables the open_update_installer command"
+commands.allow = ["open_update_installer"]
+
+[[permission]]
+identifier = "allow-restart-app"
+description = "Enables the restart_app command"
+commands.allow = ["restart_app"]

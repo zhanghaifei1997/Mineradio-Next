@@ -1,0 +1,57 @@
+{
+  "productName": "Mineradio",
+  "version": "1.1.1",
+  "identifier": "com.mineradio.desktop",
+  "build": {
+    "frontendDist": "../public",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Mineradio",
+        "label": "main",
+        "url": "about:blank",
+        "width": 1280,
+        "height": 720,
+        "minWidth": 960,
+        "minHeight": 540,
+        "center": true,
+        "decorations": false,
+        "transparent": true,
+        "visible": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "withGlobalTauri": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "resources": ["../public/*", "../public/assets/*", "../public/vendor/*"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": true,
+        "languages": ["SimpChinese", "English"],
+        "headerImage": "../build/installerHeader.bmp",
+        "sidebarImage": "../build/installerSidebar.bmp"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    }
+  }
+}
