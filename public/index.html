@@ -336,7 +336,7 @@ body.empty-home-active.controls-visible #empty-home{bottom:128px}
 @media (max-height:760px){.home-visual.generated{height:64px!important;max-width:260px!important}}
 
 /* ---------- 顶部右侧按钮 ---------- */
-#top-right{position:fixed;z-index:10;top:24px;right:24px;display:flex;align-items:center;gap:10px}
+#top-right{position:fixed;z-index:10;top:24px;right:24px;display:flex;align-items:flex-start;gap:10px}
 .icon-btn{width:44px;height:44px;border:1px solid rgba(255,255,255,0.08);border-radius:50%;background:rgba(255,255,255,0.035);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);color:rgba(255,255,255,0.55);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .3s;font-family:inherit;padding:0}
 .icon-btn:hover{background:rgba(255,255,255,0.09);border-color:rgba(255,255,255,0.18);color:#fff;transform:scale(1.04)}
 .icon-btn.active{color:var(--champagne);border-color:rgba(244,210,138,0.44);background:rgba(244,210,138,0.10)}
@@ -358,7 +358,7 @@ body.desktop-shell.desktop-fullscreen #upload-actions{margin-top:0}
 .upload-tip-close{position:absolute;right:9px;top:8px;width:18px;height:18px;border:0;border-radius:50%;background:transparent;color:rgba(255,255,255,.38);cursor:pointer;font-size:15px;line-height:18px;padding:0;font-family:inherit}
 .upload-tip-close:hover{background:rgba(255,255,255,.08);color:#fff}
 #user-btn{padding:0 16px;width:auto;min-width:58px;height:44px;border-radius:24px;gap:8px;font-size:12px;letter-spacing:.4px}
-.user-capsule-hide-btn{width:18px;height:28px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);color:rgba(255,255,255,.34);font-size:11px;line-height:1;opacity:0;transform:translateX(6px) scale(.92);transition:opacity .18s,transform .18s,background .18s,color .18s,border-color .18s;cursor:pointer}
+.user-capsule-hide-btn{width:18px;height:44px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);color:rgba(255,255,255,.34);font-size:11px;line-height:1;opacity:0;transform:translateX(6px) scale(.92);transition:opacity .18s,transform .18s,background .18s,color .18s,border-color .18s;cursor:pointer}
 #top-right:hover .user-capsule-hide-btn,.user-capsule-hide-btn.on{opacity:1;transform:translateX(0) scale(1)}
 .user-capsule-hide-btn:hover,.user-capsule-hide-btn.on{border-color:rgba(var(--fc-accent-rgb),.34);background:rgba(var(--fc-accent-rgb),.10);color:#fff}
 body.user-capsule-auto-hide #top-right{right:-96px;opacity:0;visibility:hidden;pointer-events:none;transition:right .28s cubic-bezier(.16,1,.3,1),opacity .18s,visibility 0s linear .18s,transform .24s}
@@ -447,7 +447,11 @@ body.desktop-shell.empty-home-active.controls-visible #empty-home{bottom:126px}
 #user-btn.logged-out:hover{color:#fff2bd;border-color:rgba(244,210,138,.56);background:rgba(244,210,138,.11);box-shadow:0 16px 42px rgba(244,210,138,.10),inset 0 1px 0 rgba(255,255,255,.10)}
 #user-btn .login-word{display:block;line-height:1;transform:translateY(.5px)}
 #user-btn.logged-in{padding:0 16px 0 4px;min-width:0;color:#fff;border-color:rgba(244,210,138,0.52);background:rgba(244,210,138,0.07);box-shadow:0 0 0 1px rgba(244,210,138,.08),0 14px 42px rgba(0,0,0,.28)}
-#user-btn.multi-account{height:auto;min-width:0;padding:0;flex-direction:column;align-items:flex-end;gap:7px;border:0;background:transparent;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+#user-btn.multi-account{height:auto;min-width:0;padding:0;flex-direction:column;align-items:stretch;gap:6px;border:0;background:transparent;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+#user-btn.multi-account .top-account-pill{height:36px;padding:0 14px 0 4px;gap:6px;border-radius:20px}
+#user-btn.multi-account .top-account-pill img{width:30px;height:30px}
+#user-btn.multi-account .top-account-name{font-size:11.5px}
+#user-btn.multi-account .top-account-vip{font-size:8.5px;padding:1px 5px}
 #user-btn.multi-account:hover{background:transparent;border-color:transparent;box-shadow:none;transform:none;color:#fff}
 #user-avatar{width:34px;height:34px;border-radius:50%;object-fit:cover;background:rgba(255,255,255,0.1)}
 #user-vip-tag{font-size:9px;padding:2px 6px;border-radius:3px;background:linear-gradient(135deg,#fff3c2,var(--champagne),#c9963d);color:#201303;font-weight:800;letter-spacing:.5px;box-shadow:0 0 12px rgba(244,210,138,.24)}
@@ -1272,11 +1276,13 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 /* ============================================================ */
 /*  歌单/队列面板                                                 */
 /* ============================================================ */
-#playlist-panel{position:fixed;z-index:17;top:78px;left:-410px;width:340px;max-height:calc(100vh - 120px);overflow:auto;background:rgba(12,12,18,0.42);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:18px;backdrop-filter:blur(40px) saturate(1.4);-webkit-backdrop-filter:blur(40px) saturate(1.4);box-shadow:0 24px 80px rgba(0,0,0,0.45);opacity:0;transition:left .55s cubic-bezier(.16,1,.3,1),opacity .45s cubic-bezier(.16,1,.3,1),transform .55s cubic-bezier(.16,1,.3,1);pointer-events:none;transform:translateX(-16px);overscroll-behavior:contain}
+#playlist-panel{position:fixed;z-index:17;top:78px;left:-410px;width:340px;max-height:calc(100vh - 120px);overflow:auto;background:rgba(12,12,18,0.42);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:18px;backdrop-filter:blur(40px) saturate(1.4);-webkit-backdrop-filter:blur(40px) saturate(1.4);box-shadow:0 24px 80px rgba(0,0,0,0.45);opacity:0;transition:left .55s cubic-bezier(.16,1,.3,1),opacity .45s cubic-bezier(.16,1,.3,1),transform .55s cubic-bezier(.16,1,.3,1);pointer-events:none;transform:translateX(-16px);overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(var(--fc-accent-rgb),.22) transparent}
 #playlist-panel.show, #playlist-panel.peek{left:32px;opacity:1;pointer-events:auto;transform:translateX(0)}
 #playlist-panel.pinned{border-color:rgba(var(--fc-accent-rgb),.28);box-shadow:0 24px 80px rgba(0,0,0,0.45),0 0 34px rgba(var(--fc-accent-rgb),.08)}
 #playlist-panel::-webkit-scrollbar{width:3px}
-#playlist-panel::-webkit-scrollbar-thumb{background:rgba(var(--fc-accent-rgb),.20);border-radius:3px}
+#playlist-panel::-webkit-scrollbar-track{background:transparent}
+#playlist-panel::-webkit-scrollbar-thumb{background:rgba(var(--fc-accent-rgb),.24);border-radius:3px}
+#playlist-panel::-webkit-scrollbar-button{display:none;height:0}
 .queue-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
 .queue-head-act{display:flex;align-items:center;gap:6px}
 .playlist-pin-btn{width:30px;min-width:30px;flex:0 0 auto;padding:0}
@@ -1313,6 +1319,12 @@ body.desktop-shell.diy-mode #bottom-bar.stage-mode{left:50%;width:min(1080px,cal
 .pl-name{font-size:12px;color:rgba(255,255,255,.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pl-sub{font-size:10.5px;color:rgba(255,255,255,.42);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pl-section-label{margin:14px 2px 7px;font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:rgba(0,245,212,.50)}
+.pl-section-head{display:flex;align-items:center;justify-content:space-between;margin:14px 2px 7px;cursor:pointer;user-select:none;-webkit-user-select:none;padding:4px 6px;border-radius:8px;transition:background .18s}
+.pl-section-head:hover{background:rgba(255,255,255,.04)}
+.pl-section-head .pl-section-label{margin:0}
+.pl-section-head .pl-section-arrow{font-size:10px;color:rgba(255,255,255,.32);transition:transform .22s;line-height:1}
+.pl-section-head .pl-section-count{font-size:9.5px;font-weight:600;color:rgba(255,255,255,.30);margin-left:6px;letter-spacing:0}
+.pl-section-head.collapsed .pl-section-arrow{transform:rotate(-90deg)}
 .pl-inline-detail{position:relative;margin:-1px 0 14px;padding:0 0 12px;scroll-margin-top:16px}
 .pl-detail-sticky{position:sticky;top:-10px;z-index:4;margin:0 -2px 10px;padding:8px 2px 10px;border-radius:14px;background:linear-gradient(180deg,rgba(14,17,24,.92),rgba(14,17,24,.76) 68%,rgba(14,17,24,0));backdrop-filter:blur(20px) saturate(1.18);-webkit-backdrop-filter:blur(20px) saturate(1.18)}
 .pl-detail-head{display:flex;align-items:center;gap:10px;margin:2px 0 10px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.06)}
@@ -1753,7 +1765,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
   top:-18px;
   z-index:4;
   display:grid;
-  grid-template-columns:repeat(5,minmax(0,1fr));
+  grid-template-columns:repeat(6,minmax(0,1fr));
   gap:5px;
   margin:-2px -2px 14px;
   padding:5px;
@@ -1785,6 +1797,43 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
 .fx-tab-page{display:none}
 .fx-tab-page.active{display:block}
 .fx-tab-page>.fx-section-label:first-child{margin-top:0}
+/* --- 音效设置 --- */
+.sound-preset-row{display:grid;grid-template-columns:64px 1fr 68px 42px;align-items:center;gap:9px;margin:7px 0 9px;padding:8px 9px;border-radius:12px;border:1px solid rgba(255,255,255,.055);background:rgba(255,255,255,.026)}
+.sound-preset-row .fx-mini-btn{min-width:0;display:flex;align-items:center;justify-content:center;white-space:nowrap;padding:0 8px;line-height:1}
+.sound-play-btn{width:32px!important;height:32px;border-radius:50%!important;padding:0!important;font-size:14px!important;flex:none!important;border:1px solid rgba(255,255,255,.12)!important;background:rgba(255,255,255,.04)!important}
+.sound-play-btn:hover{background:rgba(var(--fc-accent-rgb),.12)!important;border-color:rgba(var(--fc-accent-rgb),.3)!important}
+.sound-preset-pop{display:none;position:fixed;left:50%;top:50%;z-index:1403;width:min(400px,calc(100vw - 42px));max-height:min(440px,calc(100vh - 60px));padding:14px;border-radius:16px;border:1px solid rgba(var(--fc-accent-rgb),.18);background:linear-gradient(145deg,rgba(12,13,18,.96),rgba(2,3,5,.94));box-shadow:0 28px 90px rgba(0,0,0,.58),0 0 0 1px rgba(255,255,255,.05),inset 0 1px 0 rgba(255,255,255,.08);backdrop-filter:blur(22px) saturate(1.14);-webkit-backdrop-filter:blur(22px) saturate(1.14);transform:translate(-50%,-50%);overflow:hidden;flex-direction:column}
+.sound-preset-pop.show{display:flex}
+.sound-preset-pop-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;color:rgba(255,255,255,.76);font-size:11px;font-weight:760;letter-spacing:.06em}
+.sound-preset-pop-close{width:24px;height:24px;border:1px solid rgba(255,255,255,.08);border-radius:50%;background:rgba(255,255,255,.035);color:rgba(255,255,255,.58);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-size:14px}
+.sound-preset-pop-close:hover{background:rgba(255,255,255,.1);color:#fff}
+.sound-preset-search{width:100%;height:32px;border-radius:9px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#fff;padding:0 10px;font-size:11.5px;outline:none;margin-bottom:8px;font-family:inherit}
+.sound-preset-search:focus{border-color:rgba(var(--fc-accent-rgb),.3)}
+.sound-preset-search::placeholder{color:rgba(255,255,255,.28)}
+.sound-preset-list{flex:1;overflow-y:auto;max-height:320px;border-radius:10px;border:1px solid rgba(255,255,255,.055);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent}
+.sound-preset-list::-webkit-scrollbar{width:5px}
+.sound-preset-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:4px}
+.sound-preset-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 11px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.03);font-size:11.5px;color:rgba(255,255,255,.7);transition:background .15s}
+.sound-preset-item:last-child{border-bottom:none}
+.sound-preset-item:hover{background:rgba(255,255,255,.05)}
+.sound-preset-item.active{background:rgba(var(--fc-accent-rgb),.08);color:var(--fc-accent)}
+.sound-preset-item .sp-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sound-preset-item .sp-play{width:24px;height:24px;border-radius:50%;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:rgba(255,255,255,.6);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;padding:0;flex:none}
+.sound-preset-item .sp-play:hover{background:rgba(var(--fc-accent-rgb),.12);border-color:rgba(var(--fc-accent-rgb),.3);color:#fff}
+.sound-custom-row{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)}
+.sound-custom-row .fx-mini-btn{flex:1}
+.sound-custom-row .sound-format-hint{font-size:9.5px;color:rgba(255,255,255,.3);letter-spacing:.3px}
+/* --- 背景预设 --- */
+.bg-preset-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:10px 0}
+.bg-preset-card{position:relative;border-radius:12px;border:1.5px solid rgba(255,255,255,.08);background:rgba(255,255,255,.025);cursor:pointer;overflow:hidden;transition:all .25s;padding:0;aspect-ratio:16/9}
+.bg-preset-card:hover{border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.05)}
+.bg-preset-card.active{border-color:rgba(0,245,212,.54);background:rgba(0,245,212,.075);box-shadow:0 0 0 1px rgba(0,245,212,.22)}
+.bg-preset-card video,.bg-preset-card img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;border-radius:10px}
+.bg-preset-card .bg-preset-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;padding:8px 10px;background:linear-gradient(0deg,rgba(0,0,0,.6) 0%,transparent 60%);border-radius:10px}
+.bg-preset-card .bg-preset-name{font-size:11px;font-weight:600;color:rgba(255,255,255,.85);letter-spacing:.3px}
+.bg-preset-card .bg-preset-type{font-size:9px;color:rgba(255,255,255,.4);margin-top:2px}
+.bg-preset-card .bg-preset-check{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;background:rgba(0,245,212,.8);color:#000;display:none;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.bg-preset-card.active .bg-preset-check{display:flex}
 #fx-panel .fx-fold{margin-top:10px}
 #fx-panel .fx-fold.open{background:rgba(255,255,255,.026)}
 .lyric-color-row.bg-cover-mode #bg-color-picker{
@@ -2070,13 +2119,43 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
     <div class="fx-color-row-label">背景颜色<small id="bg-color-value">#000000</small></div>
     <button class="fx-mini-btn ghost" type="button" onclick="resetCustomBackgroundColor()">&#23553;&#38754;</button>
   </div>
-  <div class="lyric-color-row image-pick-row">
-    <button class="fx-mini-btn ghost" type="button" onclick="document.getElementById('background-image-input').click()">选择</button>
+  <div class="lyric-color-row image-pick-row" id="bg-media-row">
+    <button class="fx-mini-btn ghost" type="button" onclick="openBgPresetPop()">选择</button>
     <div class="fx-color-row-label">背景媒体<small id="bg-image-value">未设置</small></div>
     <button class="fx-mini-btn ghost" type="button" onclick="clearCustomBackgroundImage()">清除</button>
   </div>
+  <div class="sound-custom-row" id="bg-custom-row">
+    <button class="fx-mini-btn ghost" type="button" onclick="document.getElementById('background-image-input').click()">自定义</button>
+    <span class="sound-format-hint">支持 jpg / png / mp4 / webm</span>
+  </div>
   <div class="fx-slider"><label>背景透明度</label><input id="fx-bgopacity" type="range" min="0" max="1" step="0.01"><output></output></div>
   <div class="fx-slider"><label>控制台玻璃色差</label><input id="fx-glassaberration" type="range" min="0" max="140" step="1"><output></output></div>
+
+  <div class="fx-section-label">开机音效</div>
+  <div class="sound-preset-row" id="sound-startup-row">
+    <button class="fx-mini-btn ghost" type="button" onclick="openSoundPresetPop('startup')">选择</button>
+    <div class="fx-color-row-label">启动音效<small id="sound-startup-value">无</small></div>
+    <button class="fx-mini-btn ghost" type="button" onclick="clearSoundSetting('startup')">清除</button>
+    <button class="fx-mini-btn ghost sound-play-btn" type="button" onclick="previewSoundSetting('startup')" title="试听">▶</button>
+  </div>
+  <div class="sound-custom-row" id="sound-startup-custom-row">
+    <button class="fx-mini-btn ghost" type="button" onclick="document.getElementById('custom-sound-input').click();window._soundUploadTarget='startup'">自定义</button>
+    <span class="sound-format-hint">支持 wav / mp3 / ogg</span>
+    <button class="fx-mini-btn ghost" type="button" onclick="clearCustomSound('startup')" id="sound-startup-custom-clear" style="display:none;flex:0 0 auto;width:56px">清除</button>
+  </div>
+
+  <div class="fx-section-label">关机音效</div>
+  <div class="sound-preset-row" id="sound-shutdown-row">
+    <button class="fx-mini-btn ghost" type="button" onclick="openSoundPresetPop('shutdown')">选择</button>
+    <div class="fx-color-row-label">关闭音效<small id="sound-shutdown-value">无</small></div>
+    <button class="fx-mini-btn ghost" type="button" onclick="clearSoundSetting('shutdown')">清除</button>
+    <button class="fx-mini-btn ghost sound-play-btn" type="button" onclick="previewSoundSetting('shutdown')" title="试听">▶</button>
+  </div>
+  <div class="sound-custom-row" id="sound-shutdown-custom-row">
+    <button class="fx-mini-btn ghost" type="button" onclick="document.getElementById('custom-sound-input').click();window._soundUploadTarget='shutdown'">自定义</button>
+    <span class="sound-format-hint">支持 wav / mp3 / ogg</span>
+    <button class="fx-mini-btn ghost" type="button" onclick="clearCustomSound('shutdown')" id="sound-shutdown-custom-clear" style="display:none;flex:0 0 auto;width:56px">清除</button>
+  </div>
 
   <div class="fx-section-label">主控</div>
   <div class="fx-slider"><label>律动强度</label><input id="fx-intensity" type="range" min="0.2" max="1.6" step="0.01"><output></output></div>
@@ -2460,6 +2539,26 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
 
 <input type="file" id="file-input" accept=".mp3,.flac,.wav,.ogg,.m4a,.jpg,.jpeg,.png,.webp" multiple style="display:none">
 <input type="file" id="background-image-input" accept=".jpg,.jpeg,.png,.webp,.mp4,.webm,.mov,image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" style="display:none">
+<input type="file" id="custom-sound-input" accept=".wav,.mp3,.ogg,audio/wav,audio/mpeg,audio/ogg" style="display:none">
+<div class="sound-preset-pop" id="sound-preset-pop">
+  <div class="sound-preset-pop-head">
+    <span id="sound-preset-pop-title">选择音效</span>
+    <button class="sound-preset-pop-close" type="button" onclick="closeSoundPresetPop()">×</button>
+  </div>
+  <input type="text" class="sound-preset-search" id="sound-preset-search" placeholder="搜索音效..." oninput="filterSoundPresetList()">
+  <div class="sound-preset-list" id="sound-preset-list"></div>
+</div>
+<div class="sound-preset-pop" id="bg-preset-pop" style="width:min(480px,calc(100vw - 42px))">
+  <div class="sound-preset-pop-head">
+    <span>背景预设</span>
+    <button class="sound-preset-pop-close" type="button" onclick="closeBgPresetPop()">×</button>
+  </div>
+  <div class="bg-preset-grid" id="bg-preset-grid"></div>
+  <div class="sound-custom-row" style="margin-top:6px;padding-top:8px">
+    <button class="fx-mini-btn ghost" type="button" onclick="closeBgPresetPop();document.getElementById('background-image-input').click()">自定义上传</button>
+    <span class="sound-format-hint">支持 jpg / png / mp4 / webm</span>
+  </div>
+</div>
 <div id="drop-overlay"><div class="drop-text">拖放音乐或封面</div></div>
 <div id="free-camera-hint"><b>自由镜头</b> R 固定/退出 · WASD 移动 · 鼠标转向 · Shift 加速 · Space/Ctrl 升降 · Q/E 轻微旋转 · 滚轮景深 · K 回正</div>
 <div id="loading-overlay"><div class="spinner"></div></div>
@@ -2830,6 +2929,7 @@ var PLAYLIST_PANEL_BATCH_SIZE = 28;
 var playlistPanelRenderLimit = PLAYLIST_PANEL_BATCH_SIZE;
 var playlistPanelLazyBound = false;
 var PLAYLIST_DETAIL_INITIAL_RENDER = 64;
+var playlistSectionCollapsed = { netease: false, qq: false };
 var PLAYLIST_DETAIL_BATCH_SIZE = 48;
 var smoothWheelScrollBound = false;
 var coverProcessToken = 0, aiDepthPipeline = null, aiDepthReady = false, aiDepthBusy = false, aiDepthFailUntil = 0;
@@ -3289,6 +3389,11 @@ var fxDefaults = {
   performanceQuality: 'high',
   liveBackgroundKeep: false,
   cam: 'off',
+  startupSound: null,
+  startupSoundCustom: null,
+  shutdownSound: null,
+  shutdownSoundCustom: null,
+  selectedBgPreset: null,
 };
 var PACKAGED_DEFAULT_USER_FX_ARCHIVE_NAME = '默认测试';
 var PACKAGED_DEFAULT_USER_FX_ARCHIVE_EXPORTED_AT = 1782276031784;
@@ -3371,7 +3476,12 @@ var PACKAGED_DEFAULT_FX_SNAPSHOT = Object.freeze({
   shelfOpacity: 1,
   shelfBgOpacity: 0.9,
   shelfAccentColor: '#ffffff',
-  cam: 'off'
+  cam: 'off',
+  startupSound: null,
+  startupSoundCustom: null,
+  shutdownSound: null,
+  shutdownSoundCustom: null,
+  selectedBgPreset: null
 });
 function clonePackagedDefaultFxSnapshot() {
   return Object.assign({}, PACKAGED_DEFAULT_FX_SNAPSHOT);
@@ -3703,7 +3813,7 @@ function updateDesktopRuntimeState(state) {
   desktopRuntimeState.minimized = !!state.isMinimized;
   desktopRuntimeState.visible = state.isVisible !== false;
   desktopRuntimeState.focused = state.isFocused !== false;
-  desktopRuntimeState.fullscreen = !!(state.isFullScreen || state.isNativeFullScreen || state.isHtmlFullScreen || state.isWindowFullScreen);
+  desktopRuntimeState.fullscreen = !!(state.isFullScreen || state.isNativeFullScreen || state.isHtmlFullScreen || state.isWindowFullScreen || state.is_fullscreen);
   updateRenderPowerClasses();
   applyRendererPowerMode();
   if (fx && (fx.desktopLyrics || fx.wallpaperMode)) setTimeout(syncDesktopOverlayState, 0);
@@ -8451,7 +8561,12 @@ function readSavedLyricLayout() {
       shelfOpacity: clampRange(raw.shelfOpacity == null ? fxDefaults.shelfOpacity : Number(raw.shelfOpacity), 0.25, 1),
       shelfBgOpacity: clampRange(raw.shelfBgOpacity == null ? fxDefaults.shelfBgOpacity : Number(raw.shelfBgOpacity), 0.25, 0.98),
       shelfAccentColor: normalizeHexColor(raw.shelfAccentColor || fxDefaults.shelfAccentColor, fxDefaults.shelfAccentColor),
-      cam: /^(off|gesture)$/.test(String(raw.cam || '')) ? raw.cam : fxDefaults.cam
+      cam: /^(off|gesture)$/.test(String(raw.cam || '')) ? raw.cam : fxDefaults.cam,
+      startupSound: normalizeSoundPresetId(raw.startupSound),
+      startupSoundCustom: normalizeCustomSoundData(raw.startupSoundCustom),
+      shutdownSound: normalizeSoundPresetId(raw.shutdownSound),
+      shutdownSoundCustom: normalizeCustomSoundData(raw.shutdownSoundCustom),
+      selectedBgPreset: raw.selectedBgPreset || null
     };
   } catch (e) {
     return {};
@@ -8541,7 +8656,12 @@ function saveLyricLayout() {
       shelfOpacity: clampRange(fx.shelfOpacity == null ? fxDefaults.shelfOpacity : Number(fx.shelfOpacity), 0.25, 1),
       shelfBgOpacity: clampRange(fx.shelfBgOpacity == null ? fxDefaults.shelfBgOpacity : Number(fx.shelfBgOpacity), 0.25, 0.98),
       shelfAccentColor: normalizeHexColor(fx.shelfAccentColor || fxDefaults.shelfAccentColor, fxDefaults.shelfAccentColor),
-      cam: /^(off|gesture)$/.test(String(fx.cam || '')) ? fx.cam : fxDefaults.cam
+      cam: /^(off|gesture)$/.test(String(fx.cam || '')) ? fx.cam : fxDefaults.cam,
+      startupSound: normalizeSoundPresetId(fx.startupSound),
+      startupSoundCustom: normalizeCustomSoundData(fx.startupSoundCustom),
+      shutdownSound: normalizeSoundPresetId(fx.shutdownSound),
+      shutdownSoundCustom: normalizeCustomSoundData(fx.shutdownSoundCustom),
+      selectedBgPreset: fx.selectedBgPreset || null
     }));
   } catch (e) {}
 }
@@ -8780,6 +8900,7 @@ function normalizeCustomBackgroundImage(value) {
   if (!src) return '';
   if (/^data:image\/(png|jpe?g|webp);base64,/i.test(src)) return src;
   if (/^https?:\/\//i.test(src)) return src;
+  if (/^assets\//i.test(src)) return src;
   return '';
 }
 function normalizeCustomBackgroundMedia(value) {
@@ -8787,7 +8908,7 @@ function normalizeCustomBackgroundMedia(value) {
   if (typeof value === 'string') {
     var img = normalizeCustomBackgroundImage(value);
     if (img) return { type: 'image', src: img };
-    if (/^data:video\/(mp4|webm|quicktime);base64,/i.test(value) || /^https?:\/\//i.test(value)) return { type: 'video', src: String(value) };
+    if (/^data:video\/(mp4|webm|quicktime);base64,/i.test(value) || /^https?:\/\//i.test(value) || /^assets\//i.test(value)) return { type: 'video', src: String(value) };
     return null;
   }
   if (typeof value !== 'object') return null;
@@ -8799,7 +8920,7 @@ function normalizeCustomBackgroundMedia(value) {
   if (type === 'video') {
     var src = String(value.src || '').trim();
     var id = String(value.id || '').trim();
-    if (!id && !/^data:video\/(mp4|webm|quicktime);base64,/i.test(src) && !/^https?:\/\//i.test(src)) return null;
+    if (!id && !/^data:video\/(mp4|webm|quicktime);base64,/i.test(src) && !/^https?:\/\//i.test(src) && !/^assets\//i.test(src)) return null;
     return {
       type: 'video',
       id: id,
@@ -16220,9 +16341,9 @@ function updateListenStatsTick(force) {
 }
 function finalizeListenSession(completed) {
   if (!listenSession) return;
-  updateListenStatsTick(true);
   var session = listenSession;
   listenSession = null;
+  updateListenStatsTick(true);
   var effective = completed || session.listenMs >= 45000 || session.maxProgress >= 0.5 || (!audio || !audio.duration ? session.listenMs >= 30000 : false);
   if (!effective) return;
   var now = Date.now();
@@ -19317,7 +19438,7 @@ async function _playQueueAtImpl(idx, opts) {
       ? await apiJson('/api/qq/song/url?mid=' + encodeURIComponent(song.mid || song.songmid || song.id || '') + '&mediaMid=' + encodeURIComponent(song.mediaMid || song.media_mid || '') + qualityParam)
       : await apiJson('/api/song/url?id=' + song.id + qualityParam);
     if (token !== trackSwitchToken) return;
-    console.log('[Playback] song URL response:', { url: !!data.url, trial: data.trial, level: data.level, error: data.error });
+    console.log('[Playback] song URL response:', { url: !!data.url, trial: data.trial, level: data.level, error: data.error, reason: data.reason, qqCode: data.qqCode, message: data.message });
     if (!data.url) {
       if (isQQPlayback && await retryQQPlaybackWithCompatibleQuality(song, idx, token, opts, data, requestedQuality)) return;
       if (await tryAutoPlaybackFallback(song, data, idx, token, opts)) return;
@@ -20511,8 +20632,17 @@ function renderUserPlaylistsList(opts) {
     { key:'netease', label:'网易云歌单', items:userPlaylists.filter(function(pl){ return pl.provider !== 'qq'; }) },
     { key:'qq', label:'QQ 音乐歌单', items:userPlaylists.filter(function(pl){ return pl.provider === 'qq'; }) }
   ];
+  /* Filter by active provider: dual mode shows both, single mode shows only active */
+  if (!dualAccountMode) {
+    groups = groups.filter(function(g){ return g.key === activeAccountProvider; });
+    /* single-provider mode: always expanded */
+    playlistSectionCollapsed = { netease: false, qq: false };
+  }
+  /* Remove groups with no items */
+  groups = groups.filter(function(g){ return g.items.length > 0; });
   if (opts.reset) resetPlaylistPanelRenderLimit();
-  playlistPanelRenderLimit = Math.max(PLAYLIST_PANEL_BATCH_SIZE, Math.min(userPlaylists.length, playlistPanelRenderLimit || PLAYLIST_PANEL_BATCH_SIZE));
+  var totalVisibleItems = groups.reduce(function(s,g){ return s + g.items.length; }, 0);
+  playlistPanelRenderLimit = Math.max(PLAYLIST_PANEL_BATCH_SIZE, Math.min(totalVisibleItems, playlistPanelRenderLimit || PLAYLIST_PANEL_BATCH_SIZE));
   var renderedCount = 0;
   function visibleGroupItems(items) {
     var room = playlistPanelRenderLimit - renderedCount;
@@ -20521,13 +20651,24 @@ function renderUserPlaylistsList(opts) {
     renderedCount += visible.length;
     return visible;
   }
+  var showCollapsible = dualAccountMode && groups.length > 1;
   $pl.innerHTML = groups.map(function(group){
-    var items = visibleGroupItems(group.items);
-    if (!items.length) return '';
-    return '<div class="pl-section-label">' + group.label + '</div>' + items.map(playlistCardHtml).join('');
+    var collapsed = showCollapsible && playlistSectionCollapsed[group.key];
+    var items = collapsed ? [] : visibleGroupItems(group.items);
+    if (!group.items.length) return '';
+    var headHtml;
+    if (showCollapsible) {
+      headHtml = '<div class="pl-section-head' + (collapsed ? ' collapsed' : '') + '" data-pl-section-toggle="' + group.key + '">' +
+        '<div class="pl-section-label">' + group.label + '<span class="pl-section-count">' + group.items.length + '</span></div>' +
+        '<span class="pl-section-arrow">▾</span></div>';
+    } else {
+      headHtml = '<div class="pl-section-label">' + group.label + '</div>';
+    }
+    if (collapsed) return headHtml;
+    return headHtml + items.map(playlistCardHtml).join('');
   }).join('') || '<div style="text-align:center;padding:24px 0;color:rgba(255,255,255,.32);font-size:11.5px">未找到歌单</div>';
-  if (userPlaylists.length > renderedCount) {
-    $pl.insertAdjacentHTML('beforeend', '<button type="button" class="fx-mini-btn ghost pl-load-more" data-pl-load-more="1">加载更多 ' + renderedCount + '/' + userPlaylists.length + '</button>');
+  if (totalVisibleItems > renderedCount) {
+    $pl.insertAdjacentHTML('beforeend', '<button type="button" class="fx-mini-btn ghost pl-load-more" data-pl-load-more="1">加载更多 ' + renderedCount + '/' + totalVisibleItems + '</button>');
   }
   if (opts.animate && seq === playlistRenderSeq) animateVisiblePanelList($pl, '.pl-card', document.getElementById('playlist-panel'));
 }
@@ -20555,6 +20696,18 @@ function renderMyPodcastCollections(opts) {
   if (opts.animate) animateVisiblePanelList($pod, '.pl-card', document.getElementById('playlist-panel'));
 }
 document.getElementById('pl-list').addEventListener('click', function(e){
+  var sectionToggle = e.target && e.target.closest ? e.target.closest('[data-pl-section-toggle]') : null;
+  if (sectionToggle) {
+    e.preventDefault();
+    e.stopPropagation();
+    var key = sectionToggle.getAttribute('data-pl-section-toggle');
+    if (key) {
+      playlistSectionCollapsed[key] = !playlistSectionCollapsed[key];
+      resetPlaylistPanelRenderLimit();
+      renderUserPlaylistsList();
+    }
+    return;
+  }
   var loadMore = e.target && e.target.closest ? e.target.closest('[data-pl-load-more]') : null;
   if (loadMore) {
     e.preventDefault();
@@ -21672,8 +21825,17 @@ function applyCustomBackground() {
     video.muted = true;
     video.loop = true;
     video.playsInline = true;
+    video.autoplay = true;
     var p = video.play();
     if (p && p.catch) p.catch(function(){});
+    // Retry play when video data is ready (large files may not be buffered yet)
+    function retryPlay() {
+      if (token !== customBgApplyToken) return;
+      var r = video.play();
+      if (r && r.catch) r.catch(function(){});
+    }
+    video.addEventListener('canplay', retryPlay, { once: true });
+    setTimeout(retryPlay, 500);
   }
   if (media.src) {
     setVideoSrc(media.src);
@@ -21701,6 +21863,7 @@ function updateCustomBackgroundControls() {
   }
   setRange('fx-bgopacity', fx.backgroundOpacity == null ? 1 : fx.backgroundOpacity);
   if (imageValue) imageValue.textContent = customBackgroundMediaLabel(fx.backgroundMedia || fx.backgroundImage);
+  updateBgPresetLabel();
   applyBackgroundMediaHint();
 }
 function setCustomBackgroundColor(color, silent, customFlag) {
@@ -21739,6 +21902,7 @@ function setCustomBackgroundImage(src, silent) {
   if (!silent) showToast(fx.backgroundImage ? '背景图片已应用' : '背景图片已清除');
 }
 function clearCustomBackgroundImage() {
+  fx.selectedBgPreset = null;
   setCustomBackgroundImage('');
 }
 function setCustomBackgroundMedia(media, silent) {
@@ -21750,6 +21914,7 @@ function setCustomBackgroundMedia(media, silent) {
   if (!silent) showToast(media ? (media.type === 'video' ? '背景视频已应用' : '背景图片已应用') : '背景媒体已清除');
 }
 function readBackgroundImageFile(file) {
+  fx.selectedBgPreset = null;
   if (!file || !/^image\//i.test(file.type || '')) {
     showToast('请选择图片文件');
     return;
@@ -21782,6 +21947,7 @@ function readBackgroundImageFile(file) {
   reader.readAsDataURL(file);
 }
 function readBackgroundVideoFile(file) {
+  fx.selectedBgPreset = null;
   if (!file || !/^video\//i.test(file.type || '')) {
     showToast('请选择视频文件');
     return;
@@ -21809,6 +21975,351 @@ function readBackgroundMediaFile(file) {
   else if (/^video\//i.test(file.type || '')) readBackgroundVideoFile(file);
   else showToast('请选择图片或视频文件');
 }
+
+// ============================================================
+//  音效设置 (Sound Settings)
+// ============================================================
+var SOUND_PRESET_BASE = 'assets/sound/';
+var SOUND_PRESET_MAP_URL = SOUND_PRESET_BASE + 'sound-preset-map.json';
+var soundPresetMap = null;
+var soundPresetMapLoaded = false;
+var soundPresetPopTarget = '';
+var _soundPreviewAudio = null;
+var SOUND_ALLOWED_FORMATS = /\.(wav|mp3|ogg)$/i;
+var SOUND_MAX_CUSTOM_SIZE = 5 * 1024 * 1024;
+
+function normalizeSoundPresetId(value) {
+  if (value == null || value === '' || value === false) return null;
+  var s = String(value);
+  if (/^\d{3}$/.test(s)) return s;
+  return null;
+}
+function normalizeCustomSoundData(value) {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    if (/^data:audio\/(wav|mpeg|mp3|ogg);base64,/i.test(value)) return value;
+    return null;
+  }
+  if (typeof value === 'object' && value.data) {
+    if (/^data:audio\//i.test(value.data)) return value.data;
+    return null;
+  }
+  return null;
+}
+function loadSoundPresetMap(callback) {
+  if (soundPresetMapLoaded) { if (callback) callback(soundPresetMap); return; }
+  soundPresetMapLoaded = true;
+  fetch(SOUND_PRESET_MAP_URL).then(function(r){ return r.json(); }).then(function(data){
+    soundPresetMap = data || {};
+    if (callback) callback(soundPresetMap);
+  }).catch(function(){ soundPresetMap = {}; if (callback) callback(soundPresetMap); });
+}
+function getSoundPresetName(id) {
+  if (!soundPresetMap || !id) return null;
+  return soundPresetMap[id] || null;
+}
+function getSoundPresetUrl(id) {
+  if (!id) return '';
+  return SOUND_PRESET_BASE + id + '.wav';
+}
+function playSoundUrl(url) {
+  if (!url) return;
+  try {
+    if (_soundPreviewAudio) { _soundPreviewAudio.pause(); _soundPreviewAudio = null; }
+    var a = new Audio(url);
+    a.volume = 0.7;
+    _soundPreviewAudio = a;
+    a.play().catch(function(){});
+  } catch (e) {}
+}
+function playSoundPreset(id) {
+  playSoundUrl(getSoundPresetUrl(id));
+}
+function playCustomSound(data) {
+  if (data) playSoundUrl(data);
+}
+
+function setSoundSetting(target, presetId) {
+  if (target === 'startup') {
+    fx.startupSound = presetId;
+    fx.startupSoundCustom = null;
+  } else {
+    fx.shutdownSound = presetId;
+    fx.shutdownSoundCustom = null;
+  }
+  updateSoundSettingsUI();
+  saveLyricLayout();
+  var name = getSoundPresetName(presetId) || presetId;
+  showToast((target === 'startup' ? '开机音效: ' : '关机音效: ') + name);
+}
+function clearSoundSetting(target) {
+  if (target === 'startup') {
+    fx.startupSound = null;
+    fx.startupSoundCustom = null;
+  } else {
+    fx.shutdownSound = null;
+    fx.shutdownSoundCustom = null;
+  }
+  updateSoundSettingsUI();
+  saveLyricLayout();
+  showToast(target === 'startup' ? '开机音效已清除' : '关机音效已清除');
+}
+function clearCustomSound(target) {
+  if (target === 'startup') {
+    fx.startupSoundCustom = null;
+  } else {
+    fx.shutdownSoundCustom = null;
+  }
+  updateSoundSettingsUI();
+  saveLyricLayout();
+  showToast(target === 'startup' ? '自定义开机音效已清除' : '自定义关机音效已清除');
+}
+function previewSoundSetting(target) {
+  var presetId = target === 'startup' ? fx.startupSound : fx.shutdownSound;
+  var customData = target === 'startup' ? fx.startupSoundCustom : fx.shutdownSoundCustom;
+  if (customData) {
+    playCustomSound(customData);
+  } else if (presetId) {
+    playSoundPreset(presetId);
+  } else {
+    showToast('未设置音效');
+  }
+}
+
+function openSoundPresetPop(target) {
+  soundPresetPopTarget = target;
+  var pop = document.getElementById('sound-preset-pop');
+  var title = document.getElementById('sound-preset-pop-title');
+  var search = document.getElementById('sound-preset-search');
+  if (!pop) return;
+  if (title) title.textContent = target === 'startup' ? '选择开机音效' : '选择关机音效';
+  if (search) { search.value = ''; }
+  loadSoundPresetMap(function(){
+    buildSoundPresetList('');
+    pop.classList.add('show');
+  });
+}
+function closeSoundPresetPop() {
+  var pop = document.getElementById('sound-preset-pop');
+  if (pop) pop.classList.remove('show');
+  soundPresetPopTarget = '';
+}
+function filterSoundPresetList() {
+  var search = document.getElementById('sound-preset-search');
+  var query = search ? search.value.trim().toLowerCase() : '';
+  buildSoundPresetList(query);
+}
+function buildSoundPresetList(query) {
+  var list = document.getElementById('sound-preset-list');
+  if (!list || !soundPresetMap) return;
+  list.innerHTML = '';
+  var currentId = soundPresetPopTarget === 'startup' ? fx.startupSound : fx.shutdownSound;
+  var keys = Object.keys(soundPresetMap);
+  keys.forEach(function(id){
+    var name = soundPresetMap[id];
+    if (query && name.toLowerCase().indexOf(query) === -1 && id.indexOf(query) === -1) return;
+    var item = document.createElement('div');
+    item.className = 'sound-preset-item' + (id === currentId ? ' active' : '');
+    var nameSpan = document.createElement('span');
+    nameSpan.className = 'sp-name';
+    nameSpan.textContent = name;
+    var playBtn = document.createElement('button');
+    playBtn.className = 'sp-play';
+    playBtn.type = 'button';
+    playBtn.textContent = '▶';
+    playBtn.title = '试听';
+    playBtn.onclick = function(e){ e.stopPropagation(); playSoundPreset(id); };
+    item.onclick = function(){
+      setSoundSetting(soundPresetPopTarget, id);
+      closeSoundPresetPop();
+    };
+    item.appendChild(nameSpan);
+    item.appendChild(playBtn);
+    list.appendChild(item);
+  });
+}
+
+function readCustomSoundFile(file, target) {
+  if (!file) return;
+  var ext = (file.name.match(/\.([^.]+)$/) || [])[1] || '';
+  if (!SOUND_ALLOWED_FORMATS.test('.' + ext)) {
+    showToast('不支持的音频格式，请使用 wav / mp3 / ogg');
+    return;
+  }
+  if (file.size > SOUND_MAX_CUSTOM_SIZE) {
+    showToast('音频文件过大，请选择 5MB 以内的文件');
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var data = e.target.result;
+    if (target === 'startup') {
+      fx.startupSoundCustom = data;
+      fx.startupSound = null;
+    } else {
+      fx.shutdownSoundCustom = data;
+      fx.shutdownSound = null;
+    }
+    updateSoundSettingsUI();
+    saveLyricLayout();
+    showToast(target === 'startup' ? '自定义开机音效已应用' : '自定义关机音效已应用');
+  };
+  reader.onerror = function(){ showToast('音频文件读取失败'); };
+  reader.readAsDataURL(file);
+}
+
+function updateSoundSettingsUI() {
+  var startupValue = document.getElementById('sound-startup-value');
+  var shutdownValue = document.getElementById('sound-shutdown-value');
+  var startupCustomClear = document.getElementById('sound-startup-custom-clear');
+  var shutdownCustomClear = document.getElementById('sound-shutdown-custom-clear');
+  if (startupValue) {
+    if (fx.startupSoundCustom) {
+      startupValue.textContent = '自定义音效';
+    } else if (fx.startupSound) {
+      var name = getSoundPresetName(fx.startupSound);
+      startupValue.textContent = name || ('预设 #' + fx.startupSound);
+    } else {
+      startupValue.textContent = '无';
+    }
+  }
+  if (shutdownValue) {
+    if (fx.shutdownSoundCustom) {
+      shutdownValue.textContent = '自定义音效';
+    } else if (fx.shutdownSound) {
+      var name = getSoundPresetName(fx.shutdownSound);
+      shutdownValue.textContent = name || ('预设 #' + fx.shutdownSound);
+    } else {
+      shutdownValue.textContent = '无';
+    }
+  }
+  if (startupCustomClear) startupCustomClear.style.display = fx.startupSoundCustom ? '' : 'none';
+  if (shutdownCustomClear) shutdownCustomClear.style.display = fx.shutdownSoundCustom ? '' : 'none';
+}
+
+function playConfiguredStartupSound() {
+  if (fx.startupSoundCustom) {
+    playCustomSound(fx.startupSoundCustom);
+  } else if (fx.startupSound) {
+    playSoundPreset(fx.startupSound);
+  }
+}
+
+// ============================================================
+//  背景预设 (Background Presets)
+// ============================================================
+var BG_PRESET_BASE = 'assets/background/';
+var BG_PRESET_MAP_URL = BG_PRESET_BASE + 'bg-preset-map.json';
+var bgPresetMap = null;
+var bgPresetMapLoaded = false;
+
+function loadBgPresetMap(callback) {
+  if (bgPresetMapLoaded) { if (callback) callback(bgPresetMap); return; }
+  bgPresetMapLoaded = true;
+  fetch(BG_PRESET_MAP_URL).then(function(r){ return r.json(); }).then(function(data){
+    bgPresetMap = data || {};
+    if (callback) callback(bgPresetMap);
+  }).catch(function(){ bgPresetMap = {}; if (callback) callback(bgPresetMap); });
+}
+function getBgPresetUrl(id) {
+  if (!bgPresetMap || !bgPresetMap[id]) return '';
+  return BG_PRESET_BASE + bgPresetMap[id].file;
+}
+function getCurrentBgPresetId() {
+  if (!fx.selectedBgPreset || !bgPresetMap || !bgPresetMap[fx.selectedBgPreset]) return null;
+  var url = getBgPresetUrl(fx.selectedBgPreset);
+  var media = fx.backgroundMedia;
+  if (media && media.src && media.src.indexOf(bgPresetMap[fx.selectedBgPreset].file) !== -1) return fx.selectedBgPreset;
+  return null;
+}
+
+function openBgPresetPop() {
+  var pop = document.getElementById('bg-preset-pop');
+  if (!pop) return;
+  loadBgPresetMap(function(){
+    buildBgPresetGrid();
+    pop.classList.add('show');
+  });
+}
+function closeBgPresetPop() {
+  var pop = document.getElementById('bg-preset-pop');
+  if (pop) pop.classList.remove('show');
+}
+function buildBgPresetGrid() {
+  var grid = document.getElementById('bg-preset-grid');
+  if (!grid || !bgPresetMap) return;
+  grid.innerHTML = '';
+  var activeId = getCurrentBgPresetId();
+  Object.keys(bgPresetMap).forEach(function(id){
+    var preset = bgPresetMap[id];
+    var url = BG_PRESET_BASE + preset.file;
+    var card = document.createElement('div');
+    card.className = 'bg-preset-card' + (id === activeId ? ' active' : '');
+    // Thumbnail
+    if (preset.type === 'video') {
+      var vid = document.createElement('video');
+      vid.src = url;
+      vid.muted = true;
+      vid.loop = true;
+      vid.playsInline = true;
+      vid.preload = 'metadata';
+      vid.addEventListener('loadeddata', function(){ vid.currentTime = 1; });
+      card.appendChild(vid);
+      // Hover play
+      card.addEventListener('mouseenter', function(){ vid.play().catch(function(){}); });
+      card.addEventListener('mouseleave', function(){ vid.pause(); vid.currentTime = 0; });
+    } else {
+      var img = document.createElement('img');
+      img.src = url;
+      img.alt = preset.name;
+      card.appendChild(img);
+    }
+    // Overlay
+    var overlay = document.createElement('div');
+    overlay.className = 'bg-preset-overlay';
+    var nameEl = document.createElement('div');
+    nameEl.className = 'bg-preset-name';
+    nameEl.textContent = preset.name;
+    var typeEl = document.createElement('div');
+    typeEl.className = 'bg-preset-type';
+    typeEl.textContent = preset.type === 'video' ? '视频' : '图片';
+    overlay.appendChild(nameEl);
+    overlay.appendChild(typeEl);
+    card.appendChild(overlay);
+    // Active check
+    var check = document.createElement('div');
+    check.className = 'bg-preset-check';
+    check.textContent = '✓';
+    card.appendChild(check);
+    // Click handler
+    card.addEventListener('click', function(){
+      selectBgPreset(id);
+      closeBgPresetPop();
+    });
+    grid.appendChild(card);
+  });
+}
+function selectBgPreset(id) {
+  if (!bgPresetMap || !bgPresetMap[id]) return;
+  var preset = bgPresetMap[id];
+  var url = BG_PRESET_BASE + preset.file;
+  fx.selectedBgPreset = id;
+  setCustomBackgroundMedia({ type: preset.type, src: url }, true);
+  showToast('背景: ' + preset.name);
+  buildBgPresetGrid();
+}
+function updateBgPresetLabel() {
+  var value = document.getElementById('bg-image-value');
+  if (!value) return;
+  if (fx.selectedBgPreset && bgPresetMap && bgPresetMap[fx.selectedBgPreset]) {
+    var media = fx.backgroundMedia;
+    if (media && media.src && media.src.indexOf(bgPresetMap[fx.selectedBgPreset].file) !== -1) {
+      value.textContent = bgPresetMap[fx.selectedBgPreset].name;
+      return;
+    }
+  }
+}
+
 function applyUiAccentColor() {
   var color = normalizeHexColor(fx.uiAccentColor || '#00f5d4', '#00f5d4');
   var rgb = hexToRgb(color);
@@ -22455,7 +22966,7 @@ function ensureFxSliderResetButton(id, key) {
 }
 var fxPanelTab = 'presets';
 function setFxPanelTab(tab) {
-  var allowed = { presets:1, appearance:1, lyrics:1, motion:1, advanced:1 };
+  var allowed = { presets:1, appearance:1, lyrics:1, motion:1, advanced:1, sound:1 };
   fxPanelTab = allowed[tab] ? tab : 'presets';
   var panel = document.getElementById('fx-panel');
   if (panel) panel.setAttribute('data-active-tab', fxPanelTab);
@@ -22479,6 +22990,9 @@ function fxPanelTargetForNode(node, current) {
   if (id === 'fx-lyric-fold') return 'lyrics';
   if (id === 'fx-overlay-fold' || id === 'fx-stage-fold') return 'motion';
   if (id === 'fx-advanced' || node.classList.contains('fx-actions')) return 'advanced';
+  if (id === 'sound-startup-row' || id === 'sound-shutdown-row') return 'sound';
+  if (id === 'bg-media-row' || id === 'bg-custom-row') return 'appearance';
+  if (node.classList.contains('sound-preset-row') || node.classList.contains('sound-custom-row')) return 'sound';
   if (node.classList.contains('lyric-color-row') || node.classList.contains('cover-color-pop') || node.classList.contains('color-lab-pop') || node.classList.contains('cover-color-loupe')) return 'appearance';
   if (inputId === 'fx-bgopacity' || inputId === 'fx-glassaberration') return 'appearance';
   if (inputId === 'fx-lyricglow') return 'lyrics';
@@ -22498,7 +23012,8 @@ function organizeFxPanel() {
     ['appearance', '\u5916\u89c2'],
     ['lyrics', '\u6b4c\u8bcd'],
     ['motion', '\u52a8\u6001'],
-    ['advanced', '\u9ad8\u7ea7']
+    ['advanced', '\u9ad8\u7ea7'],
+    ['sound', '\u97f3\u6548']
   ];
   var tabs = document.createElement('div');
   tabs.className = 'fx-panel-tabs';
@@ -23148,6 +23663,18 @@ function bindFxPanel() {
       e.target.value = '';
     });
   }
+  var customSoundInput = document.getElementById('custom-sound-input');
+  if (customSoundInput) {
+    customSoundInput.addEventListener('change', function(e){
+      var file = e.target.files && e.target.files[0];
+      var target = window._soundUploadTarget || 'startup';
+      if (file) readCustomSoundFile(file, target);
+      e.target.value = '';
+      window._soundUploadTarget = '';
+    });
+  }
+  loadSoundPresetMap(function(){ updateSoundSettingsUI(); });
+  loadBgPresetMap(function(){ updateBgPresetLabel(); });
   ['ui-accent-picker','visual-tint-picker','home-accent-picker','home-icon-picker','visual-icon-picker','bg-color-picker','shelf-accent-picker','lyric-color-picker','lyric-highlight-picker','lyric-glow-picker'].forEach(function(id){
     bindColorLabPicker(document.getElementById(id));
   });
@@ -24642,6 +25169,9 @@ function setActiveAccountProvider(provider) {
   dualAccountMode = false;
   renderUserBtn();
   updateUserModalUi();
+  /* Re-render playlist panel: show only selected provider's playlists */
+  resetPlaylistPanelRenderLimit();
+  renderUserPlaylistsList({ reset: true });
 }
 function enableDualAccountView() {
   if (!hasPlatformLogin('netease') && !hasPlatformLogin('qq')) {
@@ -24657,8 +25187,12 @@ function enableDualAccountView() {
     return;
   }
   dualAccountMode = true;
+  /* Dual mode: collapse both sections by default */
+  playlistSectionCollapsed = { netease: true, qq: true };
   renderUserBtn();
   updateUserModalUi();
+  resetPlaylistPanelRenderLimit();
+  renderUserPlaylistsList({ reset: true });
   showToast('已启用双平台账号展示');
 }
 function requestDualLoginMode() {
@@ -26850,6 +27384,12 @@ function drawMineradioSplash() {
 
 function playMineradioIntroSound() {
   if (splashSoundPlayed) return;
+  // If user configured a startup sound, play it instead of synthesized intro
+  if (fx.startupSoundCustom || fx.startupSound) {
+    splashSoundPlayed = true;
+    playConfiguredStartupSound();
+    return;
+  }
   try {
     var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextCtor) return;
@@ -27306,8 +27846,8 @@ function toggleFullscreen() {
   var restoreIcon = maxBtn && maxBtn.querySelector('.icon-restore');
   function applyState(state) {
     desktopWindowState = Object.assign(desktopWindowState, state || {});
-    var isMaximized = !!desktopWindowState.isMaximized;
-    var isFullScreen = !!desktopWindowState.isFullScreen || !!desktopWindowState.isNativeFullScreen || !!desktopWindowState.isHtmlFullScreen || !!desktopWindowState.isWindowFullScreen || !!document.fullscreenElement;
+    var isMaximized = !!(desktopWindowState.isMaximized || desktopWindowState.is_maximized);
+    var isFullScreen = !!(desktopWindowState.isFullScreen || desktopWindowState.isNativeFullScreen || desktopWindowState.isHtmlFullScreen || desktopWindowState.isWindowFullScreen || desktopWindowState.is_fullscreen || document.fullscreenElement);
     var wasFullScreen = desktopFullscreenActive;
     desktopFullscreenActive = isFullScreen;
     document.body.classList.toggle('desktop-maximized', isMaximized);
@@ -27337,7 +27877,18 @@ function toggleFullscreen() {
       var action = btn.getAttribute('data-window-action');
       if (action === 'minimize') api.minimize();
       if (action === 'maximize') toggleFullscreen();
-      if (action === 'close') api.close();
+      if (action === 'close') {
+        var shutdownSrc = fx.shutdownSoundCustom || (fx.shutdownSound ? getSoundPresetUrl(fx.shutdownSound) : null);
+        if (shutdownSrc) {
+          var snd = new Audio(shutdownSrc);
+          snd.volume = 0.7;
+          snd.addEventListener('ended', function(){ api.close(); });
+          snd.addEventListener('error', function(){ api.close(); });
+          snd.play().catch(function(){ api.close(); });
+        } else {
+          api.close();
+        }
+      }
     });
   });
 

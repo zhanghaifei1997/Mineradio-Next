@@ -1,5 +1,6 @@
 mod commands;
 mod netease;
+mod qq;
 mod server;
 mod dj_analyzer;
 mod cookie_store;
@@ -8,7 +9,7 @@ use log::info;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::Manager;
+use tauri::{LogicalSize, Manager};
 use tokio::sync::RwLock;
 
 /// Shared application state accessible across Tauri commands and HTTP server.
@@ -71,7 +72,10 @@ pub fn run() {
                 window.unminimize().ok();
             }
         }))
-        .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(tauri_plugin_window_state::Builder::new()
+            .with_state_flags(tauri_plugin_window_state::StateFlags::POSITION
+                | tauri_plugin_window_state::StateFlags::SIZE)
+            .build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
@@ -142,6 +146,51 @@ pub fn run() {
                     if let Ok(parsed) = url::Url::parse(&url) {
                         window.navigate(parsed).ok();
                     }
+                    // Always start windowed with properly calculated bounds (like Electron's getWindowedBounds)
+                    if window.is_fullscreen().unwrap_or(false) {
+                        info!("Clearing persisted fullscreen state");
+                        window.set_fullscreen(false).ok();
+                    }
+                    if window.is_maximized().unwrap_or(false) {
+                        window.unmaximize().ok();
+                    }
+                    // Calculate reasonable windowed bounds: 3/4 of screen, 16:9 aspect
+                    if let Ok(monitors) = app_handle.available_monitors() {
+                        // Use the primary (first) monitor
+                        if let Some(monitor) = monitors.first() {
+                            let mon_size = monitor.size();
+                            let scale = window.scale_factor().unwrap_or(1.0);
+                            let mon_w = mon_size.width as f64 / scale;
+                            let mon_h = mon_size.height as f64 / scale;
+                            let margin = 32.0_f64;
+                            let min_w = 960.0_f64;
+                            let min_h = 540.0_f64;
+                            let max_w = (mon_w - margin).max(640.0);
+                            let max_h = (mon_h - margin).max(360.0);
+                            let mut w = (mon_w * 0.75).round();
+                            let mut h = (w / (16.0 / 9.0)).round();
+                            let scaled_h = (mon_h * 0.75).round();
+                            if h > scaled_h {
+                                h = scaled_h;
+                                w = (h * (16.0 / 9.0)).round();
+                            }
+                            if w < min_w && max_w >= min_w && max_h >= min_h {
+                                w = min_w;
+                                h = min_h;
+                            }
+                            if w > max_w {
+                                w = max_w;
+                                h = (w / (16.0 / 9.0)).round();
+                            }
+                            if h > max_h {
+                                h = max_h;
+                                w = (h * (16.0 / 9.0)).round();
+                            }
+                            info!("Setting initial window size to {}x{} (monitor: {}x{} @ {:.2}x)", w, h, mon_w, mon_h, scale);
+                            window.set_size(LogicalSize::new(w, h)).ok();
+                        }
+                    }
+                    window.center().ok();
                     window.show().ok();
                     window.set_focus().ok();
                 }

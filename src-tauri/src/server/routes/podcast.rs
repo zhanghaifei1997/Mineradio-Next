@@ -262,3 +262,93 @@ pub async fn handle_my(
         }
     }
 }
+
+/// GET /api/podcast/my/items?key=collect&limit=36&offset=0
+pub async fn handle_my_items(
+    req: HttpRequest,
+    state: web::Data<Arc<AppState>>,
+) -> HttpResponse {
+    let query = super::parse_query(&req);
+    let cookie = state.netease_cookie.read().await.clone();
+
+    if cookie.is_empty() {
+        return HttpResponse::Ok().json(serde_json::json!({
+            "loggedIn": false, "items": []
+        }));
+    }
+
+    let key = query.get("key").cloned().unwrap_or_else(|| "collect".to_string());
+    let limit: u32 = query.get("limit").and_then(|v| v.parse().ok()).unwrap_or(36);
+    let offset: u32 = query.get("offset").and_then(|v| v.parse().ok()).unwrap_or(0);
+
+    let (item_type, items) = match key.as_str() {
+        "collect" => {
+            match netease_podcast::dj_sublist(limit, offset, &cookie).await {
+                Ok(resp) => {
+                    let raw = resp.body.get("djRadios")
+                        .or_else(|| resp.body.get("djradios"))
+                        .or_else(|| resp.body.get("data"))
+                        .and_then(|v| v.as_array())
+                        .cloned()
+                        .unwrap_or_default();
+                    let mapped: Vec<serde_json::Value> = raw.iter()
+                        .map(|r| super::discover::map_podcast(r))
+                        .filter(|p| p.get("id").and_then(|v| v.as_u64()).unwrap_or(0) != 0)
+                        .collect();
+                    ("radio", mapped)
+                }
+                Err(e) => {
+                    log::warn!("[PodcastMyItems] collect failed: {}", e);
+                    ("radio", Vec::new())
+                }
+            }
+        }
+        _ => ("radio", Vec::new()),
+    };
+
+    // Build collection meta
+    let (title, sub) = match key.as_str() {
+        "collect" => ("收藏播客", "你收藏的播客"),
+        "created" => ("创建播客", "你创建的播客"),
+        "liked" => ("喜欢的声音", "收藏或最近喜欢的声音"),
+        _ => (key.as_str(), ""),
+    };
+    let count = items.len();
+    let cover = items.first()
+        .and_then(|p| p.get("cover").and_then(|v| v.as_str()))
+        .unwrap_or("");
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "loggedIn": true,
+        "key": key,
+        "title": title,
+        "sub": sub,
+        "itemType": item_type,
+        "count": count,
+        "cover": cover,
+        "items": items,
+    }))
+}
+
+/// GET /api/podcast/dj-beatmap?url=xxx&duration=xxx&intro=xxx
+pub async fn handle_dj_beatmap(
+    req: HttpRequest,
+) -> HttpResponse {
+    let query = super::parse_query(&req);
+    let audio_url = query.get("url").cloned().unwrap_or_default();
+
+    if audio_url.is_empty() || !audio_url.starts_with("http") {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "ok": false, "error": "Invalid audio url"
+        }));
+    }
+
+    // DJ beatmap analysis requires downloading and decoding audio —
+    // the frontend already has a robust client-side fallback,
+    // so we return unavailable in the Tauri build.
+    HttpResponse::Ok().json(serde_json::json!({
+        "ok": false,
+        "error": "DJ_BEATMAP_NOT_AVAILABLE",
+        "message": "DJ beatmap analysis not available in Tauri build, using client-side fallback"
+    }))
+}

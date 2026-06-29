@@ -1,6 +1,7 @@
 use actix_web::{web, HttpRequest, HttpResponse};
 use log::info;
 use crate::netease::api::login as netease_login;
+use crate::qq;
 use crate::cookie_store;
 use crate::AppState;
 use std::sync::Arc;
@@ -140,7 +141,12 @@ pub async fn handle_qr_check(
 fn enrich_login_body(body: &mut serde_json::Value) {
     let code = body.get("code").and_then(|c| c.as_u64()).unwrap_or(0);
 
-    let profile = body.get("profile").cloned();
+    // Treat profile: null (Some(Value::Null)) the same as missing profile (None).
+    // The Netease API returns code:200 + profile:null when the cookie is recognized
+    // but the session has been invalidated (e.g. after logout).
+    let profile = body.get("profile")
+        .cloned()
+        .filter(|v| !v.is_null());
     let logged_in = code == 200 && profile.is_some();
     body["loggedIn"] = serde_json::json!(logged_in);
 
@@ -243,7 +249,17 @@ pub async fn handle_login_cookie(
             enrich_login_body(&mut result);
             result["saved"] = serde_json::json!(true);
             result["hasCookie"] = serde_json::json!(!cookie.is_empty());
-            info!("[login/cookie] verification: loggedIn={}", result.get("loggedIn").and_then(|v| v.as_bool()).unwrap_or(false));
+            let is_logged_in = result.get("loggedIn").and_then(|v| v.as_bool()).unwrap_or(false);
+            info!("[login/cookie] verification: loggedIn={}", is_logged_in);
+            if !is_logged_in {
+                // Cookie was saved but is not valid (e.g. expired or server-side invalidated)
+                return HttpResponse::Ok().json(serde_json::json!({
+                    "loggedIn": false,
+                    "saved": true,
+                    "hasCookie": !cookie.is_empty(),
+                    "message": "网易云会话已失效，请重新登录",
+                }));
+            }
             HttpResponse::Ok().json(result)
         }
         Err(e) => {
@@ -269,4 +285,99 @@ pub async fn handle_logout(
         cookie_store::save_netease_cookie(&state, "");
     }
     HttpResponse::Ok().json(serde_json::json!({"ok": true}))
+}
+
+// ── QQ Music login routes ────────────────────────────────────────────────────
+
+/// POST /api/qq/login/cookie
+/// Accepts a QQ cookie string from the frontend (webview capture or manual import),
+/// saves it to AppState and disk, then verifies via QQ profile API.
+pub async fn handle_qq_login_cookie(
+    body: web::Json<serde_json::Value>,
+    state: web::Data<Arc<AppState>>,
+) -> HttpResponse {
+    let raw = body.get("cookie")
+        .or_else(|| body.get("data"))
+        .or_else(|| body.get("text"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    let normalized = qq::normalize_qq_cookie_input(raw);
+    let obj = qq::parse_cookie_string(&normalized);
+    let uin = qq::qq_cookie_uin(&obj);
+    let music_key = qq::qq_cookie_music_key(&obj);
+
+    if uin.is_empty() || music_key.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "provider": "qq",
+            "loggedIn": false,
+            "error": "INVALID_QQ_COOKIE",
+            "message": "QQ cookie 缺少 uin 或有效登录票据"
+        }));
+    }
+
+    // Save cookie to memory and persist to disk
+    {
+        let mut state_cookie = state.qq_cookie.write().await;
+        *state_cookie = normalized.clone();
+    }
+    cookie_store::save_qq_cookie(&state, &normalized);
+    info!("[qq/login/cookie] Saved QQ cookie (uin={}, {} chars)", uin, normalized.len());
+
+    // Verify by fetching QQ profile
+    let cookie = state.qq_cookie.read().await.clone();
+    let mut info = qq::get_qq_login_info(&cookie).await;
+    info["saved"] = serde_json::json!(true);
+    HttpResponse::Ok().json(info)
+}
+
+/// GET /api/qq/login/status
+/// Returns the current QQ login status based on the stored cookie.
+pub async fn handle_qq_login_status(
+    state: web::Data<Arc<AppState>>,
+) -> HttpResponse {
+    let cookie = state.qq_cookie.read().await.clone();
+    if cookie.is_empty() {
+        return HttpResponse::Ok().json(serde_json::json!({
+            "provider": "qq",
+            "loggedIn": false,
+            "nickname": "",
+            "avatar": "",
+            "hasCookie": false
+        }));
+    }
+    let info = qq::get_qq_login_info(&cookie).await;
+    HttpResponse::Ok().json(info)
+}
+
+/// GET /api/qq/logout
+/// Clears the QQ login cookie from memory and disk.
+pub async fn handle_qq_logout(
+    state: web::Data<Arc<AppState>>,
+) -> HttpResponse {
+    {
+        let mut state_cookie = state.qq_cookie.write().await;
+        *state_cookie = String::new();
+    }
+    cookie_store::save_qq_cookie(&state, "");
+    info!("[qq/logout] QQ cookie cleared");
+    HttpResponse::Ok().json(serde_json::json!({
+        "provider": "qq", "ok": true, "loggedIn": false
+    }))
+}
+
+/// GET /api/qq/user/playlists
+/// Fetches the user's QQ Music playlists (created + collected).
+pub async fn handle_qq_user_playlists(
+    state: web::Data<Arc<AppState>>,
+) -> HttpResponse {
+    let cookie = state.qq_cookie.read().await.clone();
+    log::info!("[qq/user/playlists] cookie length = {}", cookie.len());
+    if cookie.is_empty() {
+        return HttpResponse::Ok().json(serde_json::json!({
+            "provider": "qq", "loggedIn": false, "playlists": []
+        }));
+    }
+    let result = qq::fetch_qq_user_playlists(&cookie).await;
+    HttpResponse::Ok().json(result)
 }

@@ -11,6 +11,10 @@ pub mod podcast;
 pub mod discover;
 pub mod proxy;
 pub mod static_files;
+pub mod qq;
+pub mod beatmap;
+pub mod weather;
+pub mod update;
 
 use actix_web::{HttpRequest, HttpResponse, web::Json};
 use std::collections::HashMap;
@@ -26,145 +30,13 @@ pub fn parse_query(req: &HttpRequest) -> HashMap<String, String> {
 
 // ── Stub handlers for not-yet-implemented routes ──
 
-pub async fn stub_qq_login_status() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
-        "loggedIn": false,
-        "nickname": "",
-        "avatar": ""
-    }))
-}
-
 #[allow(dead_code)]
 pub async fn stub_empty_array() -> HttpResponse {
     HttpResponse::Ok().json(serde_json::json!({ "data": [], "code": 200 }))
 }
 
-pub async fn stub_empty_object() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({ "data": {}, "code": 200 }))
-}
-
-pub async fn stub_update_latest() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
-        "hasUpdate": false,
-        "configured": false,
-        "message": "Update check not yet implemented in Tauri build"
-    }))
-}
-
-pub async fn stub_update_not_available() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
-        "ok": false,
-        "error": "Update download/patch not yet available in Tauri build"
-    }))
-}
-
-pub async fn stub_weather_radio() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
-        "data": { "weather": null, "playlist": [] },
-        "code": 200
-    }))
-}
-
 pub async fn stub_no_content() -> HttpResponse {
     HttpResponse::NoContent().finish()
-}
-
-pub async fn stub_beatmap_cache_status() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
-        "cached": false,
-        "count": 0,
-        "sizeBytes": 0,
-        "code": 200
-    }))
-}
-
-pub async fn stub_beatmap_cache_get() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
-        "data": null,
-        "code": 200
-    }))
-}
-
-pub async fn stub_beatmap_cache_post() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
-        "ok": true,
-        "code": 200
-    }))
-}
-
-pub async fn stub_podcast_my_items() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
-        "data": [],
-        "total": 0,
-        "code": 200
-    }))
-}
-
-pub async fn stub_dj_beatmap() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
-        "data": null,
-        "code": 200
-    }))
-}
-
-pub async fn stub_qq_playlist_tracks() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
-        "data": [],
-        "code": 200
-    }))
-}
-
-pub async fn stub_qq_song_comments() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
-        "comments": [],
-        "total": 0,
-        "code": 200
-    }))
-}
-
-pub async fn stub_weather_ip_location() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
-        "location": null,
-        "code": 200
-    }))
-}
-
-pub async fn stub_qq_logout() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
-        "provider": "qq", "ok": true, "loggedIn": false
-    }))
-}
-
-pub async fn stub_qq_user_playlists() -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
-        "provider": "qq", "loggedIn": false, "playlists": []
-    }))
-}
-
-pub async fn stub_qq_login_cookie(
-    _body: Json<Value>,
-) -> HttpResponse {
-    HttpResponse::Ok().json(serde_json::json!({
-        "provider": "qq", "loggedIn": false, "error": "QQ cookie login not yet implemented in Tauri build"
-    }))
-}
-
-pub async fn stub_qq_search(
-    req: HttpRequest,
-) -> HttpResponse {
-    let _query = parse_query(&req);
-    HttpResponse::Ok().json(serde_json::json!({
-        "provider": "qq", "songs": []
-    }))
-}
-
-pub async fn stub_qq_song_url(
-    req: HttpRequest,
-) -> HttpResponse {
-    let _query = parse_query(&req);
-    HttpResponse::Ok().json(serde_json::json!({
-        "provider": "qq", "url": "", "playable": false
-    }))
 }
 
 /// Generic invoke fallback: dispatches Tauri commands over HTTP when IPC fails.
@@ -225,10 +97,13 @@ pub async fn handle_invoke(
                     let sf = win.scale_factor().unwrap_or(1.0);
                     let size = win.inner_size().unwrap_or_default();
                     let pos = win.outer_position().unwrap_or_default();
+                    let is_fs = win.is_fullscreen().unwrap_or(false);
                     HttpResponse::Ok().json(serde_json::json!({
-                        "is_maximized": win.is_maximized().unwrap_or(false),
-                        "is_minimized": win.is_minimized().unwrap_or(false),
-                        "is_fullscreen": win.is_fullscreen().unwrap_or(false),
+                        "isMaximized": win.is_maximized().unwrap_or(false),
+                        "isMinimized": win.is_minimized().unwrap_or(false),
+                        "isFullscreen": is_fs,
+                        "isFullScreen": is_fs,
+                        "isNativeFullScreen": is_fs,
                         "width": size.width as f64 / sf,
                         "height": size.height as f64 / sf,
                         "x": pos.x as f64 / sf,

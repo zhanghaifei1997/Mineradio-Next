@@ -1,17 +1,19 @@
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
-use log::info;
+use log::{info, warn};
 use crate::{AppState, cookie_store};
+use crate::netease::api::login as netease_login;
 use std::sync::Arc;
 
 /// Open Netease login in an in-app webview and poll for MUSIC_U cookie.
 pub async fn open_netease_webview_login(app: AppHandle) -> Result<String, String> {
     let url = "https://music.163.com/#/login";
 
-    // If a login window already exists, just focus it — do NOT destroy and recreate
+    // If a login window already exists, clear stale webview cookies and destroy it
+    // so that a fresh webview is created without old MUSIC_U cookie from a previous session.
     if let Some(existing) = app.get_webview_window("login-netease") {
-        existing.show().ok();
-        existing.set_focus().ok();
-        return Ok("already_open".into());
+        existing.clear_all_browsing_data().ok();
+        existing.destroy().ok();
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
 
     let win = WebviewWindowBuilder::new(
@@ -48,7 +50,33 @@ async fn poll_netease_cookie(app: &AppHandle) {
         let has_cookie = check_netease_cookie(app).await;
 
         if let Some(cookie) = has_cookie {
-            info!("[login] Netease MUSIC_U cookie captured via webview");
+            info!("[login] Netease MUSIC_U cookie captured via webview ({} chars)", cookie.len());
+
+            // Validate the cookie against the Netease API before emitting success.
+            // This prevents stale cookies from a previous session being treated as valid login.
+            let is_valid = match netease_login::login_status(&cookie).await {
+                Ok(resp) => {
+                    let profile = resp.body.get("profile")
+                        .filter(|v| !v.is_null());
+                    let code = resp.body.get("code").and_then(|c| c.as_u64()).unwrap_or(0);
+                    if profile.is_some() {
+                        info!("[login] Netease cookie validated (code={})", code);
+                        true
+                    } else {
+                        warn!("[login] Netease cookie validation failed: code={}, profile is null/missing — stale cookie, continuing poll", code);
+                        false
+                    }
+                }
+                Err(e) => {
+                    warn!("[login] Netease cookie validation request failed: {} — continuing poll", e);
+                    false
+                }
+            };
+
+            if !is_valid {
+                continue; // Keep polling, the cookie is not from a fresh login
+            }
+
             // Emit event to frontend
             app.emit("netease-login-cookie", serde_json::json!({
                 "ok": true,
@@ -106,7 +134,11 @@ pub async fn open_netease_login(app: AppHandle) -> Result<String, String> {
 #[tauri::command]
 pub async fn clear_netease_login(app: AppHandle) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("login-netease") {
-        win.close().map_err(|e| e.to_string())?;
+        // Clear all webview browsing data (cookies, cache, etc.) to prevent
+        // stale MUSIC_U cookie from being detected on next login attempt.
+        win.clear_all_browsing_data().ok();
+        // Destroy the webview instead of just closing it to fully release resources.
+        win.destroy().map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -234,7 +266,8 @@ async fn check_qq_cookie(app: &AppHandle) -> Option<String> {
 #[tauri::command]
 pub async fn clear_qq_login(app: AppHandle) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("login-qq") {
-        win.close().map_err(|e| e.to_string())?;
+        win.clear_all_browsing_data().ok();
+        win.destroy().map_err(|e| e.to_string())?;
     }
     Ok(())
 }
