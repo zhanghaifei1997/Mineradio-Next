@@ -7580,7 +7580,7 @@ if (document.readyState === 'loading') {
 }
 
 function updateSkullParticleLayer(dt) {
-  var active = fx && fx.preset === SKULL_PRESET_INDEX;
+  var active = fx && fx.preset === SKULL_PRESET_INDEX && !(typeof terrainState !== 'undefined' && terrainState.enabled);
   if (active && !skullParticleAsset.data && !skullParticleAsset.failed) {
     loadSkullParticleAsset();
     return;
@@ -28774,7 +28774,7 @@ function animate() {
   tickGestureRotation(dt);
   var skullPresetActive = fx && fx.preset === SKULL_PRESET_INDEX;
   var pcPresetActive = fx && isPointCloudPreset(fx.preset);
-  var hideStdParticles = skullPresetActive || pcPresetActive;
+  var hideStdParticles = skullPresetActive || pcPresetActive || (typeof terrainState !== 'undefined' && terrainState.enabled);
   particles.visible = !hideStdParticles;
   if (bloomParticles) bloomParticles.visible = !hideStdParticles && fx.bloom && fx.bloomStrength > 0.01;
   if (floatGroup) floatGroup.visible = !hideStdParticles;
