@@ -8,7 +8,9 @@ mod cookie_store;
 use log::info;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
+use tauri::menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, LogicalSize, Manager};
 use tokio::sync::RwLock;
 
@@ -26,6 +28,10 @@ pub struct AppState {
     pub app_handle: Mutex<Option<tauri::AppHandle>>,
     /// App data directory for persisting cookies etc.
     pub data_dir: Mutex<Option<PathBuf>>,
+    /// Whether the close button should minimize to tray instead of quitting
+    pub close_to_tray: AtomicBool,
+    /// Whether the user explicitly chose to quit (via tray menu "退出")
+    pub app_quitting: AtomicBool,
 }
 
 impl Default for AppState {
@@ -37,6 +43,8 @@ impl Default for AppState {
             server_ready: AtomicBool::new(false),
             app_handle: Mutex::new(None),
             data_dir: Mutex::new(None),
+            close_to_tray: AtomicBool::new(true),
+            app_quitting: AtomicBool::new(false),
         }
     }
 }
@@ -110,6 +118,10 @@ pub fn run() {
             // App lifecycle
             commands::app::open_update_installer,
             commands::app::restart_app,
+            // Tray / startup
+            commands::tray::get_tray_settings,
+            commands::tray::set_close_to_tray,
+            commands::tray::set_startup_enabled,
         ])
         .setup(|app| {
             let app_handle = app.app_handle().clone();
@@ -123,14 +135,19 @@ pub fn run() {
                 let _ = std::fs::create_dir_all(&data_dir);
                 cookie_store::load_cookies(&state, &data_dir);
                 if let Ok(mut guard) = state.data_dir.lock() {
-                    *guard = Some(data_dir);
+                    *guard = Some(data_dir.clone());
                 }
+                // Load persisted close-to-tray setting before window is shown
+                let ctt = commands::tray::load_close_to_tray(&data_dir);
+                state.close_to_tray.store(ctt, Ordering::SeqCst);
+                info!("Close-to-tray: {}", ctt);
             }
             // Show main window only after HTTP server is ready (prevents blank screen)
+            let state_for_thread = state.clone();
             std::thread::spawn(move || {
                 // Wait up to 10 seconds for the HTTP server
                 for _ in 0..100 {
-                    if state.server_ready.load(Ordering::SeqCst) {
+                    if state_for_thread.server_ready.load(Ordering::SeqCst) {
                         break;
                     }
                     std::thread::sleep(std::time::Duration::from_millis(100));
@@ -140,7 +157,7 @@ pub fn run() {
                 std::thread::sleep(std::time::Duration::from_millis(200));
                 if let Some(window) = app_handle.get_webview_window("main") {
                     // Navigate from about:blank to the actual server URL
-                    let port = state.server_port.load(Ordering::SeqCst);
+                    let port = state_for_thread.server_port.load(Ordering::SeqCst);
                     let url = format!("http://localhost:{}/", port);
                     info!("Navigating main window to: {}", url);
                     if let Ok(parsed) = url::Url::parse(&url) {
@@ -195,10 +212,25 @@ pub fn run() {
                     window.set_focus().ok();
                 }
             });
+            // ── System tray icon ────────────────────────────────────────────
+            {
+                let _ = setup_tray(app.app_handle(), &state);
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
             match event {
+                // Intercept close: minimize to tray if close_to_tray is enabled
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    let state = window.state::<Arc<AppState>>().inner().clone();
+                    let quitting = state.app_quitting.load(Ordering::SeqCst);
+                    let close_to_tray = state.close_to_tray.load(Ordering::SeqCst);
+                    if !quitting && close_to_tray {
+                        api.prevent_close();
+                        let _ = window.hide();
+                        info!("Window hidden (close-to-tray)");
+                    }
+                }
                 tauri::WindowEvent::Resized(_) => {
                     // Debounce: emit state after resize settles.
                     // This catches fullscreen transitions (OS ESC, green button), maximize/unmaximize, etc.
@@ -218,4 +250,118 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+// ── System tray helpers ─────────────────────────────────────────────
+
+static TRAY_APP_HANDLE: OnceLock<tauri::AppHandle> = OnceLock::new();
+static TRAY_STATE: OnceLock<Arc<AppState>> = OnceLock::new();
+
+/// Create the system tray icon and initial menu. Called once from `setup`.
+fn setup_tray(app: &tauri::AppHandle, state: &Arc<AppState>) -> Result<(), Box<dyn std::error::Error>> {
+    let _ = TRAY_APP_HANDLE.set(app.clone());
+    let _ = TRAY_STATE.set(state.clone());
+    let menu = build_tray_menu(app, state)?;
+    let state_for_menu = state.clone();
+    TrayIconBuilder::with_id("main")
+        .icon(app.default_window_icon().cloned().unwrap())
+        .tooltip("Mineradio-Next")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(move |app, event| {
+            match event.id().as_ref() {
+                "show" => {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.unminimize();
+                        let _ = window.set_focus();
+                    }
+                }
+                "close_to_tray" => {
+                    let current = state_for_menu.close_to_tray.load(Ordering::SeqCst);
+                    state_for_menu.close_to_tray.store(!current, Ordering::SeqCst);
+                    if let Ok(data_dir) = app.path().app_data_dir() {
+                        commands::tray::write_tray_setting(
+                            &data_dir,
+                            "close_to_tray",
+                            &serde_json::Value::Bool(!current),
+                        );
+                    }
+                    refresh_tray_menu();
+                }
+                "startup" => {
+                    let current = commands::tray::is_startup_enabled();
+                    commands::tray::set_startup_enabled_platform(!current);
+                    refresh_tray_menu();
+                }
+                "quit" => {
+                    state_for_menu.app_quitting.store(true, Ordering::SeqCst);
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.close();
+                    }
+                    app.exit(0);
+                }
+                _ => {}
+            }
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                let app = tray.app_handle();
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.unminimize();
+                    let _ = window.set_focus();
+                }
+            }
+        })
+        .build(app)?;
+    info!("System tray icon created");
+    Ok(())
+}
+
+/// Rebuild the tray menu with current checkbox states. Called when settings change.
+pub fn refresh_tray_menu() {
+    let (Some(app), Some(state)) = (TRAY_APP_HANDLE.get(), TRAY_STATE.get()) else {
+        return;
+    };
+    if let Ok(menu) = build_tray_menu(app, state) {
+        if let Some(tray) = app.tray_by_id("main") {
+            let _ = tray.set_menu(Some(menu));
+        }
+    }
+}
+
+/// Build the tray context menu from current state.
+fn build_tray_menu(
+    app: &tauri::AppHandle,
+    state: &Arc<AppState>,
+) -> Result<tauri::menu::Menu<tauri::Wry>, Box<dyn std::error::Error>> {
+    let close_to_tray = state.close_to_tray.load(Ordering::SeqCst);
+
+    let show_item = MenuItemBuilder::with_id("show", "显示 Mineradio-Next").build(app)?;
+    let close_to_tray_item =
+        CheckMenuItemBuilder::with_id("close_to_tray", "关闭按钮最小化到托盘")
+            .checked(close_to_tray)
+            .build(app)?;
+    let startup_item =
+        CheckMenuItemBuilder::with_id("startup", "开机自动启动")
+            .checked(commands::tray::is_startup_enabled())
+            .build(app)?;
+    let sep = PredefinedMenuItem::separator(app)?;
+    let quit_item = MenuItemBuilder::with_id("quit", "退出 Mineradio-Next").build(app)?;
+
+    let menu = MenuBuilder::new(app)
+        .item(&show_item)
+        .item(&close_to_tray_item)
+        .item(&startup_item)
+        .item(&sep)
+        .item(&quit_item)
+        .build()?;
+
+    Ok(menu)
 }

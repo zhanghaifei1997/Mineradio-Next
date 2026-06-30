@@ -22,6 +22,9 @@ permissions = [
   "allow-import-json-file",
   "allow-open-update-installer",
   "allow-restart-app",
+  "allow-get-tray-settings",
+  "allow-set-close-to-tray",
+  "allow-set-startup-enabled",
 ]
 
 [[permission]]
@@ -118,3 +121,18 @@ commands.allow = ["open_update_installer"]
 identifier = "allow-restart-app"
 description = "Enables the restart_app command"
 commands.allow = ["restart_app"]
+
+[[permission]]
+identifier = "allow-get-tray-settings"
+description = "Enables the get_tray_settings command"
+commands.allow = ["get_tray_settings"]
+
+[[permission]]
+identifier = "allow-set-close-to-tray"
+description = "Enables the set_close_to_tray command"
+commands.allow = ["set_close_to_tray"]
+
+[[permission]]
+identifier = "allow-set-startup-enabled"
+description = "Enables the set_startup_enabled command"
+commands.allow = ["set_startup_enabled"]

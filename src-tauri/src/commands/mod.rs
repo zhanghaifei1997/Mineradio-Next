@@ -5,3 +5,4 @@ pub mod lyrics;
 pub mod wallpaper;
 pub mod file;
 pub mod app;
+pub mod tray;

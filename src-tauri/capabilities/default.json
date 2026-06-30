@@ -73,6 +73,9 @@
     "allow-export-json-file",
     "allow-import-json-file",
     "allow-open-update-installer",
-    "allow-restart-app"
+    "allow-restart-app",
+    "allow-get-tray-settings",
+    "allow-set-close-to-tray",
+    "allow-set-startup-enabled"
   ]
 }
