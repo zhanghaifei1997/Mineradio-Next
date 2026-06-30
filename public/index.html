@@ -7440,9 +7440,22 @@ function initTerrainVisualization() {
   terrainBuildMesh(terrainState.gridSize);
 }
 
+function setPresetVisualsVisible(visible) {
+  if (particles) particles.visible = visible;
+  if (bloomParticles) bloomParticles.visible = visible;
+  if (floatGroup) floatGroup.visible = visible;
+  if (backCoverGroup) backCoverGroup.visible = visible;
+  if (skullParticleGroup) skullParticleGroup.visible = visible;
+  // Point cloud groups
+  if (typeof pcGroup !== 'undefined' && pcGroup) pcGroup.visible = visible;
+  if (typeof pcGlowGroup !== 'undefined' && pcGlowGroup) pcGlowGroup.visible = visible;
+  if (typeof pcDustGroup !== 'undefined' && pcDustGroup) pcDustGroup.visible = visible;
+}
+
 function setTerrainEnabled(enabled) {
   terrainState.enabled = enabled;
   if (enabled) initTerrainVisualization();
+  setPresetVisualsVisible(!enabled);
   var cb = document.getElementById('terrain-enable');
   if (cb) cb.checked = enabled;
   saveTerrainState();
@@ -7529,7 +7542,7 @@ function updateTerrainThemeButtons() {
 function initTerrainUI() {
   loadTerrainState();
   var enableCb = document.getElementById('terrain-enable');
-  if (enableCb) { enableCb.checked = terrainState.enabled; if (terrainState.enabled) initTerrainVisualization(); }
+  if (enableCb) { enableCb.checked = terrainState.enabled; if (terrainState.enabled) { initTerrainVisualization(); setPresetVisualsVisible(false); } }
   updateTerrainThemeButtons();
   var sliders = {
     'terrain-gridsize': { key:'gridSize', parse:function(v){return parseInt(v)}, rebuild:true },
