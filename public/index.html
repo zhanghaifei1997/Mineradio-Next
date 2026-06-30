@@ -7194,6 +7194,7 @@ var TERRAIN_SHELF_SCALE = 2.5;
 var TERRAIN_SHELF_Y_OFFSET = 1.5;
 var TERRAIN_LYRICS_SCALE = 2.0;
 var TERRAIN_LYRICS_Y_OFFSET = 1.0;
+var TERRAIN_DEFAULT_RADIUS = 20;
 
 var TERRAIN_THEMES = {
   'nocturnal': { name:'夜行', bc1:[0.01,0.02,0.04], bc2:[0.03,0.05,0.09], fog:[0.01,0.02,0.04], cc:[0,0.3,1], ce:[0.6,0.2,1], wc:[1,0.2,0.1], we:[1,0.6,0], rc:[0.2,0.9,1], gi:1.0 },
@@ -7506,7 +7507,11 @@ function updateTerrainVisualization(dt) {
   var u = terrainMat.uniforms, t = uniforms.uTime.value;
   u.uTime.value = t;
   u.uAmplitude.value = terrainState.amplitude;
-  u.uFogDistance.value = terrainState.fogDistance;
+  // 地形尺寸跟随相机距离动态缩放（缩放调整歌单歌词距离，地形视觉恒定）
+  var tScale = (typeof orbit !== 'undefined' && orbit.radius > 0) ? orbit.radius / TERRAIN_DEFAULT_RADIUS : 1;
+  tScale = Math.max(0.5, tScale);
+  terrainMesh.scale.setScalar(tScale);
+  u.uFogDistance.value = terrainState.fogDistance * tScale;
   u.uOpacity.value = terrainOpacity;
   var bs = terrainState.bassSensitivity, ms = terrainState.midSensitivity, ts = terrainState.trebleSensitivity;
   u.uSubBass.value = terrainSmoothed.subBass * bs * 1.8;
