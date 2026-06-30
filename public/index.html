@@ -5336,6 +5336,8 @@ function activateFocusZone(type) {
   }
 }
 function setFocusZone(type, immediate) {
+  // 地形模式下锁定相机，不允许 focus zone 改变视角
+  if (typeof terrainState !== 'undefined' && terrainState.enabled) return;
   if (type && !shouldUseShelfDynamicCamera(type)) {
     if (/^shelf-/.test(String(orbit.focus.type || ''))) orbit.focus.active = false;
     type = null;
