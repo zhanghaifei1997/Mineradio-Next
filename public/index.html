@@ -74,7 +74,11 @@ body.desktop-shell #toast{top:60px}
 #fullscreen-diy-btn{min-width:108px;height:34px;opacity:0;pointer-events:none;transform:translateY(-18px) scale(.96);transition:opacity .2s cubic-bezier(.16,1,.3,1),transform .2s cubic-bezier(.16,1,.3,1),background .18s,color .18s,border-color .18s,box-shadow .18s}
 body.visual-guide-active #fullscreen-diy-zone{opacity:0;pointer-events:none!important;transition:opacity .18s cubic-bezier(.16,1,.3,1)}
 body.visual-guide-active #fullscreen-diy-btn{opacity:0!important;pointer-events:none!important;transform:translateY(-18px) scale(.96)!important}
-body.desktop-shell.desktop-fullscreen #desktop-titlebar,html:fullscreen body.desktop-shell #desktop-titlebar{display:none!important}
+body.desktop-shell.desktop-fullscreen #desktop-titlebar,html:fullscreen body.desktop-shell #desktop-titlebar{visibility:hidden;opacity:0;pointer-events:none!important;transform:translateY(-100%);transition:visibility 0s .18s,opacity .18s ease,transform .22s cubic-bezier(.16,1,.3,1)}
+body.desktop-shell.desktop-fullscreen.desktop-fullscreen-titlebar-peek #desktop-titlebar,html:fullscreen body.desktop-shell.desktop-fullscreen-titlebar-peek #desktop-titlebar{visibility:visible;opacity:1;pointer-events:auto;transform:translateY(0);transition:visibility 0s,opacity .16s ease,transform .22s cubic-bezier(.16,1,.3,1)}
+body.desktop-shell.desktop-fullscreen #desktop-titlebar .desktop-drag-region,body.desktop-shell.desktop-fullscreen #desktop-titlebar .desktop-window-controls{-webkit-app-region:no-drag}
+body.desktop-shell.desktop-fullscreen.desktop-fullscreen-titlebar-peek #desktop-titlebar .desktop-drag-region{pointer-events:auto;-webkit-app-region:drag}
+body.desktop-shell.desktop-fullscreen.desktop-fullscreen-titlebar-peek #desktop-titlebar .desktop-window-controls{pointer-events:auto;-webkit-app-region:no-drag}
 body.desktop-shell.desktop-fullscreen #fullscreen-diy-zone,html:fullscreen body.desktop-shell #fullscreen-diy-zone{display:flex}
 body.fullscreen-diy-peek #fullscreen-diy-zone,#fullscreen-diy-zone:hover{pointer-events:auto}
 body.fullscreen-diy-peek #fullscreen-diy-btn,#fullscreen-diy-zone:hover #fullscreen-diy-btn{opacity:1;pointer-events:auto;transform:translateY(0) scale(1)}
@@ -7251,7 +7255,7 @@ void main(){
 }`;
 
 var terrainFS = `
-uniform float uTime, uPresence, uBrilliance, uAir, uWarmth, uBrightness, uSharpness, uGlowIntensity;
+uniform float uTime, uPresence, uBrilliance, uAir, uWarmth, uBrightness, uSharpness, uGlowIntensity, uFogDistance, uOpacity;
 uniform vec3 uBaseColor1, uBaseColor2, uFogColor, uCoolCore, uCoolEdge, uWarmCore, uWarmEdge, uRippleColor;
 varying vec2 vUv, vRippleAnim, vInstancePos;
 varying float vElevation, vDistance, vRelativeY;
@@ -7300,7 +7304,7 @@ void main(){
   vec3 atm=mix(b1,b2,0.4);fc=mix(fc,atm,af*0.35);
   float alphaFade=1.0-smoothstep(55.0,uFogDistance,vDistance);
   float ab=1.0-alphaFade;fc=mix(fc,uFogColor,ab*0.45);
-  gl_FragColor=vec4(fc,alphaFade);
+  gl_FragColor=vec4(fc,alphaFade*uOpacity);
 }`;
 
 function terrainGetTheme() { return TERRAIN_THEMES[terrainState.theme] || TERRAIN_THEMES['nocturnal']; }
@@ -7353,9 +7357,10 @@ function terrainBuildMesh(gridSize) {
       uGlowIntensity:{value:th.gi},
       uPresence:{value:0}, uBrilliance:{value:0}, uAir:{value:0},
       uWarmth:{value:0}, uBrightness:{value:0}, uSharpness:{value:0},
-      uFogDistance:{value:terrainState.fogDistance}
+      uFogDistance:{value:terrainState.fogDistance},
+      uOpacity:{value:1.0}
     },
-    vertexShader: terrainVS, fragmentShader: terrainFS, transparent: true, side: THREE.DoubleSide
+    vertexShader: terrainVS, fragmentShader: terrainFS, transparent: true, side: THREE.DoubleSide, depthWrite: false
   });
   terrainMesh = new THREE.InstancedMesh(geo, terrainMat, count);
   var tmpMat = new THREE.Matrix4(), offset = (gridSize * spacing) / 2;
@@ -7365,7 +7370,7 @@ function terrainBuildMesh(gridSize) {
   }
   terrainMesh.instanceMatrix.needsUpdate = true;
   terrainMesh.frustumCulled = false;
-  terrainMesh.renderOrder = -1;
+  terrainMesh.renderOrder = 10;
   terrainMesh.visible = false;
   scene.add(terrainMesh);
   terrainCurrentGrid = gridSize;
@@ -7438,6 +7443,8 @@ function initTerrainVisualization() {
 function setTerrainEnabled(enabled) {
   terrainState.enabled = enabled;
   if (enabled) initTerrainVisualization();
+  var cb = document.getElementById('terrain-enable');
+  if (cb) cb.checked = enabled;
   saveTerrainState();
 }
 
@@ -7448,7 +7455,7 @@ function setTerrainTheme(themeId) {
 }
 
 function updateTerrainVisualization(dt) {
-  if (!terrainState.enabled || !terrainMesh) return;
+  if (!terrainMesh) return;
   var target = terrainState.enabled ? 1 : 0;
   terrainOpacity += (target - terrainOpacity) * Math.min(1, dt * 4.0);
   terrainMesh.visible = terrainOpacity > 0.005;
@@ -7459,6 +7466,7 @@ function updateTerrainVisualization(dt) {
   u.uTime.value = t;
   u.uAmplitude.value = terrainState.amplitude;
   u.uFogDistance.value = terrainState.fogDistance;
+  u.uOpacity.value = terrainOpacity;
   var bs = terrainState.bassSensitivity, ms = terrainState.midSensitivity, ts = terrainState.trebleSensitivity;
   u.uSubBass.value = terrainSmoothed.subBass * bs * 4.0;
   u.uBass.value = terrainSmoothed.bass * bs * 4.0;
@@ -23074,6 +23082,8 @@ function setPreset(p, opts) {
   var prev = fx.preset;
   var changed = prev !== p;
   fx.preset = p;
+  // Disable terrain when switching presets
+  if (changed && terrainState.enabled) setTerrainEnabled(false);
   if (changed && prev === SKULL_PRESET_INDEX && p !== SKULL_PRESET_INDEX) clearSkullPresetResidue();
   if (changed && isPointCloudPreset(prev) && !isPointCloudPreset(p)) clearPointCloudResidue();
   if (p === SKULL_PRESET_INDEX) loadSkullParticleAsset();
@@ -28276,6 +28286,7 @@ function toggleFullscreen() {
       scheduleMainRendererViewportRefresh('desktop-shell-state');
       if (!isFullScreen) {
         document.body.classList.remove('fullscreen-diy-peek');
+        document.body.classList.remove('desktop-fullscreen-titlebar-peek');
         setTimeout(function(){ clearPlayerControlFocusState('desktop-fullscreen-exit'); }, 80);
       }
     }
@@ -28310,6 +28321,56 @@ function toggleFullscreen() {
     });
   });
 
+  // ─── Fullscreen titlebar peek: show titlebar when mouse hovers near top ───
+  var _fsPeekRaf = 0;
+  var _fsPeekActive = false;
+  var _fsPeekTitlebarHover = false;
+  function updateFullscreenTitlebarPeek(clientY) {
+    var inFullscreen = !!(desktopFullscreenActive || document.fullscreenElement);
+    if (!inFullscreen) {
+      if (_fsPeekActive) {
+        document.body.classList.remove('desktop-fullscreen-titlebar-peek');
+        _fsPeekActive = false;
+        _fsPeekTitlebarHover = false;
+      }
+      return;
+    }
+    var titlebar = document.getElementById('desktop-titlebar');
+    if (_fsPeekTitlebarHover && titlebar) {
+      var rect = titlebar.getBoundingClientRect();
+      if (clientY <= rect.bottom + 8) return; // still over titlebar, keep showing
+    }
+    var shouldPeek = clientY <= 8;
+    if (shouldPeek !== _fsPeekActive) {
+      _fsPeekActive = shouldPeek;
+      _fsPeekTitlebarHover = shouldPeek;
+      document.body.classList.toggle('desktop-fullscreen-titlebar-peek', shouldPeek);
+    }
+  }
+  document.addEventListener('mousemove', function(e) {
+    if (!desktopFullscreenActive && !document.fullscreenElement) {
+      if (_fsPeekActive) {
+        document.body.classList.remove('desktop-fullscreen-titlebar-peek');
+        _fsPeekActive = false;
+        _fsPeekTitlebarHover = false;
+      }
+      return;
+    }
+    if (_fsPeekRaf) return;
+    var y = e.clientY;
+    _fsPeekRaf = requestAnimationFrame(function() {
+      _fsPeekRaf = 0;
+      updateFullscreenTitlebarPeek(y);
+    });
+  });
+  // Hide peek when titlebar mouse leaves (titlebar is visible, mouse exits it)
+  document.addEventListener('mouseleave', function() {
+    if (_fsPeekActive) {
+      document.body.classList.remove('desktop-fullscreen-titlebar-peek');
+      _fsPeekActive = false;
+      _fsPeekTitlebarHover = false;
+    }
+  });
   if (typeof api.onDesktopLyricsLockState === 'function') {
     api.onDesktopLyricsLockState(function(payload){
       var locked = !payload || payload.locked !== false;

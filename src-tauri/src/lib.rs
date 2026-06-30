@@ -9,7 +9,7 @@ use log::info;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::{LogicalSize, Manager};
+use tauri::{Emitter, LogicalSize, Manager};
 use tokio::sync::RwLock;
 
 /// Shared application state accessible across Tauri commands and HTTP server.
@@ -196,6 +196,25 @@ pub fn run() {
                 }
             });
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            match event {
+                tauri::WindowEvent::Resized(_) => {
+                    // Debounce: emit state after resize settles.
+                    // This catches fullscreen transitions (OS ESC, green button), maximize/unmaximize, etc.
+                    let win = window.clone();
+                    std::thread::spawn(move || {
+                        std::thread::sleep(std::time::Duration::from_millis(80));
+                        let state = commands::window::get_state(&win);
+                        let _ = win.emit("desktop-window-state", state);
+                    });
+                }
+                tauri::WindowEvent::Focused(_) => {
+                    let state = commands::window::get_state(window);
+                    let _ = window.emit("desktop-window-state", state);
+                }
+                _ => {}
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -21,13 +21,13 @@ GitHub 仓库：`https://github.com/zhanghaifei1997/Mineradio-Next`
 Release tag：
 
 ```text
-v1.1.1
+v1.1.4
 ```
 
 Release 标题：
 
 ```text
-Mineradio-Next v1.1.1
+Mineradio-Next v1.1.4
 ```
 
 建议上传资产：
@@ -43,10 +43,10 @@ Mineradio-Next v1.1.1
 
 ```json
 {
-  "latestVersion": "1.1.1-test",
+  "latestVersion": "1.1.4-test",
   "release": {
-    "name": "Mineradio-Next v1.1.1-test",
-    "downloadUrl": "http://127.0.0.1:3144/Mineradio-Next-1.1.1-Setup.exe",
+    "name": "Mineradio-Next v1.1.4-test",
+    "downloadUrl": "http://127.0.0.1:3144/Mineradio-Next-1.1.4-Setup.exe",
     "notes": ["本地在线更新链路测试"]
   }
 }
