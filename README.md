@@ -10,9 +10,9 @@ Mineradio-Next 是一款基于 [Mineradio](https://github.com/XxHuberrr/Mineradi
 
 | 平台 | 安装包 | 下载 |
 | --- | --- | --- |
-| Windows (x64) | NSIS 安装程序 | [Mineradio-Next_1.1.2_x64-setup.exe](https://github.com/zhanghaifei1997/Mineradio-Next/releases/download/v1.1.2/Mineradio-Next_1.1.2_x64-setup.exe) |
-| Windows (x64) | MSI 安装包 | [Mineradio-Next_1.1.2_x64_en-US.msi](https://github.com/zhanghaifei1997/Mineradio-Next/releases/download/v1.1.2/Mineradio-Next_1.1.2_x64_en-US.msi) |
-| macOS (Apple Silicon) | DMG | [Mineradio-Next_1.1.2_aarch64.dmg](https://github.com/zhanghaifei1997/Mineradio-Next/releases/download/v1.1.2/Mineradio-Next_1.1.2_aarch64.dmg) |
+| Windows (x64) | NSIS 安装程序 | [Mineradio-Next_1.1.3_x64-setup.exe](https://github.com/zhanghaifei1997/Mineradio-Next/releases/download/v1.1.3/Mineradio-Next_1.1.3_x64-setup.exe) |
+| Windows (x64) | MSI 安装包 | [Mineradio-Next_1.1.3_x64_en-US.msi](https://github.com/zhanghaifei1997/Mineradio-Next/releases/download/v1.1.3/Mineradio-Next_1.1.3_x64_en-US.msi) |
+| macOS (Apple Silicon) | DMG | [Mineradio-Next_1.1.3_aarch64.dmg](https://github.com/zhanghaifei1997/Mineradio-Next/releases/download/v1.1.3/Mineradio-Next_1.1.3_aarch64.dmg) |
 
 更多版本见 [GitHub Releases](https://github.com/zhanghaifei1997/Mineradio-Next/releases)。
 
@@ -28,7 +28,7 @@ Mineradio-Next 是一款基于 [Mineradio](https://github.com/XxHuberrr/Mineradi
 
 ## 当前版本
 
-当前版本：`1.1.2`
+当前版本：`1.1.3`
 
 ## 核心特性
 
