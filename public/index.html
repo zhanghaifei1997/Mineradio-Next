@@ -7190,6 +7190,10 @@ var TERRAIN_METEOR_MAX = 20, TERRAIN_PARTICLE_MAX = 200;
 var terrainSmoothed = { subBass:0, bass:0, lowMid:0, mid:0, highMid:0, presence:0, brilliance:0, air:0, warmth:0, brightness:0, sharpness:0, smoothness:0, energy:0 };
 var terrainPrevBrightness = 0;
 var terrainOrbitSaved = null;
+var TERRAIN_SHELF_SCALE = 2.5;
+var TERRAIN_SHELF_Y_OFFSET = 1.5;
+var TERRAIN_LYRICS_SCALE = 2.0;
+var TERRAIN_LYRICS_Y_OFFSET = 1.0;
 
 var TERRAIN_THEMES = {
   'nocturnal': { name:'夜行', bc1:[0.01,0.02,0.04], bc2:[0.03,0.05,0.09], fog:[0.01,0.02,0.04], cc:[0,0.3,1], ce:[0.6,0.2,1], wc:[1,0.2,0.1], we:[1,0.6,0], rc:[0.2,0.9,1], gi:1.0 },
@@ -15089,6 +15093,7 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
       rebuild(asyncCards);
     },
     getMode: function(){ return mode; },
+    getGroup: function(){ return group; },
     update: function(dt) {
       if (!group) return;
       // PSP 滚动平滑
@@ -28784,6 +28789,14 @@ function animate() {
   updateRipples(dt);
   updateFloatLayer(dt);
   if (shelfManager) shelfManager.update(dt);
+  // 地形模式下调整歌单架尺寸和位置
+  if (terrainState && terrainState.enabled && shelfManager) {
+    var _sg = shelfManager.getGroup && shelfManager.getGroup();
+    if (_sg) { _sg.scale.setScalar(TERRAIN_SHELF_SCALE); _sg.position.y += TERRAIN_SHELF_Y_OFFSET; }
+  } else if (shelfManager) {
+    var _sg2 = shelfManager.getGroup && shelfManager.getGroup();
+    if (_sg2) _sg2.scale.setScalar(1);
+  }
   tickLyricsParticles();
   updateHomeAudioVisual(dt);
 
@@ -28820,6 +28833,13 @@ function animate() {
   updatePointCloudLayer(dt);
   updateTerrainVisualization(dt);
   updateStageLyrics3D(dt);
+  // 地形模式下调整歌词尺寸和位置
+  if (terrainState && terrainState.enabled && stageLyrics.group) {
+    stageLyrics.group.scale.setScalar(TERRAIN_LYRICS_SCALE);
+    stageLyrics.group.position.y += TERRAIN_LYRICS_Y_OFFSET;
+  } else if (stageLyrics.group) {
+    stageLyrics.group.scale.setScalar(1);
+  }
   syncDesktopOverlayState();
 
   // 缩略图脉动
