@@ -1,0 +1,58 @@
+name: Build & Test
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - dev
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - master
+      - main
+
+jobs:
+  build:
+    name: Build (Tauri + Rust)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Cargo check
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Cargo test
+        run: cargo test --manifest-path src-tauri/Cargo.toml --no-run
+        continue-on-error: true
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: Tauri build (dry run)
+        run: cargo tauri build --no-bundle
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ""

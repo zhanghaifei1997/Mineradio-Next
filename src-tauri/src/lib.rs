@@ -1,30 +1,25 @@
 mod commands;
 mod netease;
 mod qq;
-mod server;
 mod dj_analyzer;
 mod cookie_store;
 
 use log::info;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use tauri::menu::{CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, LogicalSize, Manager};
 use tokio::sync::RwLock;
 
-/// Shared application state accessible across Tauri commands and HTTP server.
+/// Shared application state accessible across Tauri commands.
 pub struct AppState {
     /// Netease login cookie string
     pub netease_cookie: RwLock<String>,
     /// QQ Music login cookie string
     pub qq_cookie: RwLock<String>,
-    /// HTTP server port (assigned at runtime)
-    pub server_port: AtomicU16,
-    /// Whether the HTTP server is ready to accept connections
-    pub server_ready: AtomicBool,
-    /// Tauri AppHandle for HTTP server to access Tauri APIs
+    /// Tauri AppHandle for commands to access Tauri APIs
     pub app_handle: Mutex<Option<tauri::AppHandle>>,
     /// App data directory for persisting cookies etc.
     pub data_dir: Mutex<Option<PathBuf>>,
@@ -39,8 +34,6 @@ impl Default for AppState {
         Self {
             netease_cookie: RwLock::new(String::new()),
             qq_cookie: RwLock::new(String::new()),
-            server_port: AtomicU16::new(3000),
-            server_ready: AtomicBool::new(false),
             app_handle: Mutex::new(None),
             data_dir: Mutex::new(None),
             close_to_tray: AtomicBool::new(true),
@@ -55,21 +48,6 @@ pub fn run() {
     info!("Mineradio-Next v{} starting (Tauri build)", env!("CARGO_PKG_VERSION"));
 
     let state = Arc::new(AppState::default());
-
-    // Spawn the HTTP API server on a background tokio runtime
-    let server_state = Arc::clone(&state);
-    std::thread::spawn(move || {
-        let rt = tokio::runtime::Runtime::new().expect("Failed to create HTTP server runtime");
-        rt.block_on(async {
-            let port = server::start_server(server_state).await;
-            info!("HTTP API server stopped on port {}", port);
-        });
-        // When the HTTP server stops, exit the process to prevent orphaned
-        // WebView windows that show a broken page (ERR_CONNECTION_REFUSED).
-        // This commonly happens when `cargo tauri dev` is interrupted with Ctrl+C.
-        info!("HTTP server thread ended, exiting process to clean up WebView");
-        std::process::exit(0);
-    });
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -122,11 +100,47 @@ pub fn run() {
             commands::tray::get_tray_settings,
             commands::tray::set_close_to_tray,
             commands::tray::set_startup_enabled,
+            // ── Netease API commands ──
+            commands::netease_api::netease_search,
+            commands::netease_api::netease_song_url,
+            commands::netease_api::netease_lyric,
+            commands::netease_api::netease_user_playlists,
+            commands::netease_api::netease_playlist_tracks,
+            commands::netease_api::netease_playlist_create,
+            commands::netease_api::netease_playlist_add_song,
+            commands::netease_api::netease_song_like,
+            commands::netease_api::netease_song_like_check,
+            commands::netease_api::netease_artist_detail,
+            commands::netease_api::netease_song_comments,
+            commands::netease_api::netease_podcast_search,
+            commands::netease_api::netease_podcast_hot,
+            commands::netease_api::netease_podcast_detail,
+            commands::netease_api::netease_podcast_programs,
+            commands::netease_api::netease_podcast_my,
+            commands::netease_api::netease_discover_home,
+            commands::netease_api::netease_login_status,
+            commands::netease_api::netease_logout,
+            commands::netease_api::netease_login_cookie,
+            // ── QQ API commands ──
+            commands::qq_api::qq_search,
+            commands::qq_api::qq_song_url,
+            commands::qq_api::qq_lyric,
+            commands::qq_api::qq_artist_detail,
+            commands::qq_api::qq_playlist_tracks,
+            commands::qq_api::qq_song_comments,
+            commands::qq_api::qq_login_status,
+            commands::qq_api::qq_logout,
+            commands::qq_api::qq_login_cookie,
+            commands::qq_api::qq_user_playlists,
+            // ── Update & Weather ──
+            commands::update_cmd::update_latest,
+            commands::weather_cmd::weather_radio,
+            commands::weather_cmd::weather_ip_location,
         ])
         .setup(|app| {
             let app_handle = app.app_handle().clone();
             let state = app.state::<Arc<AppState>>().inner().clone();
-            // Store AppHandle so HTTP server can use Tauri APIs (shell.open, etc.)
+            // Store AppHandle for commands to use Tauri APIs (shell.open, etc.)
             if let Ok(mut guard) = state.app_handle.lock() {
                 *guard = Some(app_handle.clone());
             }
@@ -142,76 +156,55 @@ pub fn run() {
                 state.close_to_tray.store(ctt, Ordering::SeqCst);
                 info!("Close-to-tray: {}", ctt);
             }
-            // Show main window only after HTTP server is ready (prevents blank screen)
-            let state_for_thread = state.clone();
-            std::thread::spawn(move || {
-                // Wait up to 10 seconds for the HTTP server
-                for _ in 0..100 {
-                    if state_for_thread.server_ready.load(Ordering::SeqCst) {
-                        break;
-                    }
-                    std::thread::sleep(std::time::Duration::from_millis(100));
+            // Show main window with proper initial bounds
+            if let Some(window) = app_handle.get_webview_window("main") {
+                // Always start windowed with properly calculated bounds
+                if window.is_fullscreen().unwrap_or(false) {
+                    info!("Clearing persisted fullscreen state");
+                    window.set_fullscreen(false).ok();
                 }
-                info!("HTTP server ready, showing main window");
-                // Small extra delay to ensure actix is fully accepting connections
-                std::thread::sleep(std::time::Duration::from_millis(200));
-                if let Some(window) = app_handle.get_webview_window("main") {
-                    // Navigate from about:blank to the actual server URL
-                    let port = state_for_thread.server_port.load(Ordering::SeqCst);
-                    let url = format!("http://localhost:{}/", port);
-                    info!("Navigating main window to: {}", url);
-                    if let Ok(parsed) = url::Url::parse(&url) {
-                        window.navigate(parsed).ok();
-                    }
-                    // Always start windowed with properly calculated bounds (like Electron's getWindowedBounds)
-                    if window.is_fullscreen().unwrap_or(false) {
-                        info!("Clearing persisted fullscreen state");
-                        window.set_fullscreen(false).ok();
-                    }
-                    if window.is_maximized().unwrap_or(false) {
-                        window.unmaximize().ok();
-                    }
-                    // Calculate reasonable windowed bounds: 3/4 of screen, 16:9 aspect
-                    if let Ok(monitors) = app_handle.available_monitors() {
-                        // Use the primary (first) monitor
-                        if let Some(monitor) = monitors.first() {
-                            let mon_size = monitor.size();
-                            let scale = window.scale_factor().unwrap_or(1.0);
-                            let mon_w = mon_size.width as f64 / scale;
-                            let mon_h = mon_size.height as f64 / scale;
-                            let margin = 32.0_f64;
-                            let min_w = 960.0_f64;
-                            let min_h = 540.0_f64;
-                            let max_w = (mon_w - margin).max(640.0);
-                            let max_h = (mon_h - margin).max(360.0);
-                            let mut w = (mon_w * 0.75).round();
-                            let mut h = (w / (16.0 / 9.0)).round();
-                            let scaled_h = (mon_h * 0.75).round();
-                            if h > scaled_h {
-                                h = scaled_h;
-                                w = (h * (16.0 / 9.0)).round();
-                            }
-                            if w < min_w && max_w >= min_w && max_h >= min_h {
-                                w = min_w;
-                                h = min_h;
-                            }
-                            if w > max_w {
-                                w = max_w;
-                                h = (w / (16.0 / 9.0)).round();
-                            }
-                            if h > max_h {
-                                h = max_h;
-                                w = (h * (16.0 / 9.0)).round();
-                            }
-                            info!("Setting initial window size to {}x{} (monitor: {}x{} @ {:.2}x)", w, h, mon_w, mon_h, scale);
-                            window.set_size(LogicalSize::new(w, h)).ok();
+                if window.is_maximized().unwrap_or(false) {
+                    window.unmaximize().ok();
+                }
+                // Calculate reasonable windowed bounds: 3/4 of screen, 16:9 aspect
+                if let Ok(monitors) = app_handle.available_monitors() {
+                    if let Some(monitor) = monitors.first() {
+                        let mon_size = monitor.size();
+                        let scale = window.scale_factor().unwrap_or(1.0);
+                        let mon_w = mon_size.width as f64 / scale;
+                        let mon_h = mon_size.height as f64 / scale;
+                        let margin = 32.0_f64;
+                        let min_w = 960.0_f64;
+                        let min_h = 540.0_f64;
+                        let max_w = (mon_w - margin).max(640.0);
+                        let max_h = (mon_h - margin).max(360.0);
+                        let mut w = (mon_w * 0.75).round();
+                        let mut h = (w / (16.0 / 9.0)).round();
+                        let scaled_h = (mon_h * 0.75).round();
+                        if h > scaled_h {
+                            h = scaled_h;
+                            w = (h * (16.0 / 9.0)).round();
                         }
+                        if w < min_w && max_w >= min_w && max_h >= min_h {
+                            w = min_w;
+                            h = min_h;
+                        }
+                        if w > max_w {
+                            w = max_w;
+                            h = (w / (16.0 / 9.0)).round();
+                        }
+                        if h > max_h {
+                            h = max_h;
+                            w = (h * (16.0 / 9.0)).round();
+                        }
+                        info!("Setting initial window size to {}x{} (monitor: {}x{} @ {:.2}x)", w, h, mon_w, mon_h, scale);
+                        window.set_size(LogicalSize::new(w, h)).ok();
                     }
-                    window.center().ok();
-                    window.show().ok();
-                    window.set_focus().ok();
                 }
-            });
+                window.center().ok();
+                window.show().ok();
+                window.set_focus().ok();
+            }
             // ── System tray icon ────────────────────────────────────────────
             {
                 let _ = setup_tray(app.app_handle(), &state);
@@ -232,8 +225,6 @@ pub fn run() {
                     }
                 }
                 tauri::WindowEvent::Resized(_) => {
-                    // Debounce: emit state after resize settles.
-                    // This catches fullscreen transitions (OS ESC, green button), maximize/unmaximize, etc.
                     let win = window.clone();
                     std::thread::spawn(move || {
                         std::thread::sleep(std::time::Duration::from_millis(80));
@@ -324,7 +315,7 @@ fn setup_tray(app: &tauri::AppHandle, state: &Arc<AppState>) -> Result<(), Box<d
     Ok(())
 }
 
-/// Rebuild the tray menu with current checkbox states. Called when settings change.
+/// Rebuild the tray menu with current checkbox states.
 pub fn refresh_tray_menu() {
     let (Some(app), Some(state)) = (TRAY_APP_HANDLE.get(), TRAY_STATE.get()) else {
         return;

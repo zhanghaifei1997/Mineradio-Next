@@ -3,16 +3,16 @@
   "version": "1.1.5",
   "identifier": "com.mineradio.desktop",
   "build": {
-    "frontendDist": "../public",
-    "beforeDevCommand": "",
-    "beforeBuildCommand": ""
+    "frontendDist": "../frontend/dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "cd ../frontend && npm run dev",
+    "beforeBuildCommand": "cd ../frontend && npm run build"
   },
   "app": {
     "windows": [
       {
         "title": "Mineradio-Next",
         "label": "main",
-        "url": "about:blank",
         "width": 1280,
         "height": 720,
         "minWidth": 960,
@@ -34,11 +34,6 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": [
-      "../public/*",
-      "../public/assets/*",
-      "../public/vendor/*"
-    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

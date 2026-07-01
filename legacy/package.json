@@ -1,0 +1,134 @@
+{
+  "name": "mineradio-next",
+  "productName": "Mineradio-Next",
+  "version": "1.1.5",
+  "description": "沉浸式音乐播放器，融合天气电台、歌词舞台、粒子视觉和 3D 歌单架。",
+  "author": "zhanghaifei1997",
+  "main": "desktop/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win nsis",
+    "build:win:dir": "electron-builder --win dir",
+    "build:mac": "electron-builder --mac dmg",
+    "build:mac:dir": "electron-builder --mac dir"
+  },
+  "build": {
+    "appId": "com.mineradio.desktop",
+    "productName": "Mineradio-Next",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "afterPack": "build/after-pack.js",
+    "toolsets": {
+      "winCodeSign": "1.1.0"
+    },
+    "files": [
+      "desktop/**/*",
+      "public/**/*",
+      "build/**/*",
+      "server.js",
+      "dj-analyzer.js",
+      "package.json",
+      "!public/index.*.html",
+      "public/index.html"
+    ],
+    "asar": false,
+    "mac": {
+      "executableName": "Mineradio-Next",
+      "icon": "build/icon.icns",
+      "category": "public.app-category.music",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "identity": null,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "dmg": {
+      "title": "Mineradio-Next ${version}",
+      "iconSize": 100,
+      "contents": [
+        {
+          "x": 180,
+          "y": 170,
+          "type": "file"
+        },
+        {
+          "x": 480,
+          "y": 170,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "backgroundColor": "#111217",
+      "artifactName": "Mineradio-Next-${version}-${arch}.${ext}"
+    },
+    "win": {
+      "executableName": "Mineradio-Next",
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Mineradio-Next",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/installerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp",
+      "include": "build/installer.nsh",
+      "artifactName": "Mineradio-Next-${version}-Setup.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "zhanghaifei1997",
+        "repo": "Mineradio-Next"
+      }
+    ]
+  },
+  "mineradio": {
+    "update": {
+      "provider": "github",
+      "owner": "zhanghaifei1997",
+      "repo": "Mineradio-Next",
+      "preview": true,
+      "preferMirrors": true,
+      "mirrors": [
+        "https://gh.llkk.cc/",
+        "https://ghfast.top/",
+        "https://gh-proxy.com/"
+      ]
+    }
+  },
+  "dependencies": {
+    "gsap": "^3.15.0",
+    "mpg123-decoder": "^1.0.3",
+    "NeteaseCloudMusicApi": "^4.32.0"
+  },
+  "devDependencies": {
+    "electron": "^42.4.1",
+    "electron-builder": "^26.15.3",
+    "rcedit": "^5.0.2"
+  }
+}

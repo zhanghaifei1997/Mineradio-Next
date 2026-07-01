@@ -1,0 +1,174 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    name: Build Windows (Tauri)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: Build Tauri app
+        run: cargo tauri build
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      - name: Upload NSIS installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-nsis
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+          retention-days: 30
+
+      - name: Upload MSI installer
+        uses: actions/upload-artifact@v4
+        if: hashFiles('src-tauri/target/release/bundle/msi/*.msi') != ''
+        with:
+          name: release-windows-msi
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+          retention-days: 30
+
+  build-macos:
+    name: Build macOS (Tauri)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2" --locked
+
+      - name: Build Tauri app
+        run: cargo tauri build --target aarch64-apple-darwin
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: |
+            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          retention-days: 30
+
+  release:
+    name: Create GitHub Release
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          git log --pretty=format:"- %s (%h)" $(git describe --tags --abbrev=0 HEAD^)..HEAD >> $GITHUB_OUTPUT 2>/dev/null || echo "Initial release" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Download Windows NSIS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-windows-nsis
+          path: release/win
+        continue-on-error: true
+
+      - name: Download Windows MSI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-windows-msi
+          path: release/win-msi
+        continue-on-error: true
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-macos
+          path: release/mac
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Mineradio-Next v${{ steps.get_version.outputs.VERSION }}
+          body: |
+            ## Mineradio-Next v${{ steps.get_version.outputs.VERSION }}
+
+            ### 更新内容
+            ${{ steps.changelog.outputs.CHANGELOG }}
+
+            ### 下载
+            - **Windows (NSIS)**: `Mineradio-Next_${{ steps.get_version.outputs.VERSION }}_x64-setup.exe`
+            - **Windows (MSI)**: `Mineradio-Next_${{ steps.get_version.outputs.VERSION }}_x64_en-US.msi`
+            - **macOS (Apple Silicon)**: `Mineradio-Next_${{ steps.get_version.outputs.VERSION }}_aarch64.dmg`
+          files: |
+            release/win/**/*.exe
+            release/win-msi/**/*.msi
+            release/mac/**/*.dmg
+          draft: false
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

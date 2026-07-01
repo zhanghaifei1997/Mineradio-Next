@@ -6,3 +6,8 @@ pub mod wallpaper;
 pub mod file;
 pub mod app;
 pub mod tray;
+pub mod helpers;
+pub mod netease_api;
+pub mod qq_api;
+pub mod update_cmd;
+pub mod weather_cmd;

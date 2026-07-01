@@ -34,13 +34,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Historical local experiment files
-public/index.*.html
-!public/index.html
-
 # Rust / Tauri build artifacts
 src-tauri/target/
 src-tauri/gen/schemas/
+
+# Frontend build output
+frontend/dist/
 
 # IDE and tooling
 .qoder/
