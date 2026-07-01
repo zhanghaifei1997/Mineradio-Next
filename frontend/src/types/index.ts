@@ -21,6 +21,8 @@ export interface Song {
   source: MusicSource
   url?: string
   quality?: SongQuality
+  /** 0=免费, 1=VIP, 8=低价, 16=低价可下载 */
+  fee?: number
   /** 播客特有字段 */
   podcastId?: string
   podcastName?: string

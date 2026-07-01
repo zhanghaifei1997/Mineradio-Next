@@ -1,0 +1,60 @@
+/* Modals - extracted from legacy/public/index.html lines 795-854 */
+.modal-mask{position:fixed;inset:0;z-index:50;background:radial-gradient(circle at 50% 48%,rgba(244,210,138,.07),transparent 34%),rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;opacity:1;visibility:visible;animation:modal-fade-in .24s ease}
+@keyframes modal-fade-in{from{opacity:0}to{opacity:1}}
+.modal{position:relative;background:linear-gradient(180deg,rgba(24,23,26,0.96),rgba(12,11,12,0.92));border:1px solid rgba(244,210,138,0.16);border-radius:18px;padding:32px;max-width:380px;width:90vw;text-align:center;box-shadow:0 26px 90px rgba(0,0,0,.56),0 0 0 1px rgba(255,255,255,.035),inset 0 1px 0 rgba(255,255,255,.07);animation:modal-slide-in .32s cubic-bezier(.16,1,.3,1)}
+@keyframes modal-slide-in{from{transform:translateY(16px) scale(.97);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+.modal h2{font-size:18px;font-weight:500;letter-spacing:.5px;margin-bottom:18px;color:rgba(255,255,255,0.95)}
+.modal .desc{font-size:12.5px;color:rgba(255,255,255,0.5);margin-bottom:20px;line-height:1.6}
+.dual-login-modal{width:min(470px,92vw);max-width:min(470px,92vw)}
+.login-intro{margin:-6px 0 16px;padding:14px 15px;border-radius:14px;border:1px solid rgba(255,255,255,.075);background:linear-gradient(135deg,rgba(255,83,103,.09),rgba(244,210,138,.055),rgba(255,255,255,.025));text-align:left}
+.login-intro-kicker{font-size:10px;font-weight:780;letter-spacing:.18em;color:rgba(244,210,138,.72);text-transform:uppercase;margin-bottom:6px}
+.login-intro-title{font-size:18px;font-weight:760;line-height:1.18;color:rgba(255,255,255,.95);letter-spacing:0;margin-bottom:6px}
+.login-intro-body{font-size:12px;line-height:1.58;color:rgba(255,255,255,.56)}
+.login-platform-tabs{display:flex;gap:8px;margin:0 auto 18px;padding:4px;border-radius:999px;border:1px solid rgba(255,255,255,.075);background:rgba(255,255,255,.035)}
+.login-platform-tabs button{flex:1;min-width:0;height:32px;border:0;border-radius:999px;background:transparent;color:rgba(255,255,255,.48);font-family:inherit;font-size:11.5px;font-weight:700;letter-spacing:.45px;cursor:pointer;transition:background .22s,color .22s,box-shadow .22s;white-space:nowrap}
+.login-platform-tabs button:hover{color:rgba(255,255,255,.82)}
+.login-platform-tabs button.active{color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 10px 26px rgba(0,0,0,.20)}
+.login-platform-tabs button.netease.active{background:rgba(217,91,103,.16);color:#ffd7dc}
+.login-platform-tabs button.qq.active{background:rgba(191,214,107,.16);color:#f3ffd1}
+.qr-shell{position:relative;width:200px;height:200px;margin:0 auto 16px;border-radius:16px;display:flex;align-items:center;justify-content:center}
+#qr-img{width:200px;height:200px;background:#fff;border-radius:14px;padding:10px;box-shadow:0 16px 42px rgba(0,0,0,.32),0 0 0 1px rgba(244,210,138,.18)}
+.qq-login-mark{width:100%;height:100%;border-radius:12px;border:1px solid rgba(191,214,107,.30);align-items:center;justify-content:center;flex-direction:column;gap:8px;color:rgba(243,255,209,.88);background:linear-gradient(135deg,rgba(191,214,107,.10),rgba(157,184,207,.05));cursor:pointer;font-family:inherit;outline:none;transition:transform .22s,border-color .22s,background .22s,box-shadow .22s;display:flex}
+.qq-login-mark:hover{transform:translateY(-1px);border-color:rgba(191,214,107,.54);background:linear-gradient(135deg,rgba(191,214,107,.16),rgba(157,184,207,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 16px 38px rgba(0,0,0,.22)}
+.qq-login-mark b{font-size:22px;letter-spacing:.08em}
+.qq-login-mark span{font-size:10.5px;color:rgba(255,255,255,.46);letter-spacing:.5px}
+#qr-status{font-size:12px;color:rgba(255,255,255,0.7);min-height:18px;margin-bottom:14px;letter-spacing:.3px}
+#qr-status.scan{color:#7ee2a8}
+#qr-status.fail{color:#f08080}
+.modal .btn-row{display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+.modal-btn{padding:8px 20px;font-size:12.5px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:#fff;cursor:pointer;letter-spacing:.5px;transition:all .2s;font-family:inherit}
+.modal-btn:hover{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.3)}
+.modal-btn.primary{background:rgba(244,210,138,0.14);border-color:rgba(244,210,138,0.50);color:var(--champagne)}
+.modal-btn.primary:hover{background:rgba(244,210,138,0.24)}
+
+/* Collect modal */
+.collect-modal{width:min(430px,90vw);max-width:min(430px,90vw);padding:28px;text-align:left}
+.collect-modal h2{text-align:center;margin-bottom:18px}
+.collect-current{display:flex;align-items:center;gap:12px;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.035);margin-bottom:14px}
+.collect-current img{width:42px;height:42px;border-radius:8px;object-fit:cover;background:rgba(255,255,255,.07);flex-shrink:0}
+.collect-title{font-size:12.5px;color:rgba(255,255,255,.92);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.collect-sub{font-size:10.5px;color:rgba(255,255,255,.42);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.collect-create{display:flex;gap:8px;margin-bottom:12px}
+.collect-create input{flex:1;height:32px;border-radius:9px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.045);color:#fff;padding:0 10px;font-family:inherit;font-size:12px;outline:none}
+.collect-create input:focus{border-color:rgba(244,210,138,.42);background:rgba(244,210,138,.055)}
+.collect-list{max-height:min(300px,45vh);overflow:auto;display:flex;flex-direction:column;gap:7px;padding-right:2px}
+.collect-list::-webkit-scrollbar{width:3px}
+.collect-list::-webkit-scrollbar-thumb{background:rgba(244,210,138,.24);border-radius:3px}
+.collect-item{display:flex;align-items:center;gap:10px;padding:9px;border-radius:11px;border:1px solid rgba(255,255,255,.055);background:rgba(255,255,255,.032);cursor:pointer;transition:all .18s}
+.collect-item:hover{background:rgba(244,210,138,.10);border-color:rgba(244,210,138,.24);transform:translateY(-1px)}
+.collect-item img{width:38px;height:38px;border-radius:8px;object-fit:cover;background:rgba(255,255,255,.07);flex-shrink:0}
+
+/* Track detail modal */
+.track-detail-modal{width:min(700px,92vw);max-width:min(700px,92vw);max-height:min(780px,calc(100vh - 88px));padding:28px;text-align:left;display:flex;flex-direction:column;overflow:hidden}
+.detail-hero{display:flex;align-items:center;gap:16px;padding:14px;border-radius:16px;border:1px solid rgba(255,255,255,.10);background:linear-gradient(135deg,rgba(255,255,255,.075),rgba(255,255,255,.032));margin-bottom:14px}
+.detail-cover{width:72px;height:72px;border-radius:12px;object-fit:cover;background:rgba(255,255,255,.07);flex-shrink:0;box-shadow:0 14px 36px rgba(0,0,0,.34)}
+.detail-artist-avatar{display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 35% 24%,rgba(255,255,255,.18),rgba(255,255,255,.04) 44%);border:1px solid rgba(255,255,255,.075);color:rgba(255,255,255,.74);font-size:20px;font-weight:800}
+.detail-title{font-size:18px;font-weight:760;color:rgba(255,255,255,.96);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.detail-sub{margin-top:4px;font-size:11px;color:rgba(255,255,255,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.detail-grid{display:grid;grid-template-columns:92px 1fr;gap:8px 12px;margin-top:14px;font-size:12px}
+.detail-k{color:rgba(255,255,255,.38)}
+.detail-v{color:rgba(255,255,255,.78);min-width:0;overflow:hidden;text-overflow:ellipsis}

@@ -106,6 +106,25 @@ export const netease = {
   logout: () =>
     tauriInvokeSafe<boolean>('netease_logout', {}),
 
+  // ── 扫码登录 ────────────────────────────────────────────
+
+  /** 获取二维码 key */
+  getQRKey: () =>
+    tauriInvokeSafe<{ key?: string; error?: string }>('netease_qr_key', {}),
+
+  /** 生成二维码图片 */
+  getQRCreate: (params: { key: string }) =>
+    tauriInvokeSafe<{ img?: string; url?: string; error?: string }>('netease_qr_create', params),
+
+  /** 检查扫码状态 */
+  getQRCheck: (params: { key: string }) =>
+    tauriInvokeSafe<{
+      code?: number; message?: string; loggedIn?: boolean;
+      nickname?: string; avatar?: string; vipType?: number;
+      isVip?: boolean; isSvip?: boolean; vipLabel?: string;
+      error?: string;
+    }>('netease_qr_check', params),
+
   // ── 更新 ────────────────────────────────────────────────
 
   /** 检查最新版本 */

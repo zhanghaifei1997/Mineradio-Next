@@ -1,4 +1,11 @@
 /* Mineradio-Next Global Styles - Extracted from legacy/public/index.html */
+@import './titlebar.css';
+@import './player.css';
+@import './search.css';
+@import './playlist.css';
+@import './modals.css';
+@import './lyrics.css';
+@import './fxpanel.css';
 
 /* Reset */
 *, *::before, *::after {

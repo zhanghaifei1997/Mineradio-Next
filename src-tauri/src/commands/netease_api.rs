@@ -647,3 +647,90 @@ pub async fn netease_login_cookie(
         Err(e) => Ok(serde_json::json!({"loggedIn": false, "error": e.to_string(), "saved": true, "hasCookie": !stored.is_empty()}))
     }
 }
+
+// ── 扫码登录 ────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn netease_qr_key(
+    state: State<'_, Arc<AppState>>,
+) -> Result<serde_json::Value, String> {
+    let cookie = read_netease_cookie(&state).await;
+    match netease_login::login_qr_key(&cookie).await {
+        Ok(resp) => {
+            let key = resp.body.get("data").and_then(|d| d.get("unikey"))
+                .or_else(|| resp.body.get("unikey"))
+                .and_then(|k| k.as_str())
+                .unwrap_or("");
+            Ok(serde_json::json!({"key": key}))
+        }
+        Err(e) => Ok(serde_json::json!({"error": e}))
+    }
+}
+
+#[tauri::command]
+pub async fn netease_qr_create(
+    state: State<'_, Arc<AppState>>,
+    key: String,
+) -> Result<serde_json::Value, String> {
+    let cookie = read_netease_cookie(&state).await;
+    match netease_login::login_qr_create(&key, &cookie).await {
+        Ok(resp) => {
+            let data = resp.body.get("data").cloned().unwrap_or(serde_json::Value::Null);
+            let img = data.get("qrimg").and_then(|v| v.as_str()).unwrap_or("");
+            let url = data.get("qrurl").and_then(|v| v.as_str()).unwrap_or("");
+            Ok(serde_json::json!({"img": img, "url": url}))
+        }
+        Err(e) => Ok(serde_json::json!({"error": e}))
+    }
+}
+
+#[tauri::command]
+pub async fn netease_qr_check(
+    state: State<'_, Arc<AppState>>,
+    key: String,
+) -> Result<serde_json::Value, String> {
+    let cookie = read_netease_cookie(&state).await;
+    match netease_login::login_qr_check(&key, &cookie).await {
+        Ok(resp) => {
+            let code = resp.body.get("code").and_then(|c| c.as_u64()).unwrap_or(0) as u16;
+            let message = resp.body.get("message").and_then(|m| m.as_str()).unwrap_or("");
+
+            if code == 803 {
+                // 登录成功
+                let mut saved_cookie = String::new();
+                if let Some(cookie_val) = resp.body.get("cookie").and_then(|c| c.as_str()) {
+                    saved_cookie = cookie_val.to_string();
+                    let mut state_cookie = state.netease_cookie.write().await;
+                    *state_cookie = cookie_val.to_string();
+                    crate::cookie_store::save_netease_cookie(&state, cookie_val);
+                }
+
+                let profile = resp.body.get("profile").cloned().unwrap_or(serde_json::Value::Null);
+                let nickname = profile.get("nickname").and_then(|v| v.as_str())
+                    .or_else(|| resp.body.get("nickname").and_then(|v| v.as_str()))
+                    .unwrap_or("网易云用户");
+                let avatar = profile.get("avatarUrl").and_then(|v| v.as_str())
+                    .or_else(|| resp.body.get("avatarUrl").and_then(|v| v.as_str()))
+                    .unwrap_or("");
+                let user_id = profile.get("userId").and_then(|v| v.as_u64()).unwrap_or(0);
+                let vip_type = profile.get("vipType").and_then(|v| v.as_u64()).unwrap_or(0);
+
+                Ok(serde_json::json!({
+                    "code": code, "message": message,
+                    "loggedIn": true, "hasCookie": !saved_cookie.is_empty(),
+                    "nickname": nickname, "avatar": avatar,
+                    "userId": user_id, "vipType": vip_type,
+                    "isVip": vip_type > 0, "isSvip": false,
+                    "vipLabel": if vip_type > 0 { "VIP" } else { "无VIP" },
+                }))
+            } else {
+                Ok(serde_json::json!({
+                    "code": code, "message": message,
+                    "nickname": resp.body.get("nickname").and_then(|v| v.as_str()),
+                    "avatar": resp.body.get("avatarUrl").and_then(|v| v.as_str()),
+                }))
+            }
+        }
+        Err(e) => Ok(serde_json::json!({"error": e}))
+    }
+}

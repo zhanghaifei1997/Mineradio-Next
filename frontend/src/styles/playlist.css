@@ -1,0 +1,39 @@
+/* Playlist Panel - extracted from legacy/public/index.html lines 1287-1450 */
+#playlist-panel{position:fixed;z-index:17;top:78px;left:-410px;width:340px;max-height:calc(100vh - 120px);overflow:auto;background:rgba(12,12,18,0.42);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:18px;backdrop-filter:blur(40px) saturate(1.4);-webkit-backdrop-filter:blur(40px) saturate(1.4);box-shadow:0 24px 80px rgba(0,0,0,0.45);opacity:0;transition:left .55s cubic-bezier(.16,1,.3,1),opacity .45s cubic-bezier(.16,1,.3,1),transform .55s cubic-bezier(.16,1,.3,1);pointer-events:none;transform:translateX(-16px);overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(var(--fc-accent-rgb),.22) transparent}
+#playlist-panel.show,#playlist-panel.peek{left:32px;opacity:1;pointer-events:auto;transform:translateX(0)}
+#playlist-panel.pinned{border-color:rgba(var(--fc-accent-rgb),.28);box-shadow:0 24px 80px rgba(0,0,0,0.45),0 0 34px rgba(var(--fc-accent-rgb),.08)}
+#playlist-panel::-webkit-scrollbar{width:3px}
+#playlist-panel::-webkit-scrollbar-track{background:transparent}
+#playlist-panel::-webkit-scrollbar-thumb{background:rgba(var(--fc-accent-rgb),.24);border-radius:3px}
+.queue-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.queue-head-act{display:flex;align-items:center;gap:6px}
+.playlist-pin-btn{width:30px;min-width:30px;flex:0 0 auto;padding:0}
+.playlist-pin-btn.active{border-color:rgba(var(--fc-accent-rgb),.38);background:rgba(var(--fc-accent-rgb),.10);color:#fff}
+.panel-tabs{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.panel-tab{padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:rgba(255,255,255,.55);cursor:pointer;font-size:11px;transition:all .2s;font-family:inherit}
+.panel-tab.active{background:rgba(0,245,212,.10);border-color:rgba(0,245,212,.34);color:#eafffb}
+.queue-list{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.queue-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.04);cursor:pointer;transition:all .2s}
+.queue-item:hover{background:rgba(255,255,255,.05)}
+.queue-item.now{border-color:rgba(0,245,212,.34);background:rgba(0,245,212,.075)}
+.queue-item img{width:38px;height:38px;border-radius:6px;object-fit:cover;background:rgba(255,255,255,.06);flex-shrink:0}
+.qi-info{flex:1;min-width:0}
+.qi-name{font-size:12px;color:rgba(255,255,255,.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.queue-item.now .qi-name{color:#eafffb}
+.qi-sub{font-size:10.5px;color:rgba(255,255,255,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qi-act{display:flex;gap:4px;opacity:0;transition:opacity .15s}
+.queue-item:hover .qi-act{opacity:1}
+.qi-act button{width:24px;height:24px;border:none;border-radius:5px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.55);cursor:pointer;font-size:13px;line-height:1}
+.qi-act button:hover{background:rgba(255,255,255,.15);color:#fff}
+.qi-act button.queue-next:hover{background:rgba(0,245,212,.14);color:#eafffb}
+.queue-chip{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.03);font-size:10.5px;color:rgba(255,255,255,.65)}
+.queue-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0 4px}
+.pl-card{display:flex;align-items:center;gap:10px;padding:9px;border-radius:11px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.04);transition:all .2s;cursor:pointer;margin-bottom:7px}
+.pl-card:hover{background:rgba(255,255,255,.06)}
+.pl-card img{width:44px;height:44px;border-radius:8px;object-fit:cover;background:rgba(255,255,255,.06);flex-shrink:0}
+.pl-name{font-size:12px;color:rgba(255,255,255,.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-sub{font-size:10.5px;color:rgba(255,255,255,.42);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-section-label{margin:14px 2px 7px;font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:rgba(0,245,212,.50)}
+.fx-mini-btn{flex:1;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:rgba(255,255,255,.78);font-size:11.5px;cursor:pointer;font-family:inherit;letter-spacing:.3px}
+.fx-mini-btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.fx-mini-btn.ghost{background:transparent}

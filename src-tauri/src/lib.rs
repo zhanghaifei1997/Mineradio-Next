@@ -121,6 +121,10 @@ pub fn run() {
             commands::netease_api::netease_login_status,
             commands::netease_api::netease_logout,
             commands::netease_api::netease_login_cookie,
+            // ── Netease QR Login ──
+            commands::netease_api::netease_qr_key,
+            commands::netease_api::netease_qr_create,
+            commands::netease_api::netease_qr_check,
             // ── QQ API commands ──
             commands::qq_api::qq_search,
             commands::qq_api::qq_song_url,
